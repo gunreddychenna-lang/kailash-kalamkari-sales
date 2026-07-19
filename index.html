@@ -4,105 +4,129 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KK Sales Portal</title>
-  <!-- Tailwind CSS for clean, high-end styling -->
+  <!-- Tailwind CSS for clean, mobile-first styling -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome for clean icons -->
+  <!-- FontAwesome for clean traditional icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    /* Traditional custom colors for a peaceful textile look */
+    body {
+      background-color: #FAF7F2; /* Warm organic linen/cream */
+    }
+  </style>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans pb-16 min-h-screen">
+<body class="text-stone-800 font-sans pb-16 min-h-screen">
 
-  <!-- Sticky Navbar -->
-  <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 shadow-lg">
-    <div class="max-w-md mx-auto px-4 py-4 flex justify-between items-center">
+  <!-- Elegant Traditional Header -->
+  <header class="bg-[#4A121A] text-white shadow-md sticky top-0 z-50 border-b-2 border-[#B38F4D]">
+    <div class="max-w-md mx-auto px-5 py-4 flex justify-between items-center">
       <div>
-        <h1 class="text-lg font-bold text-emerald-400">KK Sales Executive</h1>
-        <p class="text-[10px] text-slate-400">Live Sheets Dashboard</p>
+        <h1 class="text-lg font-bold tracking-wide text-[#EFE5C9]">KK Kalamkari</h1>
+        <p class="text-[10px] text-stone-300 font-medium tracking-wider">Live Sales & Analytics</p>
       </div>
-      <button id="refresh-btn" class="bg-emerald-600 hover:bg-emerald-700 text-slate-900 font-bold text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+      <button id="refresh-btn" class="bg-[#B38F4D] hover:bg-[#9B773C] text-[#FAF7F2] font-bold text-xs px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 shadow-sm">
         <i class="fa-solid fa-arrows-rotate"></i> Refresh
       </button>
     </div>
   </header>
 
-  <!-- Mobile View Container -->
-  <main class="max-w-md mx-auto px-4 mt-4 space-y-4">
+  <!-- Mobile-First Container -->
+  <main class="max-w-md mx-auto px-4 mt-5 space-y-4">
 
-    <!-- Loader -->
-    <div id="loader" class="text-center py-20">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-400 mx-auto"></div>
-      <p class="mt-4 text-xs text-slate-400">Synchronizing with Google Sheets...</p>
+    <!-- Loading Spinner -->
+    <div id="loader" class="text-center py-24">
+      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-[#8C2D19] mx-auto"></div>
+      <p class="mt-4 text-xs text-stone-500 font-semibold tracking-wide">Syncing traditional ledger data...</p>
     </div>
 
-    <!-- Main App Container (Hidden during load) -->
+    <!-- Main Web Dashboard Content -->
     <div id="app-container" class="hidden space-y-4">
 
-      <!-- Dynamic Date Selector (MD's Date Filters) -->
-      <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-sm space-y-3">
-        <div class="flex justify-between items-center">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400"><i class="fa-regular fa-calendar-days"></i> Select Date Range</h2>
-          <button id="clear-dates-btn" class="text-[10px] text-emerald-400 hover:underline">Reset Dates</button>
+      <!-- Calendar Range Selectors (Beside Date Inputs) -->
+      <div class="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-sm space-y-3">
+        <div class="flex justify-between items-center border-b border-stone-100 pb-1.5">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-stone-500">
+            <i class="fa-solid fa-filter text-[#8C2D19] mr-1"></i> Date Filter
+          </h2>
+          <button id="clear-dates-btn" class="text-[10px] font-bold text-[#8C2D19] hover:underline uppercase tracking-wider">Reset</button>
         </div>
         <div class="grid grid-cols-2 gap-3">
+          <!-- From Date -->
           <div>
-            <label class="block text-[10px] font-semibold text-slate-400 mb-1">From Date</label>
-            <input type="date" id="from-date" class="w-full text-xs bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-emerald-400">
+            <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">From Date</label>
+            <div class="flex gap-1.5">
+              <input type="date" id="from-date" class="flex-1 text-xs bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#8C2D19] focus:border-[#8C2D19] transition-all">
+              <button onclick="document.getElementById('from-date').showPicker()" class="bg-[#8C2D19] text-white px-3.5 rounded-xl hover:bg-[#732111] transition-colors shadow-sm flex items-center justify-center">
+                <i class="fa-regular fa-calendar-days text-sm"></i>
+              </button>
+            </div>
           </div>
+          <!-- To Date -->
           <div>
-            <label class="block text-[10px] font-semibold text-slate-400 mb-1">To Date</label>
-            <input type="date" id="to-date" class="w-full text-xs bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-emerald-400">
+            <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">To Date</label>
+            <div class="flex gap-1.5">
+              <input type="date" id="to-date" class="flex-1 text-xs bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#8C2D19] focus:border-[#8C2D19] transition-all">
+              <button onclick="document.getElementById('to-date').showPicker()" class="bg-[#8C2D19] text-white px-3.5 rounded-xl hover:bg-[#732111] transition-colors shadow-sm flex items-center justify-center">
+                <i class="fa-regular fa-calendar-days text-sm"></i>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Financial Scorecards -->
+      <!-- Clean Visual Scorecards -->
       <div class="grid grid-cols-2 gap-3">
-        <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-sm col-span-2">
-          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Sales Revenue</p>
-          <p id="metric-total" class="text-3xl font-black text-emerald-400 mt-1">₹0</p>
+        <div class="bg-white p-5 rounded-2xl border border-stone-200/80 shadow-sm col-span-2">
+          <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Total Sales Revenue</p>
+          <p id="metric-total" class="text-3xl font-black text-[#8C2D19] mt-1">₹0</p>
         </div>
-        <div class="bg-slate-800 p-3.5 rounded-2xl border border-slate-700 shadow-sm">
-          <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-globe text-blue-400"></i> Online Sale</p>
-          <p id="metric-online" class="text-lg font-bold mt-1">₹0</p>
+        <div class="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-sm">
+          <p class="text-[9px] font-bold text-stone-400 uppercase tracking-wider flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block"></span> Online Sale
+          </p>
+          <p id="metric-online" class="text-base font-extrabold text-stone-800 mt-1">₹0</p>
         </div>
-        <div class="bg-slate-800 p-3.5 rounded-2xl border border-slate-700 shadow-sm">
-          <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-store text-orange-400"></i> Offline Sale</p>
-          <p id="metric-offline" class="text-lg font-bold mt-1">₹0</p>
+        <div class="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-sm">
+          <p class="text-[9px] font-bold text-stone-400 uppercase tracking-wider flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block"></span> Offline Sale
+          </p>
+          <p id="metric-offline" class="text-base font-extrabold text-stone-800 mt-1">₹0</p>
         </div>
-        <div class="bg-slate-800 p-3.5 rounded-2xl border border-slate-700 shadow-sm col-span-2">
-          <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-handshake text-purple-400"></i> Wholesale (By Hand)</p>
-          <p id="metric-wholesale" class="text-lg font-bold mt-1 text-purple-300">₹0</p>
+        <div class="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-sm col-span-2">
+          <p class="text-[9px] font-bold text-stone-400 uppercase tracking-wider flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block"></span> Wholesale (By Hand)
+          </p>
+          <p id="metric-wholesale" class="text-base font-extrabold text-[#8C2D19] mt-1">₹0</p>
         </div>
       </div>
 
-      <!-- App Tabs -->
-      <div class="flex border-b border-slate-700 bg-slate-800 rounded-xl p-1">
-        <button onclick="switchTab('products-tab')" id="btn-products-tab" class="flex-1 text-center py-2 text-xs font-bold rounded-lg transition bg-slate-950 text-emerald-400">Products</button>
-        <button onclick="switchTab('agents-tab')" id="btn-agents-tab" class="flex-1 text-center py-2 text-xs font-bold rounded-lg transition text-slate-400">Staff & Agents</button>
+      <!-- Traditional Styling Tabs (Warm colors) -->
+      <div class="flex bg-stone-200/60 rounded-xl p-1 shadow-inner border border-stone-200/30">
+        <button onclick="switchTab('products-tab')" id="btn-products-tab" class="flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all bg-white text-[#8C2D19] shadow-sm">Products</button>
+        <button onclick="switchTab('agents-tab')" id="btn-agents-tab" class="flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all text-stone-500 hover:text-stone-700">Staff & Agents</button>
       </div>
 
       <!-- Tab 1: Product-Wise Sales View -->
       <div id="products-tab" class="tab-content space-y-4">
         
-        <!-- Search and Fast-moving filter -->
-        <div class="flex gap-2">
-          <div class="relative flex-1">
-            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-500 text-xs"></i>
-            <input type="text" id="product-search" placeholder="Search products..." class="w-full text-xs bg-slate-800 border border-slate-700 rounded-xl py-2.5 pl-9 pr-4 text-slate-100 focus:outline-none focus:border-emerald-400">
-          </div>
+        <!-- Beautiful product search input -->
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-stone-400 text-xs"></i>
+          <input type="text" id="product-search" placeholder="Search product line..." class="w-full text-xs bg-white border border-stone-200 rounded-2xl py-3 pl-10 pr-4 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#8C2D19] focus:border-[#8C2D19] transition-all shadow-sm">
         </div>
 
-        <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-sm">
+        <div class="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-sm">
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs">
               <thead>
-                <tr class="bg-slate-950 text-slate-400 uppercase text-[9px] font-extrabold tracking-wider border-b border-slate-700">
-                  <th class="p-3 cursor-pointer select-none" onclick="sortProducts('item')">Item <i class="fa-solid fa-sort ml-1"></i></th>
-                  <th class="p-3 text-center cursor-pointer select-none" onclick="sortProducts('qty')">Qty <i class="fa-solid fa-sort ml-1"></i></th>
-                  <th class="p-3 text-right cursor-pointer select-none" onclick="sortProducts('revenue')">Revenue <i class="fa-solid fa-sort ml-1"></i></th>
+                <tr class="bg-[#F3EFE9] text-stone-600 uppercase text-[9px] font-extrabold tracking-wider border-b border-stone-200/80">
+                  <th class="p-3.5 cursor-pointer select-none" onclick="sortProducts('item')">Item Name <i class="fa-solid fa-sort ml-1 opacity-70"></i></th>
+                  <th class="p-3.5 text-center cursor-pointer select-none w-16" onclick="sortProducts('qty')">Qty <i class="fa-solid fa-sort ml-1 opacity-70"></i></th>
+                  <th class="p-3.5 text-right cursor-pointer select-none" onclick="sortProducts('revenue')">Revenue <i class="fa-solid fa-sort ml-1 opacity-70"></i></th>
                 </tr>
               </thead>
-              <tbody id="products-table-body" class="divide-y divide-slate-700">
-                <!-- Loaded dynamically -->
+              <tbody id="products-table-body" class="divide-y divide-stone-100">
+                <!-- Dynamically populated rows -->
               </tbody>
             </table>
           </div>
@@ -111,45 +135,45 @@
 
       <!-- Tab 2: Agents / Staff Sales View -->
       <div id="agents-tab" class="tab-content hidden space-y-4">
-        <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-sm">
-          <div class="p-4 bg-slate-950 border-b border-slate-700">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Staff Sales Leaderboard</h3>
+        <div class="bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-sm">
+          <div class="p-4 bg-[#F3EFE9] border-b border-stone-200/80 flex justify-between items-center">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-stone-600">Staff Sales Leaderboard</h3>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs">
               <thead>
-                <tr class="bg-slate-950 text-slate-400 uppercase text-[9px] font-extrabold tracking-wider border-b border-slate-700">
-                  <th class="p-3 cursor-pointer select-none" onclick="sortAgents('name')">Staff Name <i class="fa-solid fa-sort ml-1"></i></th>
-                  <th class="p-3 text-right cursor-pointer select-none" onclick="sortAgents('revenue')">Total Sold <i class="fa-solid fa-sort ml-1"></i></th>
+                <tr class="bg-[#F3EFE9] text-stone-600 uppercase text-[9px] font-extrabold tracking-wider border-b border-stone-200/80">
+                  <th class="p-3.5 cursor-pointer select-none" onclick="sortAgents('name')">Staff Name <i class="fa-solid fa-sort ml-1 opacity-70"></i></th>
+                  <th class="p-3.5 text-right cursor-pointer select-none" onclick="sortAgents('revenue')">Total Sold <i class="fa-solid fa-sort ml-1 opacity-70"></i></th>
                 </tr>
               </thead>
-              <tbody id="agents-table-body" class="divide-y divide-slate-700">
-                <!-- Loaded dynamically -->
+              <tbody id="agents-table-body" class="divide-y divide-stone-100">
+                <!-- Dynamically populated rows -->
               </tbody>
             </table>
           </div>
         </div>
 
-        <!-- Dynamic Detailed Agent Card (Shown on Staff Click) -->
-        <div id="agent-detail-card" class="hidden bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-sm space-y-3">
-          <div class="p-4 bg-emerald-600 text-slate-950 flex justify-between items-center">
+        <!-- Agent Detail Card (Shows up-to-date detailed sales for clicked staff member) -->
+        <div id="agent-detail-card" class="hidden bg-white rounded-2xl border border-stone-200/80 overflow-hidden shadow-sm space-y-3 transition-all duration-300">
+          <div class="p-4 bg-[#8C2D19] text-white flex justify-between items-center">
             <div>
-              <h3 id="detail-agent-name" class="font-black text-sm">Staff Detail</h3>
-              <p class="text-[10px] font-bold">Item-wise breakdown for selected dates</p>
+              <h3 id="detail-agent-name" class="font-bold text-sm tracking-wide">Staff Detail</h3>
+              <p class="text-[10px] text-stone-200 font-medium tracking-wide">Sales Breakdown</p>
             </div>
-            <button onclick="closeAgentDetail()" class="text-slate-950 font-bold hover:opacity-80"><i class="fa-solid fa-circle-xmark text-lg"></i></button>
+            <button onclick="closeAgentDetail()" class="text-white font-bold hover:opacity-80"><i class="fa-solid fa-circle-xmark text-lg"></i></button>
           </div>
           <div class="p-2 overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs">
               <thead>
-                <tr class="text-slate-400 text-[9px] uppercase font-bold border-b border-slate-700">
+                <tr class="text-stone-400 text-[9px] uppercase font-bold border-b border-stone-200/50">
                   <th class="p-2">Item Name</th>
                   <th class="p-2 text-center">Qty</th>
                   <th class="p-2 text-right">Revenue</th>
                 </tr>
               </thead>
-              <tbody id="agent-detail-table-body" class="divide-y divide-slate-700/50">
-                <!-- Populated on click -->
+              <tbody id="agent-detail-table-body" class="divide-y divide-stone-100">
+                <!-- Dynamically populated rows on user selection -->
               </tbody>
             </table>
           </div>
@@ -169,19 +193,19 @@
     let agentsList = [];
     let selectedAgentDetail = null;
 
-    // Sorting directions tracker
+    // Sorting state variables
     let prodSortCol = 'qty';
     let prodSortAsc = false;
     let agentSortCol = 'revenue';
     let agentSortAsc = false;
 
-    // Classification mapping based on your payment modes
+    // Classification mapping based on your custom sheets setup
     function getSalesType(payMode) {
       if (!payMode) return 'Offline';
       const pm = payMode.toString().toLowerCase().trim();
       if (pm.includes('onl') || pm.includes('online')) {
         return 'Online';
-      } else if (pm.includes('by hand') || pm.includes('hand') || pm.includes('wholesale')) {
+      } else if (pm.includes('by hand') || pm.includes('hand') || pm.includes('wholesale') || pm.includes('take by hand')) {
         return 'Wholesale';
       } else {
         // Includes UPI (store), cash, card
@@ -196,14 +220,13 @@
         const response = await fetch(API_URL);
         rawData = await response.json();
         
-        // Auto-detect date ranges on start
         detectDateRanges();
         processData();
 
         document.getElementById('loader').classList.add('hidden');
         document.getElementById('app-container').classList.remove('hidden');
       } catch (error) {
-        alert("Unable to fetch live sheets data. Verify your Google Web App URL is accessible and active.");
+        alert("Failed to load ledgers from Google Sheets. Ensure the deployment URL is active.");
         console.error(error);
       }
     }
@@ -222,7 +245,7 @@
       const toDate = document.getElementById('to-date').value;
       const searchVal = document.getElementById('product-search').value.toLowerCase();
 
-      // Filter rows strictly by date range
+      // Filter rows based on date limits selected by MD
       const filtered = rawData.filter(row => {
         if (!row['Bill Date']) return false;
         const rDate = row['Bill Date'];
@@ -232,7 +255,7 @@
         return match;
       });
 
-      // Reset financial scorecards variables
+      // Clear financial calculations metrics
       let totalSales = 0;
       let totalOnline = 0;
       let totalOffline = 0;
@@ -248,13 +271,13 @@
         const agent = row['SM Name'] || 'No Agent';
         const type = getSalesType(row['PayMode']);
 
-        // Update scorecards
+        // Sum overall dashboard scores
         totalSales += amount;
         if (type === 'Online') totalOnline += amount;
         else if (type === 'Wholesale') totalWholesale += amount;
         else totalOffline += amount;
 
-        // Process item summaries
+        // Populate and calculate product specifications
         if (!productsObj[item]) {
           productsObj[item] = { name: item, qty: 0, revenue: 0, onlineQty: 0, offlineQty: 0, wholesaleQty: 0 };
         }
@@ -264,7 +287,7 @@
         else if (type === 'Wholesale') productsObj[item].wholesaleQty += qty;
         else productsObj[item].offlineQty += qty;
 
-        // Process staff summaries
+        // Populate and calculate staff statistics
         if (!agentsObj[agent]) {
           agentsObj[agent] = { name: agent, revenue: 0, items: {} };
         }
@@ -276,26 +299,26 @@
         agentsObj[agent].items[item].revenue += amount;
       });
 
-      // Update Financial Metrics in UI
+      // Update Financial Metrics on screens
       document.getElementById('metric-total').textContent = `₹${totalSales.toLocaleString('en-IN')}`;
       document.getElementById('metric-online').textContent = `₹${totalOnline.toLocaleString('en-IN')}`;
       document.getElementById('metric-offline').textContent = `₹${totalOffline.toLocaleString('en-IN')}`;
       document.getElementById('metric-wholesale').textContent = `₹${totalWholesale.toLocaleString('en-IN')}`;
 
-      // Convert maps to sorted arrays
+      // Convert Maps to arrays for searching
       productsList = Object.values(productsObj).filter(p => p.name.toLowerCase().includes(searchVal));
       agentsList = Object.values(agentsObj);
 
       renderProductsTable();
       renderAgentsTable();
 
-      // If detailed sheet was open, refresh its contents
+      // Auto refresh detail views if open
       if (selectedAgentDetail) {
         showAgentDetails(selectedAgentDetail);
       }
     }
 
-    // Products table sorting
+    // Dynamic sorting algorithms
     function sortProducts(column) {
       if (prodSortCol === column) {
         prodSortAsc = !prodSortAsc;
@@ -322,22 +345,21 @@
 
       const tbody = document.getElementById('products-table-body');
       tbody.innerHTML = productsList.map(p => `
-        <tr class="hover:bg-slate-700/50">
-          <td class="p-3">
-            <div class="font-semibold text-slate-200">${p.name}</div>
-            <div class="text-[9px] text-slate-400 mt-0.5">
-              <span class="text-blue-400">Onl: ${p.onlineQty}</span> • 
-              <span class="text-orange-400">Off: ${p.offlineQty}</span> • 
-              <span class="text-purple-300">Whole: ${p.wholesaleQty}</span>
+        <tr class="hover:bg-stone-50 transition-colors">
+          <td class="p-3.5">
+            <div class="font-bold text-stone-800">${p.name}</div>
+            <div class="text-[9px] text-stone-500 font-medium mt-1">
+              <span class="text-blue-500">Online: ${p.onlineQty}</span> • 
+              <span class="text-orange-500">Offline: ${p.offlineQty}</span> • 
+              <span class="text-purple-600">Wholesale: ${p.wholesaleQty}</span>
             </div>
           </td>
-          <td class="p-3 text-center font-bold text-slate-300">${p.qty}</td>
-          <td class="p-3 text-right font-bold text-emerald-400">₹${p.revenue.toLocaleString('en-IN')}</td>
+          <td class="p-3.5 text-center font-bold text-stone-700">${p.qty}</td>
+          <td class="p-3.5 text-right font-bold text-[#8C2D19]">₹${p.revenue.toLocaleString('en-IN')}</td>
         </tr>
       `).join('');
     }
 
-    // Agents table sorting
     function sortAgents(column) {
       if (agentSortCol === column) {
         agentSortAsc = !agentSortAsc;
@@ -361,32 +383,32 @@
 
       const tbody = document.getElementById('agents-table-body');
       tbody.innerHTML = agentsList.map(a => `
-        <tr class="hover:bg-slate-700/50 cursor-pointer" onclick="showAgentDetails('${a.name}')">
-          <td class="p-3 font-semibold text-slate-200 flex justify-between items-center">
+        <tr class="hover:bg-stone-50 transition-colors cursor-pointer" onclick="showAgentDetails('${a.name}')">
+          <td class="p-3.5 font-bold text-stone-700 flex justify-between items-center">
             <span>${a.name}</span>
-            <i class="fa-solid fa-angle-right text-[10px] text-slate-500 mr-2"></i>
+            <i class="fa-solid fa-angle-right text-[10px] text-stone-400 mr-2"></i>
           </td>
-          <td class="p-3 text-right font-bold text-emerald-400">₹${a.revenue.toLocaleString('en-IN')}</td>
+          <td class="p-3.5 text-right font-extrabold text-[#8C2D19]">₹${a.revenue.toLocaleString('en-IN')}</td>
         </tr>
       `).join('');
     }
 
-    // Detail Drawer: Item-wise breakdown for a single clicked agent
+    // Detailed Modal style layout: Shows specific products sold by clicked agent
     function showAgentDetails(agentName) {
       selectedAgentDetail = agentName;
       const agentObj = agentsList.find(a => a.name === agentName);
       if (!agentObj) return;
 
-      document.getElementById('detail-agent-name').textContent = `${agentObj.name} Sales Report`;
+      document.getElementById('detail-agent-name').textContent = `${agentObj.name} Ledger`;
       
       const sortedItems = Object.entries(agentObj.items).sort((a, b) => b[1].qty - a[1].qty);
       const detailTbody = document.getElementById('agent-detail-table-body');
 
       detailTbody.innerHTML = sortedItems.map(([itemName, values]) => `
-        <tr class="hover:bg-slate-700/30">
-          <td class="p-2 font-medium text-slate-300">${itemName}</td>
-          <td class="p-2 text-center font-bold text-slate-400">${values.qty}</td>
-          <td class="p-2 text-right font-bold text-emerald-400">₹${values.revenue.toLocaleString('en-IN')}</td>
+        <tr class="hover:bg-stone-50 transition-colors">
+          <td class="p-2.5 font-semibold text-stone-700">${itemName}</td>
+          <td class="p-2.5 text-center font-bold text-stone-500">${values.qty}</td>
+          <td class="p-2.5 text-right font-extrabold text-[#8C2D19]">₹${values.revenue.toLocaleString('en-IN')}</td>
         </tr>
       `).join('');
 
@@ -399,21 +421,21 @@
       document.getElementById('agent-detail-card').classList.add('hidden');
     }
 
-    // Tab switcher
+    // Tab Switcher Controller
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
       document.getElementById(tabId).classList.remove('hidden');
 
       document.getElementById('btn-products-tab').className = tabId === 'products-tab' 
-        ? "flex-1 text-center py-2 text-xs font-bold rounded-lg transition bg-slate-950 text-emerald-400"
-        : "flex-1 text-center py-2 text-xs font-bold rounded-lg transition text-slate-400";
+        ? "flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all bg-white text-[#8C2D19] shadow-sm"
+        : "flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all text-stone-500 hover:text-stone-700";
         
       document.getElementById('btn-agents-tab').className = tabId === 'agents-tab' 
-        ? "flex-1 text-center py-2 text-xs font-bold rounded-lg transition bg-slate-950 text-emerald-400"
-        : "flex-1 text-center py-2 text-xs font-bold rounded-lg transition text-slate-400";
+        ? "flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all bg-white text-[#8C2D19] shadow-sm"
+        : "flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all text-stone-500 hover:text-stone-700";
     }
 
-    // Global Events
+    // Attach Event Listeners
     document.getElementById('from-date').addEventListener('change', processData);
     document.getElementById('to-date').addEventListener('change', processData);
     document.getElementById('product-search').addEventListener('input', processData);
@@ -423,7 +445,7 @@
       processData();
     });
 
-    // Run app on mount
+    // Run app initially
     fetchData();
   </script>
 </body>
