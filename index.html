@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KK Sales Portal</title>
+  <!-- Tailwind CSS for clean, high-end styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome for clean icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans pb-16 min-h-screen">
+
+  <!-- Sticky Navbar -->
+  <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 shadow-lg">
+    <div class="max-w-md mx-auto px-4 py-4 flex justify-between items-center">
+      <div>
+        <h1 class="text-lg font-bold text-emerald-400">KK Sales Executive</h1>
+        <p class="text-[10px] text-slate-400">Live Sheets Dashboard</p>
+      </div>
+      <button id="refresh-btn" class="bg-emerald-600 hover:bg-emerald-700 text-slate-900 font-bold text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+        <i class="fa-solid fa-arrows-rotate"></i> Refresh
+      </button>
+    </div>
+  </header>
+
+  <!-- Mobile View Container -->
+  <main class="max-w-md mx-auto px-4 mt-4 space-y-4">
+
+    <!-- Loader -->
+    <div id="loader" class="text-center py-20">
+      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-400 mx-auto"></div>
+      <p class="mt-4 text-xs text-slate-400">Synchronizing with Google Sheets...</p>
+    </div>
+
+    <!-- Main App Container (Hidden during load) -->
+    <div id="app-container" class="hidden space-y-4">
+
+      <!-- Dynamic Date Selector (MD's Date Filters) -->
+      <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-sm space-y-3">
+        <div class="flex justify-between items-center">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400"><i class="fa-regular fa-calendar-days"></i> Select Date Range</h2>
+          <button id="clear-dates-btn" class="text-[10px] text-emerald-400 hover:underline">Reset Dates</button>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-semibold text-slate-400 mb-1">From Date</label>
+            <input type="date" id="from-date" class="w-full text-xs bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-emerald-400">
+          </div>
+          <div>
+            <label class="block text-[10px] font-semibold text-slate-400 mb-1">To Date</label>
+            <input type="date" id="to-date" class="w-full text-xs bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-emerald-400">
+          </div>
+        </div>
+      </div>
+
+      <!-- Financial Scorecards -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-sm col-span-2">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Sales Revenue</p>
+          <p id="metric-total" class="text-3xl font-black text-emerald-400 mt-1">₹0</p>
+        </div>
+        <div class="bg-slate-800 p-3.5 rounded-2xl border border-slate-700 shadow-sm">
+          <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-globe text-blue-400"></i> Online Sale</p>
+          <p id="metric-online" class="text-lg font-bold mt-1">₹0</p>
+        </div>
+        <div class="bg-slate-800 p-3.5 rounded-2xl border border-slate-700 shadow-sm">
+          <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-store text-orange-400"></i> Offline Sale</p>
+          <p id="metric-offline" class="text-lg font-bold mt-1">₹0</p>
+        </div>
+        <div class="bg-slate-800 p-3.5 rounded-2xl border border-slate-700 shadow-sm col-span-2">
+          <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-handshake text-purple-400"></i> Wholesale (By Hand)</p>
+          <p id="metric-wholesale" class="text-lg font-bold mt-1 text-purple-300">₹0</p>
+        </div>
+      </div>
+
+      <!-- App Tabs -->
+      <div class="flex border-b border-slate-700 bg-slate-800 rounded-xl p-1">
+        <button onclick="switchTab('products-tab')" id="btn-products-tab" class="flex-1 text-center py-2 text-xs font-bold rounded-lg transition bg-slate-950 text-emerald-400">Products</button>
+        <button onclick="switchTab('agents-tab')" id="btn-agents-tab" class="flex-1 text-center py-2 text-xs font-bold rounded-lg transition text-slate-400">Staff & Agents</button>
+      </div>
+
+      <!-- Tab 1: Product-Wise Sales View -->
+      <div id="products-tab" class="tab-content space-y-4">
+        
+        <!-- Search and Fast-moving filter -->
+        <div class="flex gap-2">
+          <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-500 text-xs"></i>
+            <input type="text" id="product-search" placeholder="Search products..." class="w-full text-xs bg-slate-800 border border-slate-700 rounded-xl py-2.5 pl-9 pr-4 text-slate-100 focus:outline-none focus:border-emerald-400">
+          </div>
+        </div>
+
+        <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-sm">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-950 text-slate-400 uppercase text-[9px] font-extrabold tracking-wider border-b border-slate-700">
+                  <th class="p-3 cursor-pointer select-none" onclick="sortProducts('item')">Item <i class="fa-solid fa-sort ml-1"></i></th>
+                  <th class="p-3 text-center cursor-pointer select-none" onclick="sortProducts('qty')">Qty <i class="fa-solid fa-sort ml-1"></i></th>
+                  <th class="p-3 text-right cursor-pointer select-none" onclick="sortProducts('revenue')">Revenue <i class="fa-solid fa-sort ml-1"></i></th>
+                </tr>
+              </thead>
+              <tbody id="products-table-body" class="divide-y divide-slate-700">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Agents / Staff Sales View -->
+      <div id="agents-tab" class="tab-content hidden space-y-4">
+        <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-sm">
+          <div class="p-4 bg-slate-950 border-b border-slate-700">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Staff Sales Leaderboard</h3>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-950 text-slate-400 uppercase text-[9px] font-extrabold tracking-wider border-b border-slate-700">
+                  <th class="p-3 cursor-pointer select-none" onclick="sortAgents('name')">Staff Name <i class="fa-solid fa-sort ml-1"></i></th>
+                  <th class="p-3 text-right cursor-pointer select-none" onclick="sortAgents('revenue')">Total Sold <i class="fa-solid fa-sort ml-1"></i></th>
+                </tr>
+              </thead>
+              <tbody id="agents-table-body" class="divide-y divide-slate-700">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Dynamic Detailed Agent Card (Shown on Staff Click) -->
+        <div id="agent-detail-card" class="hidden bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-sm space-y-3">
+          <div class="p-4 bg-emerald-600 text-slate-950 flex justify-between items-center">
+            <div>
+              <h3 id="detail-agent-name" class="font-black text-sm">Staff Detail</h3>
+              <p class="text-[10px] font-bold">Item-wise breakdown for selected dates</p>
+            </div>
+            <button onclick="closeAgentDetail()" class="text-slate-950 font-bold hover:opacity-80"><i class="fa-solid fa-circle-xmark text-lg"></i></button>
+          </div>
+          <div class="p-2 overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="text-slate-400 text-[9px] uppercase font-bold border-b border-slate-700">
+                  <th class="p-2">Item Name</th>
+                  <th class="p-2 text-center">Qty</th>
+                  <th class="p-2 text-right">Revenue</th>
+                </tr>
+              </thead>
+              <tbody id="agent-detail-table-body" class="divide-y divide-slate-700/50">
+                <!-- Populated on click -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    // 1. PLACE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE:
+    const API_URL = "https://script.google.com/macros/s/AKfycbznDglARBPtYlZ5vDx-CfFHVQ4mEfBCvqyMcqGZJvDhgkNb1vcv4BcWLfWfsISsbCUa/exec"; 
+
+    let rawData = [];
+    let productsList = [];
+    let agentsList = [];
+    let selectedAgentDetail = null;
+
+    // Sorting directions tracker
+    let prodSortCol = 'qty';
+    let prodSortAsc = false;
+    let agentSortCol = 'revenue';
+    let agentSortAsc = false;
+
+    // Classification mapping based on your payment modes
+    function getSalesType(payMode) {
+      if (!payMode) return 'Offline';
+      const pm = payMode.toString().toLowerCase().trim();
+      if (pm.includes('onl') || pm.includes('online')) {
+        return 'Online';
+      } else if (pm.includes('by hand') || pm.includes('hand') || pm.includes('wholesale')) {
+        return 'Wholesale';
+      } else {
+        // Includes UPI (store), cash, card
+        return 'Offline';
+      }
+    }
+
+    async function fetchData() {
+      document.getElementById('loader').classList.remove('hidden');
+      document.getElementById('app-container').classList.add('hidden');
+      try {
+        const response = await fetch(API_URL);
+        rawData = await response.json();
+        
+        // Auto-detect date ranges on start
+        detectDateRanges();
+        processData();
+
+        document.getElementById('loader').classList.add('hidden');
+        document.getElementById('app-container').classList.remove('hidden');
+      } catch (error) {
+        alert("Unable to fetch live sheets data. Verify your Google Web App URL is accessible and active.");
+        console.error(error);
+      }
+    }
+
+    function detectDateRanges() {
+      if (rawData.length === 0) return;
+      const dates = rawData.map(row => row['Bill Date']).filter(Boolean).sort();
+      if (dates.length > 0) {
+        document.getElementById('from-date').value = dates[0];
+        document.getElementById('to-date').value = dates[dates.length - 1];
+      }
+    }
+
+    function processData() {
+      const fromDate = document.getElementById('from-date').value;
+      const toDate = document.getElementById('to-date').value;
+      const searchVal = document.getElementById('product-search').value.toLowerCase();
+
+      // Filter rows strictly by date range
+      const filtered = rawData.filter(row => {
+        if (!row['Bill Date']) return false;
+        const rDate = row['Bill Date'];
+        let match = true;
+        if (fromDate) match = match && (rDate >= fromDate);
+        if (toDate) match = match && (rDate <= toDate);
+        return match;
+      });
+
+      // Reset financial scorecards variables
+      let totalSales = 0;
+      let totalOnline = 0;
+      let totalOffline = 0;
+      let totalWholesale = 0;
+
+      const productsObj = {};
+      const agentsObj = {};
+
+      filtered.forEach(row => {
+        const amount = parseFloat(row['BillAmount']) || 0;
+        const qty = parseInt(row['Qty']) || 0;
+        const item = row['Item Name'] || 'Unknown Item';
+        const agent = row['SM Name'] || 'No Agent';
+        const type = getSalesType(row['PayMode']);
+
+        // Update scorecards
+        totalSales += amount;
+        if (type === 'Online') totalOnline += amount;
+        else if (type === 'Wholesale') totalWholesale += amount;
+        else totalOffline += amount;
+
+        // Process item summaries
+        if (!productsObj[item]) {
+          productsObj[item] = { name: item, qty: 0, revenue: 0, onlineQty: 0, offlineQty: 0, wholesaleQty: 0 };
+        }
+        productsObj[item].qty += qty;
+        productsObj[item].revenue += amount;
+        if (type === 'Online') productsObj[item].onlineQty += qty;
+        else if (type === 'Wholesale') productsObj[item].wholesaleQty += qty;
+        else productsObj[item].offlineQty += qty;
+
+        // Process staff summaries
+        if (!agentsObj[agent]) {
+          agentsObj[agent] = { name: agent, revenue: 0, items: {} };
+        }
+        agentsObj[agent].revenue += amount;
+        if (!agentsObj[agent].items[item]) {
+          agentsObj[agent].items[item] = { qty: 0, revenue: 0 };
+        }
+        agentsObj[agent].items[item].qty += qty;
+        agentsObj[agent].items[item].revenue += amount;
+      });
+
+      // Update Financial Metrics in UI
+      document.getElementById('metric-total').textContent = `₹${totalSales.toLocaleString('en-IN')}`;
+      document.getElementById('metric-online').textContent = `₹${totalOnline.toLocaleString('en-IN')}`;
+      document.getElementById('metric-offline').textContent = `₹${totalOffline.toLocaleString('en-IN')}`;
+      document.getElementById('metric-wholesale').textContent = `₹${totalWholesale.toLocaleString('en-IN')}`;
+
+      // Convert maps to sorted arrays
+      productsList = Object.values(productsObj).filter(p => p.name.toLowerCase().includes(searchVal));
+      agentsList = Object.values(agentsObj);
+
+      renderProductsTable();
+      renderAgentsTable();
+
+      // If detailed sheet was open, refresh its contents
+      if (selectedAgentDetail) {
+        showAgentDetails(selectedAgentDetail);
+      }
+    }
+
+    // Products table sorting
+    function sortProducts(column) {
+      if (prodSortCol === column) {
+        prodSortAsc = !prodSortAsc;
+      } else {
+        prodSortCol = column;
+        prodSortAsc = false;
+      }
+      renderProductsTable();
+    }
+
+    function renderProductsTable() {
+      productsList.sort((a, b) => {
+        let valA = a.revenue, valB = b.revenue;
+        if (prodSortCol === 'item') {
+          valA = a.name.toLowerCase();
+          valB = b.name.toLowerCase();
+          return prodSortAsc ? (valA < valB ? -1 : 1) : (valA > valB ? -1 : 1);
+        } else if (prodSortCol === 'qty') {
+          valA = a.qty;
+          valB = b.qty;
+        }
+        return prodSortAsc ? valA - valB : valB - valA;
+      });
+
+      const tbody = document.getElementById('products-table-body');
+      tbody.innerHTML = productsList.map(p => `
+        <tr class="hover:bg-slate-700/50">
+          <td class="p-3">
+            <div class="font-semibold text-slate-200">${p.name}</div>
+            <div class="text-[9px] text-slate-400 mt-0.5">
+              <span class="text-blue-400">Onl: ${p.onlineQty}</span> • 
+              <span class="text-orange-400">Off: ${p.offlineQty}</span> • 
+              <span class="text-purple-300">Whole: ${p.wholesaleQty}</span>
+            </div>
+          </td>
+          <td class="p-3 text-center font-bold text-slate-300">${p.qty}</td>
+          <td class="p-3 text-right font-bold text-emerald-400">₹${p.revenue.toLocaleString('en-IN')}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Agents table sorting
+    function sortAgents(column) {
+      if (agentSortCol === column) {
+        agentSortAsc = !agentSortAsc;
+      } else {
+        agentSortCol = column;
+        agentSortAsc = false;
+      }
+      renderAgentsTable();
+    }
+
+    function renderAgentsTable() {
+      agentsList.sort((a, b) => {
+        let valA = a.revenue, valB = b.revenue;
+        if (agentSortCol === 'name') {
+          valA = a.name.toLowerCase();
+          valB = b.name.toLowerCase();
+          return agentSortAsc ? (valA < valB ? -1 : 1) : (valA > valB ? -1 : 1);
+        }
+        return agentSortAsc ? valA - valB : valB - valA;
+      });
+
+      const tbody = document.getElementById('agents-table-body');
+      tbody.innerHTML = agentsList.map(a => `
+        <tr class="hover:bg-slate-700/50 cursor-pointer" onclick="showAgentDetails('${a.name}')">
+          <td class="p-3 font-semibold text-slate-200 flex justify-between items-center">
+            <span>${a.name}</span>
+            <i class="fa-solid fa-angle-right text-[10px] text-slate-500 mr-2"></i>
+          </td>
+          <td class="p-3 text-right font-bold text-emerald-400">₹${a.revenue.toLocaleString('en-IN')}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Detail Drawer: Item-wise breakdown for a single clicked agent
+    function showAgentDetails(agentName) {
+      selectedAgentDetail = agentName;
+      const agentObj = agentsList.find(a => a.name === agentName);
+      if (!agentObj) return;
+
+      document.getElementById('detail-agent-name').textContent = `${agentObj.name} Sales Report`;
+      
+      const sortedItems = Object.entries(agentObj.items).sort((a, b) => b[1].qty - a[1].qty);
+      const detailTbody = document.getElementById('agent-detail-table-body');
+
+      detailTbody.innerHTML = sortedItems.map(([itemName, values]) => `
+        <tr class="hover:bg-slate-700/30">
+          <td class="p-2 font-medium text-slate-300">${itemName}</td>
+          <td class="p-2 text-center font-bold text-slate-400">${values.qty}</td>
+          <td class="p-2 text-right font-bold text-emerald-400">₹${values.revenue.toLocaleString('en-IN')}</td>
+        </tr>
+      `).join('');
+
+      document.getElementById('agent-detail-card').classList.remove('hidden');
+      document.getElementById('agent-detail-card').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function closeAgentDetail() {
+      selectedAgentDetail = null;
+      document.getElementById('agent-detail-card').classList.add('hidden');
+    }
+
+    // Tab switcher
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(tabId).classList.remove('hidden');
+
+      document.getElementById('btn-products-tab').className = tabId === 'products-tab' 
+        ? "flex-1 text-center py-2 text-xs font-bold rounded-lg transition bg-slate-950 text-emerald-400"
+        : "flex-1 text-center py-2 text-xs font-bold rounded-lg transition text-slate-400";
+        
+      document.getElementById('btn-agents-tab').className = tabId === 'agents-tab' 
+        ? "flex-1 text-center py-2 text-xs font-bold rounded-lg transition bg-slate-950 text-emerald-400"
+        : "flex-1 text-center py-2 text-xs font-bold rounded-lg transition text-slate-400";
+    }
+
+    // Global Events
+    document.getElementById('from-date').addEventListener('change', processData);
+    document.getElementById('to-date').addEventListener('change', processData);
+    document.getElementById('product-search').addEventListener('input', processData);
+    document.getElementById('refresh-btn').addEventListener('click', fetchData);
+    document.getElementById('clear-dates-btn').addEventListener('click', () => {
+      detectDateRanges();
+      processData();
+    });
+
+    // Run app on mount
+    fetchData();
+  </script>
+</body>
+</html>
