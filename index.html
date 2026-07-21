@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -87,12 +88,12 @@
 
         <div>
           <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">Username</label>
-          <input type="text" id="login-username" required placeholder="Enter username" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-3 text-stone-850 focus:outline-none focus:ring-1 focus:ring-[#5C0612] focus:border-[#5C0612] transition-all font-sans font-sans">
+          <input type="text" id="login-username" required placeholder="Enter username" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-3 text-stone-850 focus:outline-none focus:ring-1 focus:ring-[#5C0612] focus:border-[#5C0612] transition-all font-sans">
         </div>
 
         <div>
           <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">Password</label>
-          <input type="password" id="login-password" required placeholder="Enter password" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-3 text-stone-850 focus:outline-none focus:ring-1 focus:ring-[#5C0612] focus:border-[#5C0612] transition-all font-sans font-sans font-sans">
+          <input type="password" id="login-password" required placeholder="Enter password" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-3 text-stone-850 focus:outline-none focus:ring-1 focus:ring-[#5C0612] focus:border-[#5C0612] transition-all font-sans">
         </div>
 
         <button type="submit" class="w-full bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs py-3.5 rounded-xl transition-all shadow-md font-traditional border border-[#DAA520] tracking-wider uppercase flex items-center justify-center gap-2 active:scale-95 duration-100">
@@ -146,7 +147,7 @@
         <div>
           <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">From Date</label>
           <div class="flex gap-1.5">
-            <input type="date" id="from-date" class="flex-1 text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-855 focus:outline-none focus:ring-1 focus:ring-[#5C0612] focus:border-[#5C0612] transition-all font-sans font-sans">
+            <input type="date" id="from-date" class="flex-1 text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-855 focus:outline-none focus:ring-1 focus:ring-[#5C0612] focus:border-[#5C0612] transition-all font-sans">
             <button onclick="document.getElementById('from-date').showPicker()" class="bg-[#5C0612] text-white px-3.5 rounded-xl hover:bg-[#4A030D] transition-colors shadow-sm flex items-center justify-center active:scale-95 duration-100">
               <i class="fa-regular fa-calendar-days text-sm text-[#EFE5C9]"></i>
             </button>
@@ -156,7 +157,7 @@
         <div>
           <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">To Date</label>
           <div class="flex gap-1.5">
-            <input type="date" id="to-date" class="flex-1 text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-855 focus:outline-none focus:ring-1 focus:ring-[#5C0612] focus:border-[#5C0612] transition-all font-sans font-sans font-sans font-sans">
+            <input type="date" id="to-date" class="flex-1 text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-855 focus:outline-none focus:ring-1 focus:ring-[#5C0612] focus:border-[#5C0612] transition-all font-sans">
             <button onclick="document.getElementById('to-date').showPicker()" class="bg-[#5C0612] text-white px-3.5 rounded-xl hover:bg-[#4A030D] transition-colors shadow-sm flex items-center justify-center active:scale-95 duration-100">
               <i class="fa-regular fa-calendar-days text-sm text-[#EFE5C9]"></i>
             </button>
@@ -168,13 +169,27 @@
     <!-- Visual Scorecards (Symmetrical layout) -->
     <div class="grid grid-cols-2 gap-3">
       <!-- Total Card (Resets) -->
-      <div id="card-total" onclick="selectChannel('All')" class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow col-span-2 cursor-pointer transition-all hover:scale-[1.01] hover:border-[#DAA520] duration-200 relative overflow-hidden">
+      <div id="card-total" onclick="selectChannel('All')" class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] warm-shadow col-span-2 cursor-pointer transition-all hover:scale-[1.01] hover:border-[#DAA520] duration-200 relative overflow-hidden">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
-        <div class="flex justify-between items-center">
-          <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Total Sales Revenue</p>
-          <span class="text-[8px] text-white bg-[#5C0612] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-[#DAA520]">Refresh All</span>
+        <div class="p-5">
+          <div class="flex justify-between items-center">
+            <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Total Sales Revenue</p>
+            <span class="text-[8px] text-white bg-[#5C0612] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-[#DAA520]">Refresh All</span>
+          </div>
+          <p id="metric-total" class="text-3xl font-black text-[#5C0612] mt-1 font-sans">₹0</p>
         </div>
-        <p id="metric-total" class="text-3xl font-black text-[#5C0612] mt-1 font-sans">₹0</p>
+        
+        <!-- Admin Overall KPI Section -->
+        <div id="admin-overall-kpi" class="hidden bg-[#F3EFE9] border-t border-[#E5D5C6] p-3 grid grid-cols-2 gap-2 text-center text-xs">
+          <div class="border-r border-[#E5D5C6]">
+            <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Avg Ticket Value (ATV)</p>
+            <p id="metric-atv" class="text-sm font-black text-[#5C0612] font-sans">₹0</p>
+          </div>
+          <div>
+            <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Avg Unit Value (AUV)</p>
+            <p id="metric-auv" class="text-sm font-black text-[#5C0612] font-sans">₹0</p>
+          </div>
+        </div>
       </div>
       
       <!-- Online Card -->
@@ -196,7 +211,7 @@
           </span>
           <span class="text-[8px] text-orange-600 font-extrabold uppercase tracking-wider flex items-center gap-0.5">Explore <i class="fa-solid fa-chevron-right text-[6px]"></i></span>
         </p>
-        <p id="metric-offline" class="text-base font-extrabold text-stone-800 mt-1 font-numeric font-sans font-sans">₹0</p>
+        <p id="metric-offline" class="text-base font-extrabold text-stone-800 mt-1 font-numeric">₹0</p>
       </div>
       
       <!-- Wholesale Card -->
@@ -207,10 +222,10 @@
           </span>
           <span class="text-[8px] text-purple-600 font-extrabold uppercase tracking-wider flex items-center gap-0.5">Explore <i class="fa-solid fa-chevron-right text-[6px]"></i></span>
         </p>
-        <p id="metric-wholesale" class="text-base font-extrabold text-[#5C0612] mt-1 font-numeric font-sans">₹0</p>
+        <p id="metric-wholesale" class="text-base font-extrabold text-[#5C0612] mt-1 font-numeric">₹0</p>
       </div>
 
-      <!-- Weekly Share Card (Opens separate analysis page) [1, 2] -->
+      <!-- Weekly Share Card (Opens separate analysis page, only for Admins) -->
       <div id="card-weekly-patterns" onclick="openWeeklyScreen()" class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow cursor-pointer transition-all hover:scale-[1.01] duration-200 hover:border-[#DAA520]">
         <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between font-traditional">
           <span class="flex items-center gap-1">
@@ -222,17 +237,18 @@
       </div>
     </div>
 
-    <!-- Standard Tabs -->
-    <div class="flex bg-[#EFE5C9]/50 rounded-xl p-1 shadow-inner border border-[#E5D5C6]">
-      <button onclick="switchTab('products-tab')" id="btn-products-tab" class="flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all bg-white text-[#5C0612] shadow-sm font-traditional">Products</button>
-      <button onclick="switchTab('agents-tab')" id="btn-agents-tab" class="flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all text-stone-500 hover:text-stone-700 font-traditional">Staff & Agents</button>
+    <!-- Standard Tabs (3 column options) -->
+    <div class="flex bg-[#EFE5C9]/50 rounded-xl p-1 shadow-inner border border-[#E5D5C6] gap-1">
+      <button onclick="switchTab('products-tab')" id="btn-products-tab" class="flex-1 text-center py-2 text-[11px] font-bold rounded-lg transition-all bg-white text-[#5C0612] shadow-sm font-traditional">Products</button>
+      <button onclick="switchTab('agents-tab')" id="btn-agents-tab" class="flex-1 text-center py-2 text-[11px] font-bold rounded-lg transition-all text-stone-500 hover:text-stone-700 font-traditional">Staff & Agents</button>
+      <button onclick="switchTab('daywise-tab')" id="btn-daywise-tab" class="flex-1 text-center py-2 text-[11px] font-bold rounded-lg transition-all text-stone-500 hover:text-stone-700 font-traditional">Day-Wise Sales</button>
     </div>
 
     <!-- Tab 1: Product-Wise Sales View -->
     <div id="products-tab" class="tab-content space-y-4">
       <div class="relative">
         <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-stone-400 text-xs"></i>
-        <input type="text" id="product-search" placeholder="Search product line..." class="w-full text-xs bg-white border border-[#E5D5C6] rounded-2xl py-3 pl-10 pr-4 text-stone-850 focus:outline-none focus:ring-1 focus:ring-[#5C0612] focus:border-[#5C0612] transition-all shadow-sm font-sans">
+        <input type="text" id="product-search" placeholder="Search product line..." class="w-full text-xs bg-white border border-[#E5D5C6] rounded-2xl py-3 pl-10 pr-4 text-stone-855 focus:outline-none focus:ring-1 focus:ring-[#5C0612] focus:border-[#5C0612] transition-all shadow-sm font-sans">
       </div>
 
       <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden warm-shadow">
@@ -344,6 +360,18 @@
         </div>
       </div>
     </div>
+
+    <!-- Tab 3: Day-Wise Sales Tab Container -->
+    <div id="daywise-tab" class="tab-content hidden space-y-4">
+      <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden warm-shadow">
+        <div class="p-4 bg-[#F3EFE9] border-b border-[#E5D5C6]">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional">Daily Store & Staff Revenue</h3>
+        </div>
+        <div class="p-4 space-y-4 animate-fade-in" id="daywise-sales-container">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+    </div>
   </main>
 
 
@@ -402,7 +430,7 @@
         <div class="px-4 pt-1">
           <div class="flex bg-[#EFE5C9]/40 rounded-xl p-1 border border-[#E5D5C6]">
             <button onclick="toggleChannelAgentDetailView('product')" id="btn-channel-detail-product" class="flex-1 text-center py-2 text-[10px] font-extrabold rounded-lg transition-all bg-white text-stone-700 shadow-sm font-traditional">Product-wise</button>
-            <button onclick="toggleChannelAgentDetailView('bill')" id="btn-channel-detail-bill" class="flex-1 text-center py-2 text-[10px] font-extrabold rounded-lg transition-all text-stone-500 hover:text-stone-700 font-traditional font-numeric">Bill-wise</button>
+            <button onclick="toggleChannelAgentDetailView('bill')" id="btn-channel-detail-bill" class="flex-1 text-center py-2 text-[10px] font-extrabold rounded-lg transition-all text-stone-500 hover:text-stone-700 font-traditional">Bill-wise</button>
           </div>
         </div>
 
@@ -485,7 +513,7 @@
   </div>
 
 
-  <!-- DEDICATED WEEKLY SALES SHARE SCREEN (Hides main dashboard entirely to avoid clumsiness) [1, 2] -->
+  <!-- DEDICATED WEEKLY SALES SHARE SCREEN -->
   <div id="weekly-view" class="hidden min-h-screen bg-[#FAF6EE] pb-16">
     <div class="bg-[#5C0612] text-white px-5 py-4 flex items-center gap-3.5 sticky top-0 z-50 shadow-md border-b-2 border-[#DAA520]">
       <button onclick="closeWeeklyScreen()" class="text-white text-base hover:opacity-80 transition-opacity p-1">
@@ -511,6 +539,64 @@
   </div>
 
 
+  <!-- DEDICATED AGENTS / STAFF SALES ANALYSIS SCREEN (Hides main dashboard entirely) -->
+  <div id="agent-analysis-view" class="hidden min-h-screen bg-[#FAF6EE] pb-16">
+    <div class="bg-[#5C0612] text-white px-5 py-4 flex items-center gap-3.5 sticky top-0 z-50 shadow-md border-b-2 border-[#DAA520]">
+      <button onclick="closeAgentAnalysisScreen()" class="text-white text-base hover:opacity-80 transition-opacity p-1">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+      <div>
+        <h2 id="agent-analysis-title" class="text-sm font-bold tracking-wide uppercase font-traditional text-[#EFE5C9]">Staff Sales Analysis</h2>
+        <p id="agent-analysis-subtitle" class="text-[9px] text-stone-200 font-medium tracking-wider uppercase"></p>
+      </div>
+    </div>
+
+    <div class="max-w-md mx-auto px-4 mt-5 space-y-4">
+      <!-- Summary Box -->
+      <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] warm-shadow overflow-hidden relative">
+        <div class="zari-border absolute top-0 left-0 right-0"></div>
+        <div class="p-5 text-center">
+          <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Total Revenue Sold</p>
+          <p id="agent-analysis-total-revenue" class="text-3xl font-black mt-1 text-[#5C0612] font-sans">₹0</p>
+          
+          <!-- Admin specific stats for this staff -->
+          <div id="admin-agent-analysis-kpi" class="hidden mt-4 pt-3.5 border-t border-[#E5D5C6]/60 grid grid-cols-2 gap-2 text-center text-xs">
+            <div class="border-r border-[#E5D5C6]/60">
+              <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Staff ATV</p>
+              <p id="agent-analysis-atv" class="text-sm font-black text-stone-800 font-sans">₹0</p>
+            </div>
+            <div>
+              <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Staff AUV</p>
+              <p id="agent-analysis-auv" class="text-sm font-black text-stone-800 font-sans">₹0</p>
+            </div>
+          </div>
+
+          <!-- Share Ledger Button -->
+          <button onclick="shareAgentSalesReportWhatsApp()" class="mt-4 mx-auto bg-[#25D366] hover:bg-[#128C7E] text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md font-traditional flex items-center justify-center gap-1.5 active:scale-95 duration-100">
+            <i class="fa-brands fa-whatsapp text-sm"></i> Share on WhatsApp
+          </button>
+        </div>
+      </div>
+
+      <!-- Product Share Card -->
+      <div class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow relative overflow-hidden">
+        <div class="zari-border absolute top-0 left-0 right-0"></div>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional flex items-center gap-1.5 border-b border-[#E5D5C6]/60 pb-1.5 mb-3">
+          <i class="fa-solid fa-chart-pie text-[#5C0612]"></i> Product Sales Share
+        </h3>
+        <div class="space-y-3.5" id="agent-analysis-product-share">
+          <!-- Dynamically populated shares -->
+        </div>
+      </div>
+
+      <!-- Everyday Sale Ledger -->
+      <div class="space-y-3.5" id="agent-analysis-daily-list">
+        <!-- Daily groups populated dynamically -->
+      </div>
+    </div>
+  </div>
+
+
   <script>
     // 1. PLACE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE:
     const API_URL = "https://script.google.com/macros/s/AKfycbznDglARBPtYlZ5vDx-CfFHVQ4mEfBCvqyMcqGZJvDhgkNb1vcv4BcWLfWfsISsbCUa/exec"; 
@@ -522,10 +608,12 @@
     let agentsList = [];
     let selectedAgentDetail = null;
     let selectedChannel = "All"; // Active state: 'All' | 'Online' | 'Offline' | 'Wholesale'
+    let activeAnalysisAgent = ""; // Track currently analyzed staff member
+    let isAdmin = false; // Flag to determine administrative access
 
     // Temporary storage for active separate screen data
     let currentChannelAgents = {}; 
-    let currentDaySales = [0, 0, 0, 0, 0, 0, 0]; // Sun to Sat global tracker [2]
+    let currentDaySales = [0, 0, 0, 0, 0, 0, 0]; // Sun to Sat global tracker
 
     // Sorting state variables
     let prodSortCol = 'qty';
@@ -552,18 +640,18 @@
       // If it's already in clean YYYY-MM-DD format
       if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) return strVal;
       
-      // If it's an ISO timestamp (e.g. 2026-07-01T12:00:00Z)
-      if (strVal.includes('T')) {
-        return strVal.split('T')[0];
-      }
-      
-      // Fallback: Parse using JS Date object
+      // Fallback: Parse using JS Date object to respect local timezone / offset shifts
       const parsed = new Date(strVal);
       if (!isNaN(parsed.getTime())) {
         const yyyy = parsed.getFullYear();
         const mm = String(parsed.getMonth() + 1).padStart(2, '0');
         const dd = String(parsed.getDate()).padStart(2, '0');
         return `${yyyy}-${mm}-${dd}`;
+      }
+      
+      // If standard parsing fails but it has a T, fall back to string splitting as last resort
+      if (strVal.includes('T')) {
+        return strVal.split('T')[0];
       }
       
       return strVal;
@@ -604,14 +692,16 @@
         return { valid: false, reason: 'expired' };
       }
       
+      // Determine if logged-in user is an administrator
+      isAdmin = savedUser.toLowerCase() === 'admin';
       return { valid: true, user: savedUser, pass: savedPass };
     }
 
-    // Handles user login submission
+    // Handles user login submission (Removed case sensitivity for IDs and passwords)
     document.getElementById('login-form').addEventListener('submit', async function(e) {
       e.preventDefault();
-      const user = document.getElementById('login-username').value;
-      const pass = document.getElementById('login-password').value;
+      const user = document.getElementById('login-username').value.toLowerCase().trim();
+      const pass = document.getElementById('login-password').value.toLowerCase().trim();
       
       document.getElementById('login-error').classList.add('hidden');
       document.getElementById('login-btn-text').classList.add('hidden');
@@ -633,6 +723,7 @@
       document.getElementById('standard-main').classList.add('hidden');
       document.getElementById('channel-view').classList.add('hidden');
       document.getElementById('weekly-view').classList.add('hidden');
+      document.getElementById('agent-analysis-view').classList.add('hidden');
       document.getElementById('login-screen').classList.add('hidden');
       
       try {
@@ -654,6 +745,9 @@
         localStorage.setItem('kk_user', user);
         localStorage.setItem('kk_pass', pass);
         localStorage.setItem('kk_login_time', Date.now().toString());
+        
+        // Define credentials
+        isAdmin = user.toLowerCase() === 'admin';
 
         rawData = data;
         detectDateRanges();
@@ -680,8 +774,15 @@
         document.getElementById('standard-main').classList.add('hidden');
         document.getElementById('channel-view').classList.add('hidden');
         document.getElementById('weekly-view').classList.add('hidden');
+        document.getElementById('agent-analysis-view').classList.add('hidden');
         document.getElementById('login-screen').classList.remove('hidden');
         document.getElementById('loader').classList.add('hidden');
+        return;
+      }
+
+      // Restrict access to weekly report screen for non-admin accounts
+      if (state.view === 'weekly' && !isAdmin) {
+        applyState({ view: 'home' }, true);
         return;
       }
 
@@ -691,12 +792,16 @@
       document.getElementById('channel-agent-detail').classList.add('hidden');
       document.getElementById('channel-product-detail').classList.add('hidden');
 
+      // Hide core container views
+      document.getElementById('standard-header').classList.add('hidden');
+      document.getElementById('standard-main').classList.add('hidden');
+      document.getElementById('channel-view').classList.add('hidden');
+      document.getElementById('weekly-view').classList.add('hidden');
+      document.getElementById('agent-analysis-view').classList.add('hidden');
+
       if (state.view === 'home') {
         selectedChannel = 'All';
         
-        // Return back to standard main dashboard layout
-        document.getElementById('channel-view').classList.add('hidden');
-        document.getElementById('weekly-view').classList.add('hidden');
         document.getElementById('standard-header').classList.remove('hidden');
         document.getElementById('standard-main').classList.remove('hidden');
 
@@ -716,11 +821,6 @@
         }
       } else if (state.view === 'channel') {
         selectedChannel = state.channel;
-        
-        // Hide standard view, open dedicated category screen layout
-        document.getElementById('standard-header').classList.add('hidden');
-        document.getElementById('standard-main').classList.add('hidden');
-        document.getElementById('weekly-view').classList.add('hidden');
         document.getElementById('channel-view').classList.remove('hidden');
 
         populateChannelScreenDOM(state.channel);
@@ -737,13 +837,11 @@
           document.getElementById('channel-product-detail').scrollIntoView({ behavior: 'smooth' });
         }
       } else if (state.view === 'weekly') {
-        // Hides dashboard entirely to keep home screen clean [1, 2]
-        document.getElementById('standard-header').classList.add('hidden');
-        document.getElementById('standard-main').classList.add('hidden');
-        document.getElementById('channel-view').classList.add('hidden');
         document.getElementById('weekly-view').classList.remove('hidden');
-
         populateWeeklyScreenDOM();
+      } else if (state.view === 'agent-analysis') {
+        document.getElementById('agent-analysis-view').classList.remove('hidden');
+        populateAgentAnalysisScreenDOM(state.name);
       }
 
       // Register step inside browser popstate queue
@@ -842,15 +940,17 @@
       applyState({ view: 'home' });
     }
 
-    // Navigation triggers for the clean separate Weekly Screen [1, 2]
+    // Navigation triggers for the clean separate Weekly Screen
     function openWeeklyScreen() {
       applyState({ view: 'weekly' });
     }
 
+    // Navigation triggers to close Weekly Screen
     function closeWeeklyScreen() {
       applyState({ view: 'home' });
     }
 
+    // Renders date filter ranges on the Weekly distribution chart
     function populateWeeklyScreenDOM() {
       const fromVal = document.getElementById('from-date').value;
       const toVal = document.getElementById('to-date').value;
@@ -859,7 +959,7 @@
       renderWeeklyDistributionDOM();
     }
 
-    // Renders the Day-Wise distribution graph inside separate sub-screen [1, 2]
+    // Renders the Day-Wise distribution graph inside separate sub-screen
     function renderWeeklyDistributionDOM() {
       const totalSales = currentDaySales.reduce((a, b) => a + b, 0);
       const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -934,7 +1034,7 @@
         channelAgentsObj[agent].items[item].qty += qty;
         channelAgentsObj[agent].items[item].revenue += amount;
 
-        // Dynamic bills grouping under agent
+        // Group individual bills grouping under agent
         const billKey = billNo !== 'N/A' ? billNo : `${billDate}-${amount}`;
         if (!channelAgentsObj[agent].bills[billKey]) {
           channelAgentsObj[agent].bills[billKey] = { billNo: billNo, date: billDate, amount: 0 };
@@ -963,7 +1063,7 @@
         </tr>
       `).join('');
 
-      // Add product-wise share % calculation within the active category [1]
+      // Add product-wise share % calculation within the active category
       const sortedProducts = Object.values(channelProductsObj).map(p => {
         p.share = channelTotalRevenue > 0 ? (p.revenue / channelTotalRevenue) * 100 : 0;
         return p;
@@ -1152,7 +1252,7 @@
       }
     }
 
-    // Helper to generate dynamic side-by-side staff channel metrics (Strictly scales on mobile screen layout to prevent horizontal scroll bars)
+    // Helper to generate dynamic side-by-side staff channel metrics
     function generateBreakdownHTML(breakdownList) {
       if (breakdownList.length === 0) {
         return `<tr><td colspan="5" class="p-4 text-center text-stone-400 font-sans">No records found for this product</td></tr>`;
@@ -1189,14 +1289,6 @@
       }).join('');
     }
 
-    function closeProductDetail() {
-      applyState({ view: 'home' });
-    }
-
-    function closeChannelProductDetail() {
-      applyState({ view: 'channel', channel: selectedChannel });
-    }
-
     // Main dashboard data calculations
     function processData() {
       const fromDate = document.getElementById('from-date').value;
@@ -1217,12 +1309,15 @@
       let totalOnline = 0;
       let totalOffline = 0;
       let totalWholesale = 0;
+      let totalUnits = 0;
+      const uniqueBills = new Set();
       
-      // Initialize 7 days sales tracker (Index 0 = Sunday, 1 = Monday, ..., 6 = Saturday) [1, 2]
+      // Initialize 7 days sales tracker (Index 0 = Sunday, 1 = Monday, ..., 6 = Saturday)
       currentDaySales = [0, 0, 0, 0, 0, 0, 0];
 
       const productsObj = {};
       const agentsObj = {};
+      const dayWiseObj = {}; 
 
       filtered.forEach(row => {
         const amount = parseFloat(row['BillAmount']) || 0;
@@ -1235,15 +1330,30 @@
 
         // Scorecard metrics calculations
         totalSales += amount;
+        totalUnits += qty;
         if (type === 'Online') totalOnline += amount;
         else if (type === 'Wholesale') totalWholesale += amount;
         else totalOffline += amount;
 
-        // Group Day-wise Sales Share [1, 2]
+        // Count unique bills across the store
+        if (billNo !== 'N/A') {
+          uniqueBills.add(billNo);
+        } else {
+          uniqueBills.add(`${billDate}-${amount}`);
+        }
+
+        // Group Day-wise Sales Share
         if (billDate) {
           const [yyyy, mm, dd] = billDate.split('-').map(Number);
           const dayOfWeek = new Date(yyyy, mm - 1, dd).getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
           currentDaySales[dayOfWeek] += amount;
+
+          // Group Day-Wise Sales breakdown for Main Dashboard Tab
+          if (!dayWiseObj[billDate]) {
+            dayWiseObj[billDate] = { total: 0, agents: {} };
+          }
+          dayWiseObj[billDate].total += amount;
+          dayWiseObj[billDate].agents[agent] = (dayWiseObj[billDate].agents[agent] || 0) + amount;
         }
 
         // Group standard lists (dashboard home stays in 'All' mode)
@@ -1257,9 +1367,10 @@
         else productsObj[item].offlineQty += qty;
 
         if (!agentsObj[agent]) {
-          agentsObj[agent] = { name: agent, revenue: 0, items: {}, bills: {} };
+          agentsObj[agent] = { name: agent, revenue: 0, items: {}, bills: {}, unitCount: 0 };
         }
         agentsObj[agent].revenue += amount;
+        agentsObj[agent].unitCount += qty;
 
         // Group product totals
         if (!agentsObj[agent].items[item]) {
@@ -1282,16 +1393,38 @@
       document.getElementById('metric-offline').textContent = `₹${totalOffline.toLocaleString('en-IN')}`;
       document.getElementById('metric-wholesale').textContent = `₹${totalWholesale.toLocaleString('en-IN')}`;
 
-      // Set standard lists and append product-wise share % [1]
+      // Calculate and toggle admin specific overall monthly metrics
+      if (isAdmin) {
+        const overallATV = uniqueBills.size > 0 ? (totalSales / uniqueBills.size) : 0;
+        const overallAUV = totalUnits > 0 ? (totalSales / totalUnits) : 0;
+        
+        document.getElementById('metric-atv').textContent = `₹${Math.round(overallATV).toLocaleString('en-IN')}`;
+        document.getElementById('metric-auv').textContent = `₹${Math.round(overallAUV).toLocaleString('en-IN')}`;
+
+        document.getElementById('card-weekly-patterns').classList.remove('hidden');
+        document.getElementById('admin-overall-kpi').classList.remove('hidden');
+        document.getElementById('card-wholesale').className = "bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow cursor-pointer transition-all hover:scale-[1.01] duration-200 hover:border-purple-400";
+      } else {
+        document.getElementById('card-weekly-patterns').classList.add('hidden');
+        document.getElementById('admin-overall-kpi').classList.add('hidden');
+        document.getElementById('card-wholesale').className = "bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow cursor-pointer transition-all hover:scale-[1.01] duration-200 hover:border-purple-400 col-span-2";
+      }
+
+      // Set standard lists and append product-wise share %
       productsList = Object.values(productsObj).map(p => {
         p.share = totalSales > 0 ? (p.revenue / totalSales) * 100 : 0;
         return p;
       }).filter(p => p.name.toLowerCase().includes(searchVal));
 
-      agentsList = Object.values(agentsObj);
+      // Append pre-calculated unique transaction count for Leaderboard metrics
+      agentsList = Object.values(agentsObj).map(a => {
+        a.billCount = Object.keys(a.bills).length;
+        return a;
+      });
 
       renderProductsTable();
       renderAgentsTable();
+      renderDayWiseSales(dayWiseObj);
 
       // Refresh any open home-screen details
       if (selectedAgentDetail) {
@@ -1301,6 +1434,12 @@
       // Auto update separate weekly patterns chart if it's currently open
       if (!document.getElementById('weekly-view').classList.contains('hidden')) {
         renderWeeklyDistributionDOM();
+      }
+
+      // Refresh active staff analysis view if currently active
+      const isAnalysisActive = !document.getElementById('agent-analysis-view').classList.contains('hidden');
+      if (isAnalysisActive && history.state && history.state.name) {
+        populateAgentAnalysisScreenDOM(history.state.name);
       }
     }
 
@@ -1335,7 +1474,7 @@
         return `
           <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showProductDetails('${escapedName}')">
             <td class="p-3.5">
-              <div class="font-bold text-stone-850 flex justify-between items-center font-sans text-xs">
+              <div class="font-bold text-stone-855 flex justify-between items-center font-sans text-xs">
                 <span>${p.name}</span>
                 <i class="fa-solid fa-angle-right text-[10px] text-stone-400 mr-2"></i>
               </div>
@@ -1378,22 +1517,40 @@
       });
 
       const tbody = document.getElementById('agents-table-body');
-      tbody.innerHTML = agentsList.map(a => `
-        <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showAgentDetails('${a.name}')">
-          <td class="p-3.5 font-bold text-stone-700 flex justify-between items-center font-sans">
-            <span>${a.name}</span>
-            <i class="fa-solid fa-angle-right text-[10px] text-stone-400 mr-2"></i>
-          </td>
-          <td class="p-3.5 text-right font-extrabold text-[#5C0612] font-sans">₹${a.revenue.toLocaleString('en-IN')}</td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = agentsList.map(a => {
+        let kpiHTML = '';
+        if (isAdmin) {
+          const atv = a.billCount > 0 ? (a.revenue / a.billCount) : 0;
+          const auv = a.unitCount > 0 ? (a.revenue / a.unitCount) : 0;
+          kpiHTML = `
+            <div class="text-[9px] text-stone-500 font-bold mt-1 font-sans">
+              ATV: <span class="text-[#5C0612]">₹${Math.round(atv).toLocaleString('en-IN')}</span> • 
+              AUV: <span class="text-[#5C0612]">₹${Math.round(auv).toLocaleString('en-IN')}</span>
+            </div>
+          `;
+        }
+
+        return `
+          <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showAgentDetails('${a.name}')">
+            <td class="p-3.5 font-bold text-stone-700 flex justify-between items-center font-sans">
+              <div>
+                <span>${a.name}</span>
+                ${kpiHTML}
+              </div>
+              <span class="text-[9px] text-[#DAA520] font-bold flex items-center gap-1 font-traditional">Analyze <i class="fa-solid fa-chevron-right text-[8px]"></i></span>
+            </td>
+            <td class="p-3.5 text-right font-extrabold text-[#5C0612] font-sans">₹${a.revenue.toLocaleString('en-IN')}</td>
+          </tr>
+        `;
+      }).join('');
     }
 
+    // Routes to Dedicated Analysis Page instead of opening inline dashboard card
     function showAgentDetails(agentName) {
-      applyState({ view: 'home', detail: 'agent', name: agentName });
+      applyState({ view: 'agent-analysis', name: agentName });
     }
 
-    // Dynamic builder helper for Agent Details
+    // Dynamic builder helper for Agent Details (Main Dashboard / Channel Screen)
     function populateAgentDetailsDOM(agentName) {
       const agentObj = agentsList.find(a => a.name === agentName);
       if (!agentObj) return false;
@@ -1429,6 +1586,307 @@
       return true;
     }
 
+    // Dynamic builder for the Dedicated Staff Analysis page
+    function populateAgentAnalysisScreenDOM(agentName) {
+      activeAnalysisAgent = agentName; // Set global reference for exporting
+      const fromVal = document.getElementById('from-date').value;
+      const toVal = document.getElementById('to-date').value;
+      document.getElementById('agent-analysis-title').textContent = `${agentName} Ledger`;
+      document.getElementById('agent-analysis-subtitle').textContent = `Date limits: ${fromVal || 'Start'} to ${toVal || 'End'}`;
+
+      // Extract rows matched to date range
+      const filtered = rawData.filter(row => {
+        if (!row['Bill Date']) return false;
+        const rDate = normalizeToDateString(row['Bill Date']);
+        let match = true;
+        if (fromVal) match = match && (rDate >= fromVal);
+        if (toVal) match = match && (rDate <= toVal);
+        return match;
+      });
+
+      // Filter matched dates specifically to selected agent
+      const agentRows = filtered.filter(row => (row['SM Name'] || 'No Agent') === agentName);
+
+      let totalAgentRevenue = 0;
+      let totalAgentUnits = 0;
+      const dailyGroup = {}; // Structure: { "YYYY-MM-DD": { total: 0, bills: { "BillNo": { total: 0, items: [] } } } }
+      const productSales = {}; // Structure: { "Fabric Saree": 32000, ... }
+
+      agentRows.forEach(row => {
+        const date = normalizeToDateString(row['Bill Date']);
+        const amount = parseFloat(row['BillAmount']) || 0;
+        const qty = parseInt(row['Qty']) || 0;
+        const item = row['Item Name'] || 'Unknown Item';
+        const billNo = row['Bill No'] || row['Bill No.'] || row['BillNo'] || row['Invoice No'] || row['Invoice No.'] || row['Bill ID'] || row['Bill Number'] || row['Voucher No'] || row['Vch No.'] || row['Vch No'] || row['Invoice'] || 'N/A';
+
+        totalAgentRevenue += amount;
+        totalAgentUnits += qty;
+
+        // Group by Date & Bill
+        if (!dailyGroup[date]) {
+          dailyGroup[date] = { total: 0, bills: {} };
+        }
+        dailyGroup[date].total += amount;
+
+        if (!dailyGroup[date].bills[billNo]) {
+          dailyGroup[date].bills[billNo] = { total: 0, items: [] };
+        }
+        dailyGroup[date].bills[billNo].total += amount;
+        dailyGroup[date].bills[billNo].items.push({ name: item, qty: qty, amount: amount });
+
+        // Group by Product for overall share stats
+        productSales[item] = (productSales[item] || 0) + amount;
+      });
+
+      // Set agent overall sold value
+      document.getElementById('agent-analysis-total-revenue').textContent = `₹${totalAgentRevenue.toLocaleString('en-IN')}`;
+
+      // Calculate and toggle admin specific KPIs for the selected staff member
+      if (isAdmin) {
+        const agentBillCount = Object.keys(dailyGroup).reduce((acc, date) => {
+          return acc + Object.keys(dailyGroup[date].bills).length;
+        }, 0);
+
+        const agentATV = agentBillCount > 0 ? (totalAgentRevenue / agentBillCount) : 0;
+        const agentAUV = totalAgentUnits > 0 ? (totalAgentRevenue / totalAgentUnits) : 0;
+
+        document.getElementById('admin-agent-analysis-kpi').classList.remove('hidden');
+        document.getElementById('agent-analysis-atv').textContent = `₹${Math.round(agentATV).toLocaleString('en-IN')}`;
+        document.getElementById('agent-analysis-auv').textContent = `₹${Math.round(agentAUV).toLocaleString('en-IN')}`;
+      } else {
+        document.getElementById('admin-agent-analysis-kpi').classList.add('hidden');
+      }
+
+      // Render Product-Wise Share bars
+      const sortedProductSales = Object.entries(productSales)
+        .map(([name, revenue]) => {
+          const percent = totalAgentRevenue > 0 ? (revenue / totalAgentRevenue) * 100 : 0;
+          return { name, revenue, percent };
+        })
+        .sort((a, b) => b.revenue - a.revenue);
+
+      const productShareContainer = document.getElementById('agent-analysis-product-share');
+      if (sortedProductSales.length === 0) {
+        productShareContainer.innerHTML = `<p class="text-[10px] text-stone-400 font-semibold font-traditional text-center">No products logged</p>`;
+      } else {
+        productShareContainer.innerHTML = sortedProductSales.map(p => `
+          <div class="space-y-1">
+            <div class="flex justify-between items-center text-[10px] font-semibold text-stone-600">
+              <span class="font-traditional text-stone-700 truncate max-w-[200px]">${p.name}</span>
+              <span class="font-numeric text-stone-700">₹${p.revenue.toLocaleString('en-IN')} (${p.percent.toFixed(1)}%)</span>
+            </div>
+            <div class="w-full bg-[#E5D5C6]/30 h-1.5 rounded-full overflow-hidden">
+              <div class="bg-[#DAA520] h-full rounded-full" style="width: ${p.percent}%"></div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Sort dates in descending order (latest day first)
+      const sortedDates = Object.keys(dailyGroup).sort((a, b) => b.localeCompare(a));
+
+      const dailyListContainer = document.getElementById('agent-analysis-daily-list');
+      if (sortedDates.length === 0) {
+        dailyListContainer.innerHTML = `<div class="p-12 text-center text-stone-400 font-semibold font-traditional">No sales logged in this period</div>`;
+        return;
+      }
+
+      dailyListContainer.innerHTML = sortedDates.map(dateStr => {
+        const dayData = dailyGroup[dateStr];
+        // Sort individual bills on this day descending by total bill amount
+        const sortedBills = Object.entries(dayData.bills).sort((a, b) => b[1].total - a[1].total);
+
+        const billsHTML = sortedBills.map(([billNo, billData]) => {
+          const itemsHTML = billData.items.map(item => `
+            <div class="flex justify-between items-center text-[11px] text-stone-600 py-1.5">
+              <span class="font-sans font-medium text-stone-700 truncate max-w-[200px]">
+                ${item.name} <span class="text-stone-400 font-bold ml-1">x${item.qty}</span>
+              </span>
+              <span class="font-numeric font-semibold text-stone-800">₹${item.amount.toLocaleString('en-IN')}</span>
+            </div>
+          `).join('');
+
+          return `
+            <div class="bg-stone-50/60 rounded-xl p-3 border border-[#E5D5C6]/40 space-y-1.5">
+              <div class="flex justify-between items-center border-b border-[#E5D5C6]/30 pb-1">
+                <span class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Bill No: <span class="font-sans text-stone-700 font-bold">${billNo}</span></span>
+                <span class="text-xs font-black text-[#5C0612] font-numeric">₹${billData.total.toLocaleString('en-IN')}</span>
+              </div>
+              <div class="divide-y divide-[#E5D5C6]/15">
+                ${itemsHTML}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // Formats "YYYY-MM-DD" into localized "Sun, 19 Jul 2026"
+        let formattedDate = dateStr;
+        try {
+          const [yyyy, mm, dd] = dateStr.split('-').map(Number);
+          const dateObj = new Date(yyyy, mm - 1, dd);
+          formattedDate = dateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', weekday: 'short' });
+        } catch(e) {}
+
+        return `
+          <div class="border border-[#E5D5C6] rounded-2xl bg-[#FFFDF9] overflow-hidden warm-shadow">
+            <div class="bg-[#F3EFE9] px-4 py-3 border-b border-[#E5D5C6] flex justify-between items-center">
+              <span class="font-traditional font-bold text-stone-700 text-xs">${formattedDate}</span>
+              <span class="font-numeric font-black text-[#5C0612] text-xs">Day Total: ₹${dayData.total.toLocaleString('en-IN')}</span>
+            </div>
+            <div class="p-3 space-y-3">
+              ${billsHTML}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Compiles active screen sales ledger into structured WhatsApp markdown format
+    function shareAgentSalesReportWhatsApp() {
+      if (!activeAnalysisAgent) return;
+      
+      const fromVal = document.getElementById('from-date').value;
+      const toVal = document.getElementById('to-date').value;
+
+      const filtered = rawData.filter(row => {
+        if (!row['Bill Date']) return false;
+        const rDate = normalizeToDateString(row['Bill Date']);
+        let match = true;
+        if (fromVal) match = match && (rDate >= fromVal);
+        if (toVal) match = match && (rDate <= toVal);
+        return match;
+      });
+
+      const agentRows = filtered.filter(row => (row['SM Name'] || 'No Agent') === activeAnalysisAgent);
+
+      let totalAgentRevenue = 0;
+      const dailyGroup = {}; 
+      const productSales = {};
+
+      agentRows.forEach(row => {
+        const date = normalizeToDateString(row['Bill Date']);
+        const amount = parseFloat(row['BillAmount']) || 0;
+        const qty = parseInt(row['Qty']) || 0;
+        const item = row['Item Name'] || 'Unknown Item';
+        const billNo = row['Bill No'] || row['Bill No.'] || row['BillNo'] || row['Invoice No'] || row['Invoice No.'] || row['Bill ID'] || row['Bill Number'] || row['Voucher No'] || row['Vch No.'] || row['Vch No'] || row['Invoice'] || 'N/A';
+
+        totalAgentRevenue += amount;
+
+        if (!dailyGroup[date]) {
+          dailyGroup[date] = { total: 0, bills: {} };
+        }
+        dailyGroup[date].total += amount;
+
+        if (!dailyGroup[date].bills[billNo]) {
+          dailyGroup[date].bills[billNo] = { total: 0, items: [] };
+        }
+        dailyGroup[date].bills[billNo].total += amount;
+        dailyGroup[date].bills[billNo].items.push({ name: item, qty: qty, amount: amount });
+
+        productSales[item] = (productSales[item] || 0) + amount;
+      });
+
+      // Formulate WhatsApp message with clean spacing & emojis
+      let msg = `🌸 *KAILASH KALAMKARI* 🌸\n`;
+      msg += `*Staff Sales Ledger Report*\n\n`;
+      msg += `👤 *Staff Name:* ${activeAnalysisAgent}\n`;
+      msg += `🗓️ *Period:* ${fromVal || 'Start'} to ${toVal || 'End'}\n`;
+      msg += `💰 *Total Sales:* ₹${totalAgentRevenue.toLocaleString('en-IN')}\n\n`;
+
+      const sortedProductSales = Object.entries(productSales)
+        .map(([name, revenue]) => {
+          const percent = totalAgentRevenue > 0 ? (revenue / totalAgentRevenue) * 100 : 0;
+          return { name, revenue, percent };
+        })
+        .sort((a, b) => b.revenue - a.revenue);
+
+      if (sortedProductSales.length > 0) {
+        msg += `📊 *Product Sales Share:*\n`;
+        sortedProductSales.forEach(p => {
+          msg += `• ${p.name}: ₹${p.revenue.toLocaleString('en-IN')} (${p.percent.toFixed(1)}%)\n`;
+        });
+        msg += `\n`;
+      }
+
+      const sortedDates = Object.keys(dailyGroup).sort((a, b) => b.localeCompare(a));
+      if (sortedDates.length > 0) {
+        msg += `📅 *Daily Breakdown:*\n`;
+        sortedDates.forEach(dateStr => {
+          const dayData = dailyGroup[dateStr];
+          
+          let formattedDate = dateStr;
+          try {
+            const [yyyy, mm, dd] = dateStr.split('-').map(Number);
+            const dateObj = new Date(yyyy, mm - 1, dd);
+            formattedDate = dateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', weekday: 'short' });
+          } catch(e) {}
+
+          msg += `\n*${formattedDate}* (Day Total: ₹${dayData.total.toLocaleString('en-IN')})\n`;
+          
+          const sortedBills = Object.entries(dayData.bills).sort((a, b) => b[1].total - a[1].total);
+          sortedBills.forEach(([billNo, billData]) => {
+            msg += `  - _Bill No: ${billNo}_ (₹${billData.total.toLocaleString('en-IN')})\n`;
+            billData.items.forEach(item => {
+              msg += `    ▪️ ${item.name} x${item.qty} (₹${item.amount.toLocaleString('en-IN')})\n`;
+            });
+          });
+        });
+      }
+
+      // Open WhatsApp sharing url
+      const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+      window.open(url, '_blank');
+    }
+
+    // Dynamic builder for the main Day-Wise Sales tab
+    function renderDayWiseSales(dayWiseObj) {
+      const container = document.getElementById('daywise-sales-container');
+      const sortedDates = Object.keys(dayWiseObj).sort((a, b) => b.localeCompare(a)); // Descending order (latest first)
+
+      if (sortedDates.length === 0) {
+        container.innerHTML = `<p class="p-8 text-center text-stone-400 font-semibold font-traditional">No daily sales tracked in this range</p>`;
+        return;
+      }
+
+      container.innerHTML = sortedDates.map(dateStr => {
+        const dayData = dayWiseObj[dateStr];
+        
+        // Formats Date (e.g. "Mon, 20 Jul 2026")
+        let formattedDate = dateStr;
+        try {
+          const [yyyy, mm, dd] = dateStr.split('-').map(Number);
+          const dateObj = new Date(yyyy, mm - 1, dd);
+          formattedDate = dateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', weekday: 'short' });
+        } catch(e) {}
+
+        // Sort agents on this day by revenue descending
+        const sortedAgents = Object.entries(dayData.agents).sort((a, b) => b[1] - a[1]);
+
+        const agentsListHTML = sortedAgents.map(([agentName, rev]) => `
+          <div class="flex justify-between items-center py-1.5 text-[11px] text-stone-600">
+            <span class="font-sans font-medium text-stone-700">${agentName}</span>
+            <span class="font-numeric font-bold text-stone-855">₹${rev.toLocaleString('en-IN')}</span>
+          </div>
+        `).join('');
+
+        return `
+          <div class="border border-[#E5D5C6] rounded-xl bg-[#FFFDF9] overflow-hidden warm-shadow mb-3">
+            <div class="bg-[#F3EFE9] px-4 py-2.5 border-b border-[#E5D5C6] flex justify-between items-center">
+              <span class="font-traditional font-bold text-stone-800 text-xs">${formattedDate}</span>
+              <span class="font-numeric font-black text-[#5C0612] text-xs">Total: ₹${dayData.total.toLocaleString('en-IN')}</span>
+            </div>
+            <div class="p-3 divide-y divide-[#E5D5C6]/10">
+              ${agentsListHTML}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function closeAgentAnalysisScreen() {
+      applyState({ view: 'home' });
+    }
+
     function toggleAgentDetailView(type) {
       const prodView = document.getElementById('agent-detail-product-view');
       const billView = document.getElementById('agent-detail-bill-view');
@@ -1448,19 +1906,26 @@
       }
     }
 
-    // Standard Detail Close functions
-    // Tab Switcher Controller
+    function closeAgentDetail() {
+      applyState({ view: 'home' });
+    }
+
+    // Tab Switcher Controller (Updated to support 3 tabs)
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
       document.getElementById(tabId).classList.remove('hidden');
 
       document.getElementById('btn-products-tab').className = tabId === 'products-tab' 
-        ? "flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all bg-white text-[#5C0612] shadow-sm font-traditional"
-        : "flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all text-stone-500 hover:text-stone-700 font-traditional";
+        ? "flex-1 text-center py-2 text-[11px] font-bold rounded-lg transition-all bg-white text-[#5C0612] shadow-sm font-traditional"
+        : "flex-1 text-center py-2 text-[11px] font-bold rounded-lg transition-all text-stone-500 hover:text-stone-700 font-traditional";
         
       document.getElementById('btn-agents-tab').className = tabId === 'agents-tab' 
-        ? "flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all bg-white text-[#5C0612] shadow-sm font-traditional"
-        : "flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all text-stone-500 hover:text-stone-700 font-traditional";
+        ? "flex-1 text-center py-2 text-[11px] font-bold rounded-lg transition-all bg-white text-[#5C0612] shadow-sm font-traditional"
+        : "flex-1 text-center py-2 text-[11px] font-bold rounded-lg transition-all text-stone-500 hover:text-stone-700 font-traditional";
+
+      document.getElementById('btn-daywise-tab').className = tabId === 'daywise-tab' 
+        ? "flex-1 text-center py-2 text-[11px] font-bold rounded-lg transition-all bg-white text-[#5C0612] shadow-sm font-traditional"
+        : "flex-1 text-center py-2 text-[11px] font-bold rounded-lg transition-all text-stone-500 hover:text-stone-700 font-traditional";
     }
 
     // Attach Event Listeners
@@ -1479,6 +1944,7 @@
       closeChannelProductDetail();
       closeAgentDetail();
       closeChannelAgentDetail();
+      closeAgentAnalysisScreen();
       detectDateRanges();
       processData();
     });
