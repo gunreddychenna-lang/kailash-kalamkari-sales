@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -208,7 +209,7 @@
       
       <div id="card-wholesale" onclick="selectChannel('Wholesale')" class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow cursor-pointer transition-all hover:scale-[1.01] duration-200 hover:border-purple-400">
         <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between font-traditional">
-          <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block"></span> Wholesale</span>
+          <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block"></span> Takebyhand</span>
           <span class="text-[8px] text-purple-600 font-extrabold uppercase tracking-wider flex items-center gap-0.5">Explore <i class="fa-solid fa-chevron-right text-[6px]"></i></span>
         </p>
         <p id="metric-wholesale" class="text-base font-extrabold text-[#5C0612] mt-1 font-numeric">₹0</p>
@@ -268,7 +269,7 @@
                 <th class="p-1.5 pb-2 text-left w-[24%] font-traditional">Staff Name</th>
                 <th class="p-1.5 pb-2 text-right w-[19%] font-traditional">Online</th>
                 <th class="p-1.5 pb-2 text-right w-[19%] font-traditional">Offline</th>
-                <th class="p-1.5 pb-2 text-right w-[19%] font-traditional">Wholesale</th>
+                <th class="p-1.5 pb-2 text-right w-[19%] font-traditional">Takebyhand</th>
                 <th class="p-1.5 pb-2 text-right w-[19%] font-traditional">Total</th>
               </tr>
             </thead>
@@ -469,7 +470,7 @@
                 <th class="p-1.5 pb-2 text-left w-[24%] font-traditional">Staff Name</th>
                 <th class="p-1.5 pb-2 text-right w-[19%] font-traditional">Online</th>
                 <th class="p-1.5 pb-2 text-right w-[19%] font-traditional">Offline</th>
-                <th class="p-1.5 pb-2 text-right w-[19%] font-traditional">Wholesale</th>
+                <th class="p-1.5 pb-2 text-right w-[19%] font-traditional">Takebyhand</th>
                 <th class="p-1.5 pb-2 text-right w-[19%] font-traditional">Total</th>
               </tr>
             </thead>
@@ -522,7 +523,23 @@
           <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Total Revenue Sold</p>
           <p id="agent-analysis-total-revenue" class="text-3xl font-black mt-1 text-[#5C0612] font-sans">₹0</p>
           
-          <div id="admin-agent-analysis-kpi" class="hidden mt-4 pt-3.5 border-t border-[#E5D5C6]/60 grid grid-cols-2 gap-2 text-center text-xs">
+          <!-- Channel Sales Breakdown inside Staff Overview -->
+          <div class="mt-3 pt-3 border-t border-[#E5D5C6]/60 grid grid-cols-3 gap-1 text-center text-xs">
+            <div>
+              <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Online Sale</p>
+              <p id="agent-analysis-online-sales" class="text-xs font-black text-blue-600 font-sans mt-0.5">₹0</p>
+            </div>
+            <div class="border-x border-[#E5D5C6]/60">
+              <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Offline Sale</p>
+              <p id="agent-analysis-offline-sales" class="text-xs font-black text-orange-600 font-sans mt-0.5">₹0</p>
+            </div>
+            <div>
+              <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Takebyhand</p>
+              <p id="agent-analysis-takebyhand-sales" class="text-xs font-black text-purple-600 font-sans mt-0.5">₹0</p>
+            </div>
+          </div>
+
+          <div id="admin-agent-analysis-kpi" class="hidden mt-3 pt-3 border-t border-[#E5D5C6]/60 grid grid-cols-2 gap-2 text-center text-xs">
             <div class="border-r border-[#E5D5C6]/60">
               <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Staff ATV</p>
               <p id="agent-analysis-atv" class="text-sm font-black text-stone-800 font-sans">₹0</p>
@@ -610,7 +627,7 @@
       if (!payMode) return 'Offline';
       const pm = payMode.toString().toLowerCase().trim();
       if (pm.includes('onl') || pm.includes('online')) return 'Online';
-      if (pm.includes('by hand') || pm.includes('hand') || pm.includes('wholesale') || pm.includes('take by hand')) return 'Wholesale';
+      if (pm.includes('by hand') || pm.includes('hand') || pm.includes('wholesale') || pm.includes('take by hand') || pm.includes('takebyhand')) return 'Wholesale';
       return 'Offline';
     }
 
@@ -629,14 +646,17 @@
         return { valid: false, reason: 'expired' };
       }
       
-      isAdmin = savedUser.toLowerCase() === 'admin';
-      return { valid: true, user: savedUser, pass: savedPass };
+      const cleanUser = savedUser.trim().toLowerCase();
+      const cleanPass = savedPass.trim().toLowerCase();
+      isAdmin = cleanUser === 'admin';
+      return { valid: true, user: cleanUser, pass: cleanPass };
     }
 
     document.getElementById('login-form').addEventListener('submit', async function(e) {
       e.preventDefault();
-      const user = document.getElementById('login-username').value.trim();
-      const pass = document.getElementById('login-password').value;
+      // Case-insensitive user input capture
+      const user = document.getElementById('login-username').value.trim().toLowerCase();
+      const pass = document.getElementById('login-password').value.trim().toLowerCase();
       
       document.getElementById('login-error').classList.add('hidden');
       document.getElementById('login-btn-text').classList.add('hidden');
@@ -653,6 +673,10 @@
     }
 
     async function fetchData(user, pass) {
+      // Normalize credentials to be case-insensitive
+      const cleanUser = (user || '').trim().toLowerCase();
+      const cleanPass = (pass || '').trim().toLowerCase();
+
       document.getElementById('loader').classList.remove('hidden');
       document.getElementById('standard-main').classList.add('hidden');
       document.getElementById('channel-view').classList.add('hidden');
@@ -661,7 +685,7 @@
       document.getElementById('login-screen').classList.add('hidden');
       
       try {
-        const url = `${API_URL}?username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`;
+        const url = `${API_URL}?username=${encodeURIComponent(cleanUser)}&password=${encodeURIComponent(cleanPass)}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Server status ${response.status}`);
         
@@ -671,11 +695,11 @@
           return;
         }
 
-        localStorage.setItem('kk_user', user);
-        localStorage.setItem('kk_pass', pass);
+        localStorage.setItem('kk_user', cleanUser);
+        localStorage.setItem('kk_pass', cleanPass);
         localStorage.setItem('kk_login_time', Date.now().toString());
         
-        isAdmin = user.toLowerCase() === 'admin';
+        isAdmin = cleanUser === 'admin';
         rawData = data;
         detectDateRanges();
         processData();
@@ -818,11 +842,11 @@
         productLabel.textContent = "Top Selling Products Offline";
       } else if (channel === 'Wholesale') {
         headerEl.className = "bg-purple-600 text-white px-5 py-4 flex items-center gap-3.5 sticky top-0 z-50 shadow-md border-b-2 border-[#DAA520]";
-        titleEl.textContent = "Wholesale Sales Channel";
-        totalLabel.textContent = "Total Wholesale Revenue";
+        titleEl.textContent = "Takebyhand Sales Channel";
+        totalLabel.textContent = "Total Takebyhand Revenue";
         totalTextVal.className = "text-3xl font-black mt-1 text-purple-600 font-sans";
-        leaderboardLabel.textContent = "Which Agent Sold High Wholesale?";
-        productLabel.textContent = "Top Selling Products Wholesale";
+        leaderboardLabel.textContent = "Which Agent Sold High Takebyhand?";
+        productLabel.textContent = "Top Selling Products Takebyhand";
       }
 
       const fromVal = document.getElementById('from-date').value;
@@ -1233,7 +1257,7 @@
               <div class="text-[10px] text-stone-500 font-bold mt-1 font-sans">
                 <span class="text-blue-600">Online: ${p.onlineQty}</span> • 
                 <span class="text-orange-600">Offline: ${p.offlineQty}</span> • 
-                <span class="text-purple-600">Wholesale: ${p.wholesaleQty}</span>
+                <span class="text-purple-600">Takebyhand: ${p.wholesaleQty}</span>
               </div>
             </td>
             <td class="p-3.5 text-center font-bold text-stone-700 font-sans">${p.qty}</td>
@@ -1338,6 +1362,7 @@
 
       const agentRows = filtered.filter(row => (row['SM Name'] || 'No Agent') === agentName);
       let totalAgentRevenue = 0, totalAgentUnits = 0;
+      let totalOnlineSales = 0, totalOfflineSales = 0, totalTakebyhandSales = 0;
       const dailyGroup = {};
       const productSales = {};
 
@@ -1346,22 +1371,44 @@
         const amount = parseFloat(row['BillAmount']) || 0;
         const qty = parseInt(row['Qty']) || 0;
         const item = row['Item Name'] || 'Unknown Item';
+        const channel = getSalesType(row['PayMode']);
         const billNo = row['Bill No'] || row['Bill No.'] || row['BillNo'] || row['Invoice No'] || row['Invoice No.'] || row['Bill ID'] || row['Bill Number'] || row['Voucher No'] || row['Vch No.'] || row['Vch No'] || row['Invoice'] || 'N/A';
 
         totalAgentRevenue += amount;
         totalAgentUnits += qty;
+
+        if (channel === 'Online') totalOnlineSales += amount;
+        else if (channel === 'Wholesale') totalTakebyhandSales += amount;
+        else totalOfflineSales += amount;
 
         if (!dailyGroup[date]) dailyGroup[date] = { total: 0, bills: {} };
         dailyGroup[date].total += amount;
 
         if (!dailyGroup[date].bills[billNo]) dailyGroup[date].bills[billNo] = { total: 0, items: [] };
         dailyGroup[date].bills[billNo].total += amount;
-        dailyGroup[date].bills[billNo].items.push({ name: item, qty: qty, amount: amount });
+        dailyGroup[date].bills[billNo].items.push({ name: item, qty: qty, amount: amount, channel: channel });
 
-        productSales[item] = (productSales[item] || 0) + amount;
+        if (!productSales[item]) {
+          productSales[item] = {
+            name: item,
+            revenue: 0,
+            qty: 0,
+            onlineQty: 0,
+            offlineQty: 0,
+            takebyhandQty: 0
+          };
+        }
+        productSales[item].revenue += amount;
+        productSales[item].qty += qty;
+        if (channel === 'Online') productSales[item].onlineQty += qty;
+        else if (channel === 'Wholesale') productSales[item].takebyhandQty += qty;
+        else productSales[item].offlineQty += qty;
       });
 
       document.getElementById('agent-analysis-total-revenue').textContent = `₹${totalAgentRevenue.toLocaleString('en-IN')}`;
+      document.getElementById('agent-analysis-online-sales').textContent = `₹${totalOnlineSales.toLocaleString('en-IN')}`;
+      document.getElementById('agent-analysis-offline-sales').textContent = `₹${totalOfflineSales.toLocaleString('en-IN')}`;
+      document.getElementById('agent-analysis-takebyhand-sales').textContent = `₹${totalTakebyhandSales.toLocaleString('en-IN')}`;
 
       if (isAdmin) {
         const agentBillCount = Object.keys(dailyGroup).reduce((acc, date) => acc + Object.keys(dailyGroup[date].bills).length, 0);
@@ -1374,9 +1421,9 @@
         document.getElementById('admin-agent-analysis-kpi').classList.add('hidden');
       }
 
-      const sortedProductSales = Object.entries(productSales).map(([name, revenue]) => {
-        const percent = totalAgentRevenue > 0 ? (revenue / totalAgentRevenue) * 100 : 0;
-        return { name, revenue, percent };
+      const sortedProductSales = Object.values(productSales).map(p => {
+        p.percent = totalAgentRevenue > 0 ? (p.revenue / totalAgentRevenue) * 100 : 0;
+        return p;
       }).sort((a, b) => b.revenue - a.revenue);
 
       const productShareContainer = document.getElementById('agent-analysis-product-share');
@@ -1384,12 +1431,19 @@
         productShareContainer.innerHTML = `<p class="text-[10px] text-stone-400 font-semibold font-traditional text-center">No products logged</p>`;
       } else {
         productShareContainer.innerHTML = sortedProductSales.map(p => `
-          <div class="space-y-1">
-            <div class="flex justify-between items-center text-[10px] font-semibold text-stone-600">
-              <span class="font-traditional text-stone-700 truncate max-w-[200px]">${p.name}</span>
-              <span class="font-numeric text-stone-700">₹${p.revenue.toLocaleString('en-IN')} (${p.percent.toFixed(1)}%)</span>
+          <div class="space-y-1.5 p-3 rounded-xl bg-[#FAF6EE]/60 border border-[#E5D5C6]/60">
+            <div class="flex justify-between items-center text-xs font-semibold text-stone-700">
+              <span class="font-traditional font-bold text-stone-800 truncate max-w-[200px]">${p.name}</span>
+              <span class="font-numeric text-[#5C0612] font-black">₹${p.revenue.toLocaleString('en-IN')} (${p.percent.toFixed(1)}%)</span>
             </div>
-            <div class="w-full bg-[#E5D5C6]/30 h-1.5 rounded-full overflow-hidden">
+            <div class="text-[10px] text-stone-500 font-bold font-sans flex items-center gap-1.5">
+              <span class="text-blue-600">Online: ${p.onlineQty}</span>
+              <span class="text-stone-300">•</span>
+              <span class="text-orange-600">Offline: ${p.offlineQty}</span>
+              <span class="text-stone-300">•</span>
+              <span class="text-purple-600">Takebyhand: ${p.takebyhandQty}</span>
+            </div>
+            <div class="w-full bg-[#E5D5C6]/40 h-1.5 rounded-full overflow-hidden">
               <div class="bg-[#DAA520] h-full rounded-full" style="width: ${p.percent}%"></div>
             </div>
           </div>
@@ -1408,14 +1462,22 @@
         const sortedBills = Object.entries(dayData.bills).sort((a, b) => b[1].total - a[1].total);
 
         const billsHTML = sortedBills.map(([billNo, billData]) => {
-          const itemsHTML = billData.items.map(item => `
-            <div class="flex justify-between items-center text-[11px] text-stone-600 py-1.5">
-              <span class="font-sans font-medium text-stone-700 truncate max-w-[200px]">
-                ${item.name} <span class="text-stone-400 font-bold ml-1">x${item.qty}</span>
-              </span>
-              <span class="font-numeric font-semibold text-stone-800">₹${item.amount.toLocaleString('en-IN')}</span>
-            </div>
-          `).join('');
+          const itemsHTML = billData.items.map(item => {
+            const channelBadge = item.channel === 'Online' 
+              ? `<span class="text-[8px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold uppercase ml-1 font-sans">Online</span>`
+              : item.channel === 'Wholesale'
+              ? `<span class="text-[8px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold uppercase ml-1 font-sans">Takebyhand</span>`
+              : `<span class="text-[8px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-bold uppercase ml-1 font-sans">Offline</span>`;
+
+            return `
+              <div class="flex justify-between items-center text-[11px] text-stone-600 py-1.5">
+                <span class="font-sans font-medium text-stone-700 truncate max-w-[200px] flex items-center gap-1">
+                  ${item.name} <span class="text-stone-400 font-bold">x${item.qty}</span> ${channelBadge}
+                </span>
+                <span class="font-numeric font-semibold text-stone-800">₹${item.amount.toLocaleString('en-IN')}</span>
+              </div>
+            `;
+          }).join('');
 
           return `
             <div class="bg-stone-50/60 rounded-xl p-3 border border-[#E5D5C6]/40 space-y-1.5">
@@ -1465,6 +1527,7 @@
 
       const agentRows = filtered.filter(row => (row['SM Name'] || 'No Agent') === activeAnalysisAgent);
       let totalAgentRevenue = 0;
+      let totalOnlineSales = 0, totalOfflineSales = 0, totalTakebyhandSales = 0;
       const dailyGroup = {}; 
       const productSales = {};
 
@@ -1473,22 +1536,41 @@
         const amount = parseFloat(row['BillAmount']) || 0;
         const qty = parseInt(row['Qty']) || 0;
         const item = row['Item Name'] || 'Unknown Item';
+        const channel = getSalesType(row['PayMode']);
         const billNo = row['Bill No'] || row['Bill No.'] || row['BillNo'] || row['Invoice No'] || row['Invoice No.'] || row['Bill ID'] || row['Bill Number'] || row['Voucher No'] || row['Vch No.'] || row['Vch No'] || row['Invoice'] || 'N/A';
 
         totalAgentRevenue += amount;
+        if (channel === 'Online') totalOnlineSales += amount;
+        else if (channel === 'Wholesale') totalTakebyhandSales += amount;
+        else totalOfflineSales += amount;
+
         if (!dailyGroup[date]) dailyGroup[date] = { total: 0, bills: {} };
         dailyGroup[date].total += amount;
 
         if (!dailyGroup[date].bills[billNo]) dailyGroup[date].bills[billNo] = { total: 0, items: [] };
         dailyGroup[date].bills[billNo].total += amount;
-        dailyGroup[date].bills[billNo].items.push({ name: item, qty: qty, amount: amount });
+        dailyGroup[date].bills[billNo].items.push({ name: item, qty: qty, amount: amount, channel: channel });
 
-        productSales[item] = (productSales[item] || 0) + amount;
+        if (!productSales[item]) {
+          productSales[item] = {
+            name: item,
+            revenue: 0,
+            qty: 0,
+            onlineQty: 0,
+            offlineQty: 0,
+            takebyhandQty: 0
+          };
+        }
+        productSales[item].revenue += amount;
+        productSales[item].qty += qty;
+        if (channel === 'Online') productSales[item].onlineQty += qty;
+        else if (channel === 'Wholesale') productSales[item].takebyhandQty += qty;
+        else productSales[item].offlineQty += qty;
       });
 
-      const sortedProductSales = Object.entries(productSales).map(([name, revenue]) => {
-        const percent = totalAgentRevenue > 0 ? (revenue / totalAgentRevenue) * 100 : 0;
-        return { name, revenue, percent };
+      const sortedProductSales = Object.values(productSales).map(p => {
+        p.percent = totalAgentRevenue > 0 ? (p.revenue / totalAgentRevenue) * 100 : 0;
+        return p;
       }).sort((a, b) => b.revenue - a.revenue);
 
       const sortedDates = Object.keys(dailyGroup).sort((a, b) => b.localeCompare(a));
@@ -1514,20 +1596,34 @@
           </div>
 
           <!-- Metadata Table -->
-          <table style="width: 100%; border-collapse: collapse; background-color: #F3EFE9; border: 1px solid #E5D5C6; border-radius: 6px; margin-bottom: 16px; text-align: center; table-layout: fixed;">
+          <table style="width: 100%; border-collapse: collapse; background-color: #F3EFE9; border: 1px solid #E5D5C6; border-radius: 6px; margin-bottom: 10px; text-align: center; table-layout: fixed;">
             <tr>
-              <td style="padding: 10px; width: 33%; border-right: 1px solid #E5D5C6;">
-                <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; color: #78716c;">Staff Name</div>
-                <div style="font-size: 14px; font-weight: bold; color: #5C0612; margin-top: 2px;">${activeAnalysisAgent}</div>
+              <td style="padding: 8px; width: 33%; border-right: 1px solid #E5D5C6;">
+                <div style="font-size: 8.5px; font-weight: bold; text-transform: uppercase; color: #78716c;">Staff Name</div>
+                <div style="font-size: 13px; font-weight: bold; color: #5C0612; margin-top: 2px;">${activeAnalysisAgent}</div>
               </td>
-              <td style="padding: 10px; width: 34%; border-right: 1px solid #E5D5C6;">
-                <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; color: #78716c;">Date Period</div>
-                <div style="font-size: 11px; font-weight: bold; color: #292524; margin-top: 2px;">${fromVal || 'Start'} to ${toVal || 'End'}</div>
+              <td style="padding: 8px; width: 34%; border-right: 1px solid #E5D5C6;">
+                <div style="font-size: 8.5px; font-weight: bold; text-transform: uppercase; color: #78716c;">Date Period</div>
+                <div style="font-size: 10.5px; font-weight: bold; color: #292524; margin-top: 2px;">${fromVal || 'Start'} to ${toVal || 'End'}</div>
               </td>
-              <td style="padding: 10px; width: 33%;">
-                <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; color: #78716c;">Total Revenue</div>
-                <div style="font-size: 15px; font-weight: 900; color: #5C0612; margin-top: 1px;">₹${totalAgentRevenue.toLocaleString('en-IN')}</div>
+              <td style="padding: 8px; width: 33%;">
+                <div style="font-size: 8.5px; font-weight: bold; text-transform: uppercase; color: #78716c;">Total Revenue</div>
+                <div style="font-size: 14px; font-weight: 900; color: #5C0612; margin-top: 1px;">₹${totalAgentRevenue.toLocaleString('en-IN')}</div>
               </td>
+            </tr>
+          </table>
+
+          <!-- Sales Channels Table -->
+          <table style="width: 100%; border-collapse: collapse; background-color: #FFFDF9; border: 1px solid #E5D5C6; border-radius: 6px; margin-bottom: 16px; text-align: center; table-layout: fixed;">
+            <tr style="background-color: #F3EFE9;">
+              <td style="padding: 5px; width: 33%; border-right: 1px solid #E5D5C6; border-bottom: 1px solid #E5D5C6; font-size: 8px; font-weight: bold; color: #2563eb; text-transform: uppercase;">Online Sale</td>
+              <td style="padding: 5px; width: 34%; border-right: 1px solid #E5D5C6; border-bottom: 1px solid #E5D5C6; font-size: 8px; font-weight: bold; color: #ea580c; text-transform: uppercase;">Offline Sale</td>
+              <td style="padding: 5px; width: 33%; border-bottom: 1px solid #E5D5C6; font-size: 8px; font-weight: bold; color: #9333ea; text-transform: uppercase;">Takebyhand Sale</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; font-size: 11px; font-weight: bold; color: #2563eb; border-right: 1px solid #E5D5C6;">₹${totalOnlineSales.toLocaleString('en-IN')}</td>
+              <td style="padding: 8px; font-size: 11px; font-weight: bold; color: #ea580c; border-right: 1px solid #E5D5C6;">₹${totalOfflineSales.toLocaleString('en-IN')}</td>
+              <td style="padding: 8px; font-size: 11px; font-weight: bold; color: #9333ea;">₹${totalTakebyhandSales.toLocaleString('en-IN')}</td>
             </tr>
           </table>
 
@@ -1539,9 +1635,9 @@
             <table style="width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed;">
               <thead>
                 <tr style="background-color: #F3EFE9; color: #57534e; text-transform: uppercase; font-size: 8px; font-weight: bold;">
-                  <th style="padding: 6px 8px; text-align: left; width: 50%; border-bottom: 1px solid #E5D5C6;">Product Line</th>
-                  <th style="padding: 6px 8px; text-align: right; width: 25%; border-bottom: 1px solid #E5D5C6;">Revenue</th>
-                  <th style="padding: 6px 8px; text-align: right; width: 25%; border-bottom: 1px solid #E5D5C6;">Share %</th>
+                  <th style="padding: 6px 8px; text-align: left; width: 42%; border-bottom: 1px solid #E5D5C6;">Product Line</th>
+                  <th style="padding: 6px 8px; text-align: center; width: 35%; border-bottom: 1px solid #E5D5C6;">Qty Breakdown (On / Off / Hand)</th>
+                  <th style="padding: 6px 8px; text-align: right; width: 23%; border-bottom: 1px solid #E5D5C6;">Revenue (Share)</th>
                 </tr>
               </thead>
               <tbody>
@@ -1550,9 +1646,15 @@
       sortedProductSales.forEach(p => {
         html += `
           <tr style="border-bottom: 1px solid #E5D5C6;">
-            <td style="padding: 5px 8px; font-weight: 600; color: #292524; text-align: left; word-break: break-word;">${p.name}</td>
-            <td style="padding: 5px 8px; text-align: right; font-weight: 700; color: #5C0612;">₹${p.revenue.toLocaleString('en-IN')}</td>
-            <td style="padding: 5px 8px; text-align: right; font-weight: 700; color: #DAA520;">${p.percent.toFixed(1)}%</td>
+            <td style="padding: 6px 8px; font-weight: 600; color: #292524; text-align: left; word-break: break-word;">${p.name}</td>
+            <td style="padding: 6px 8px; text-align: center; font-size: 9px; color: #57534e;">
+              <span style="color: #2563eb; font-weight: bold;">On: ${p.onlineQty}</span> • 
+              <span style="color: #ea580c; font-weight: bold;">Off: ${p.offlineQty}</span> • 
+              <span style="color: #9333ea; font-weight: bold;">Hand: ${p.takebyhandQty}</span>
+            </td>
+            <td style="padding: 6px 8px; text-align: right; font-weight: 700; color: #5C0612;">
+              ₹${p.revenue.toLocaleString('en-IN')} <span style="font-size: 8.5px; color: #DAA520;">(${p.percent.toFixed(1)}%)</span>
+            </td>
           </tr>
         `;
       });
@@ -1602,10 +1704,13 @@
           `;
 
           billData.items.forEach(item => {
+            const chTag = item.channel === 'Online' ? '[Online]' : item.channel === 'Wholesale' ? '[Takebyhand]' : '[Offline]';
             html += `
               <table style="width: 100%; border-collapse: collapse;">
                 <tr>
-                  <td style="font-size: 9.5px; color: #44403c; text-align: left; padding-left: 6px;">▪️ ${item.name} <strong style="color: #78716c;">(x${item.qty})</strong></td>
+                  <td style="font-size: 9.5px; color: #44403c; text-align: left; padding-left: 6px;">
+                    ▪️ ${item.name} <strong style="color: #78716c;">(x${item.qty})</strong> <span style="font-size: 8px; color: #78716c;">${chTag}</span>
+                  </td>
                   <td style="font-size: 9.5px; font-weight: 600; color: #292524; text-align: right;">₹${item.amount.toLocaleString('en-IN')}</td>
                 </tr>
               </table>
@@ -1633,7 +1738,7 @@
       return wrapper;
     }
 
-    // 1. PERFECT PDF EXPORT FUNCTION (Fixed left offset bug)
+    // 1. PERFECT PDF EXPORT FUNCTION
     async function exportAgentReportPDF() {
       if (!activeAnalysisAgent) return;
       const element = buildPrintableReportDOM();
@@ -1643,7 +1748,6 @@
       const toVal = document.getElementById('to-date').value;
       const filename = `${activeAnalysisAgent}_Sales_Report_${fromVal || 'Start'}_to_${toVal || 'End'}.pdf`;
 
-      // Attach container strictly at top-left origin (0, 0)
       const container = document.createElement('div');
       container.style.position = 'fixed';
       container.style.top = '0px';
@@ -1751,13 +1855,35 @@
       const agentRows = filtered.filter(row => (row['SM Name'] || 'No Agent') === activeAnalysisAgent);
 
       let totalRevenue = 0;
+      let totalOnlineSales = 0, totalOfflineSales = 0, totalTakebyhandSales = 0;
       const productSales = {};
 
       agentRows.forEach(row => {
         const amount = parseFloat(row['BillAmount']) || 0;
+        const qty = parseInt(row['Qty']) || 0;
         const item = row['Item Name'] || 'Unknown Item';
+        const channel = getSalesType(row['PayMode']);
+
         totalRevenue += amount;
-        productSales[item] = (productSales[item] || 0) + amount;
+        if (channel === 'Online') totalOnlineSales += amount;
+        else if (channel === 'Wholesale') totalTakebyhandSales += amount;
+        else totalOfflineSales += amount;
+
+        if (!productSales[item]) {
+          productSales[item] = {
+            name: item,
+            revenue: 0,
+            qty: 0,
+            onlineQty: 0,
+            offlineQty: 0,
+            takebyhandQty: 0
+          };
+        }
+        productSales[item].revenue += amount;
+        productSales[item].qty += qty;
+        if (channel === 'Online') productSales[item].onlineQty += qty;
+        else if (channel === 'Wholesale') productSales[item].takebyhandQty += qty;
+        else productSales[item].offlineQty += qty;
       });
 
       const summaryData = [
@@ -1765,20 +1891,23 @@
         ["Staff Name:", activeAnalysisAgent],
         ["Period:", `${fromVal || 'Start'} to ${toVal || 'End'}`],
         ["Total Revenue (INR):", totalRevenue],
+        ["Online Sales (INR):", totalOnlineSales],
+        ["Offline Sales (INR):", totalOfflineSales],
+        ["Takebyhand Sales (INR):", totalTakebyhandSales],
         [],
         ["PRODUCT SALES SHARE"],
-        ["Product Line", "Revenue (INR)", "Share (%)"]
+        ["Product Line", "Online Qty", "Offline Qty", "Takebyhand Qty", "Total Qty", "Revenue (INR)", "Share (%)"]
       ];
 
-      Object.entries(productSales)
-        .sort((a, b) => b[1] - a[1])
-        .forEach(([name, rev]) => {
-          const pct = totalRevenue > 0 ? (rev / totalRevenue) * 100 : 0;
-          summaryData.push([name, rev, parseFloat(pct.toFixed(2))]);
+      Object.values(productSales)
+        .sort((a, b) => b.revenue - a.revenue)
+        .forEach(p => {
+          const pct = totalRevenue > 0 ? (p.revenue / totalRevenue) * 100 : 0;
+          summaryData.push([p.name, p.onlineQty, p.offlineQty, p.takebyhandQty, p.qty, p.revenue, parseFloat(pct.toFixed(2))]);
         });
 
       const detailedData = [
-        ["Bill Date", "Bill No", "Item Name", "Qty", "Bill Amount (INR)"]
+        ["Bill Date", "Bill No", "Item Name", "Qty", "Channel", "Bill Amount (INR)"]
       ];
 
       agentRows.forEach(row => {
@@ -1786,8 +1915,9 @@
         const amount = parseFloat(row['BillAmount']) || 0;
         const qty = parseInt(row['Qty']) || 0;
         const item = row['Item Name'] || 'Unknown Item';
+        const channel = getSalesType(row['PayMode']) === 'Online' ? 'Online' : getSalesType(row['PayMode']) === 'Wholesale' ? 'Takebyhand' : 'Offline';
         const billNo = row['Bill No'] || row['Bill No.'] || row['BillNo'] || row['Invoice No'] || 'N/A';
-        detailedData.push([date, billNo, item, qty, amount]);
+        detailedData.push([date, billNo, item, qty, channel, amount]);
       });
 
       const wb = XLSX.utils.book_new();
@@ -1819,6 +1949,7 @@
       const agentRows = filtered.filter(row => (row['SM Name'] || 'No Agent') === activeAnalysisAgent);
 
       let totalAgentRevenue = 0;
+      let totalOnlineSales = 0, totalOfflineSales = 0, totalTakebyhandSales = 0;
       const dailyGroup = {}; 
       const productSales = {};
 
@@ -1827,35 +1958,56 @@
         const amount = parseFloat(row['BillAmount']) || 0;
         const qty = parseInt(row['Qty']) || 0;
         const item = row['Item Name'] || 'Unknown Item';
+        const channel = getSalesType(row['PayMode']);
         const billNo = row['Bill No'] || row['Bill No.'] || row['BillNo'] || row['Invoice No'] || row['Invoice No.'] || row['Bill ID'] || row['Bill Number'] || row['Voucher No'] || row['Vch No.'] || row['Vch No'] || row['Invoice'] || 'N/A';
 
         totalAgentRevenue += amount;
+        if (channel === 'Online') totalOnlineSales += amount;
+        else if (channel === 'Wholesale') totalTakebyhandSales += amount;
+        else totalOfflineSales += amount;
 
         if (!dailyGroup[date]) dailyGroup[date] = { total: 0, bills: {} };
         dailyGroup[date].total += amount;
 
         if (!dailyGroup[date].bills[billNo]) dailyGroup[date].bills[billNo] = { total: 0, items: [] };
         dailyGroup[date].bills[billNo].total += amount;
-        dailyGroup[date].bills[billNo].items.push({ name: item, qty: qty, amount: amount });
+        dailyGroup[date].bills[billNo].items.push({ name: item, qty: qty, amount: amount, channel: channel });
 
-        productSales[item] = (productSales[item] || 0) + amount;
+        if (!productSales[item]) {
+          productSales[item] = {
+            name: item,
+            revenue: 0,
+            qty: 0,
+            onlineQty: 0,
+            offlineQty: 0,
+            takebyhandQty: 0
+          };
+        }
+        productSales[item].revenue += amount;
+        productSales[item].qty += qty;
+        if (channel === 'Online') productSales[item].onlineQty += qty;
+        else if (channel === 'Wholesale') productSales[item].takebyhandQty += qty;
+        else productSales[item].offlineQty += qty;
       });
 
       let msg = `🌸 *KAILASH KALAMKARI* 🌸\n`;
       msg += `*Staff Sales Ledger Report*\n\n`;
       msg += `👤 *Staff Name:* ${activeAnalysisAgent}\n`;
       msg += `🗓️ *Period:* ${fromVal || 'Start'} to ${toVal || 'End'}\n`;
-      msg += `💰 *Total Sales:* ₹${totalAgentRevenue.toLocaleString('en-IN')}\n\n`;
+      msg += `💰 *Total Sales:* ₹${totalAgentRevenue.toLocaleString('en-IN')}\n`;
+      msg += `   • 🌐 Online: ₹${totalOnlineSales.toLocaleString('en-IN')}\n`;
+      msg += `   • 🛍️ Offline: ₹${totalOfflineSales.toLocaleString('en-IN')}\n`;
+      msg += `   • 🤝 Takebyhand: ₹${totalTakebyhandSales.toLocaleString('en-IN')}\n\n`;
 
-      const sortedProductSales = Object.entries(productSales).map(([name, revenue]) => {
-        const percent = totalAgentRevenue > 0 ? (revenue / totalAgentRevenue) * 100 : 0;
-        return { name, revenue, percent };
+      const sortedProductSales = Object.values(productSales).map(p => {
+        p.percent = totalAgentRevenue > 0 ? (p.revenue / totalAgentRevenue) * 100 : 0;
+        return p;
       }).sort((a, b) => b.revenue - a.revenue);
 
       if (sortedProductSales.length > 0) {
         msg += `📊 *Product Sales Share:*\n`;
         sortedProductSales.forEach(p => {
-          msg += `• ${p.name}: ₹${p.revenue.toLocaleString('en-IN')} (${p.percent.toFixed(1)}%)\n`;
+          msg += `• *${p.name}*\n  (Online: ${p.onlineQty} | Offline: ${p.offlineQty} | Takebyhand: ${p.takebyhandQty})\n  Revenue: ₹${p.revenue.toLocaleString('en-IN')} (${p.percent.toFixed(1)}%)\n`;
         });
         msg += `\n`;
       }
@@ -1877,7 +2029,8 @@
           sortedBills.forEach(([billNo, billData]) => {
             msg += `  - _Bill No: ${billNo}_ (₹${billData.total.toLocaleString('en-IN')})\n`;
             billData.items.forEach(item => {
-              msg += `    ▪️ ${item.name} x${item.qty} (₹${item.amount.toLocaleString('en-IN')})\n`;
+              const chLabel = item.channel === 'Online' ? 'Online' : item.channel === 'Wholesale' ? 'Takebyhand' : 'Offline';
+              msg += `    ▪️ ${item.name} x${item.qty} [${chLabel}] (₹${item.amount.toLocaleString('en-IN')})\n`;
             });
           });
         });
