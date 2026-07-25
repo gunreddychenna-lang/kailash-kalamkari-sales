@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbzgBLf9T2Hq5PSp2ZNENfhzUB-AC-FqDatmpV6bJjCr60Gx73uzAbMs8TFOPtNF9o-c/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbz2o4Oex6mVE3gep-7-iVK6xlmvzMjAaFy_mYheIufrZeC1exERMuQ5GP5riF5Wn-Q/exec"; 
 const SESSION_TIMEOUT = 6 * 60 * 60 * 1000;
 
 let rawData = [];
@@ -7,6 +7,7 @@ let productsList = [];
 let agentsList = [];
 let selectedAgentDetail = null;
 let selectedChannel = "All";
+let selectedCategory = "All";
 let activeAnalysisAgent = "";
 let isAdmin = false;
 
@@ -50,6 +51,25 @@ function getSalesType(payMode) {
   if (pm.includes('onl') || pm.includes('online') || pm.includes('web')) return 'Online';
   if (pm.includes('by hand') || pm.includes('hand') || pm.includes('wholesale') || pm.includes('take by hand') || pm.includes('takebyhand')) return 'Wholesale';
   return 'Offline';
+}
+
+function getItemCategory(itemName) {
+  if (!itemName) return 'General';
+  const name = itemName.toLowerCase();
+
+  if (name.includes('frame') || name.includes('painting') || name.includes('art') || name.includes('photo') || name.includes('wall') || name.includes('canvas') || name.includes('wood')) {
+    return 'Frames';
+  }
+
+  if (name.includes('saree') || name.includes('sari') || name.includes('silk') || name.includes('pattu') || name.includes('kanchi') || name.includes('tussar') || name.includes('soft') || name.includes('organza') || name.includes('georgette')) {
+    return 'Sarees';
+  }
+
+  if (name.includes('fabric') || name.includes('meter') || name.includes('running') || name.includes('print') || name.includes('blouse') || name.includes('material') || name.includes('cotton')) {
+    return 'Fabrics';
+  }
+
+  return 'General';
 }
 
 function checkSession() {
@@ -250,6 +270,59 @@ function detectDateRanges() {
   }
 }
 
+function setQuickDateRange(preset) {
+  if (rawData.length === 0) return;
+  const allDates = rawData.map(row => normalizeToDateString(row['Bill Date'])).filter(Boolean).sort();
+  const maxDateStr = allDates[allDates.length - 1] || new Date().toISOString().split('T')[0];
+  const refDate = new Date(maxDateStr);
+
+  const yyyy = refDate.getFullYear();
+  const mm = String(refDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(refDate.getDate()).padStart(2, '0');
+  const todayStr = `${yyyy}-${mm}-${dd}`;
+
+  let fromDate = todayStr;
+  let toDate = todayStr;
+
+  if (preset === 'today') {
+    fromDate = todayStr;
+    toDate = todayStr;
+  } else if (preset === 'yesterday') {
+    const yest = new Date(refDate);
+    yest.setDate(refDate.getDate() - 1);
+    const yYyyy = yest.getFullYear();
+    const yMm = String(yest.getMonth() + 1).padStart(2, '0');
+    const yDd = String(yest.getDate()).padStart(2, '0');
+    fromDate = `${yYyyy}-${yMm}-${yDd}`;
+    toDate = fromDate;
+  } else if (preset === 'week') {
+    const day = refDate.getDay();
+    const diff = refDate.getDate() - day + (day === 0 ? -6 : 1);
+    const startOfWeek = new Date(refDate);
+    startOfWeek.setDate(diff);
+    const sYyyy = startOfWeek.getFullYear();
+    const sMm = String(startOfWeek.getMonth() + 1).padStart(2, '0');
+    const sDd = String(startOfWeek.getDate()).padStart(2, '0');
+    fromDate = `${sYyyy}-${sMm}-${sDd}`;
+    toDate = todayStr;
+  } else if (preset === 'month') {
+    fromDate = `${yyyy}-${mm}-01`;
+    toDate = todayStr;
+  } else if (preset === 'lastmonth') {
+    const prevMonth = new Date(refDate.getFullYear(), refDate.getMonth() - 1, 1);
+    const lastDayPrevMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 0);
+    const pYyyy = prevMonth.getFullYear();
+    const pMm = String(prevMonth.getMonth() + 1).padStart(2, '0');
+    const pEndDd = String(lastDayPrevMonth.getDate()).padStart(2, '0');
+    fromDate = `${pYyyy}-${pMm}-01`;
+    toDate = `${pYyyy}-${pMm}-${pEndDd}`;
+  }
+
+  document.getElementById('from-date').value = fromDate;
+  document.getElementById('to-date').value = toDate;
+  processData();
+}
+
 function selectChannel(channel) {
   if (channel === 'All') {
     applyState({ view: 'home' });
@@ -408,10 +481,23 @@ function processData() {
   const targetPctText = document.getElementById('target-percent-text');
   const targetBar = document.getElementById('target-progress-bar');
   const targetAchieved = document.getElementById('target-achieved-text');
+  const forecastEl = document.getElementById('target-forecast-text');
   
   if (targetPctText) targetPctText.textContent = `${targetPct.toFixed(1)}%`;
   if (targetBar) targetBar.style.width = `${targetPct}%`;
   if (targetAchieved) targetAchieved.textContent = `₹${totalSales.toLocaleString('en-IN')}`;
+
+  const daysCount = Object.keys(dailyTotalObj).length || 1;
+  const avgDailySales = totalSales / daysCount;
+  const projectedMonthSales = Math.round(avgDailySales * 30);
+  if (forecastEl) {
+    if (monthlyTarget > 0) {
+      const projPct = ((projectedMonthSales / monthlyTarget) * 100).toFixed(0);
+      forecastEl.innerHTML = `Pacing: <strong class="text-stone-800">₹${Math.round(avgDailySales).toLocaleString('en-IN')}/day</strong> • Projected: <strong class="text-[#5C0612]">₹${projectedMonthSales.toLocaleString('en-IN')}</strong> (${projPct}%)`;
+    } else {
+      forecastEl.innerHTML = `Daily Average: <strong>₹${Math.round(avgDailySales).toLocaleString('en-IN')}/day</strong>`;
+    }
+  }
 
   document.getElementById('paymode-upi-store').textContent = `₹${payUpiStore.toLocaleString('en-IN')}`;
   document.getElementById('paymode-upi-onl').textContent = `₹${payUpiOnline.toLocaleString('en-IN')}`;
@@ -439,6 +525,7 @@ function processData() {
 
   productsList = Object.values(productsObj).map(p => {
     p.share = totalSales > 0 ? (p.revenue / totalSales) * 100 : 0;
+    p.category = getItemCategory(p.name);
     return p;
   }).filter(p => p.name.toLowerCase().includes(searchVal));
 
@@ -463,8 +550,30 @@ function processData() {
   }
 }
 
+function filterCategory(cat) {
+  selectedCategory = cat;
+  const categories = ['All', 'Sarees', 'Fabrics', 'Frames'];
+  categories.forEach(c => {
+    const btnId = `cat-btn-${c.toLowerCase().replace(/\s+/g, '')}`;
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      if (c === cat) {
+        btn.className = "px-3 py-1 rounded-full bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-bold shadow-sm transition-all";
+      } else {
+        btn.className = "px-3 py-1 rounded-full bg-[#FFFDF9] text-stone-600 border border-[#E5D5C6] hover:bg-stone-100 font-bold transition-all";
+      }
+    }
+  });
+  renderProductsTable();
+}
+
 function renderProductsTable() {
-  productsList.sort((a, b) => {
+  let displayList = productsList.filter(p => {
+    if (selectedCategory === 'All') return true;
+    return p.category === selectedCategory;
+  });
+
+  displayList.sort((a, b) => {
     let valA = a.revenue, valB = b.revenue;
     if (prodSortCol === 'item') {
       valA = a.name.toLowerCase(); valB = b.name.toLowerCase();
@@ -473,13 +582,24 @@ function renderProductsTable() {
     return prodSortAsc ? valA - valB : valB - valA;
   });
 
-  document.getElementById('products-table-body').innerHTML = productsList.map(p => {
+  const tbody = document.getElementById('products-table-body');
+  if (!tbody) return;
+
+  if (displayList.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3" class="p-6 text-center text-stone-400 font-traditional">No items found for this category</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = displayList.map(p => {
     const escapedName = p.name.replace(/'/g, "\\'");
+    const isSlowMoving = p.qty <= 2;
+    const slowBadge = isSlowMoving ? `<span class="bg-rose-100 text-rose-800 text-[8px] font-extrabold px-1.5 py-0.5 rounded border border-rose-200 ml-1.5 uppercase">Slow Moving</span>` : '';
+
     return `
       <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showProductDetails('${escapedName}')">
         <td class="p-3.5">
           <div class="font-bold text-stone-800 flex justify-between items-center font-sans text-xs">
-            <span>${p.name}</span>
+            <span class="flex items-center flex-wrap">${p.name} ${slowBadge}</span>
             <i class="fa-solid fa-angle-right text-[10px] text-stone-400 mr-2"></i>
           </div>
           <div class="text-[10px] text-stone-500 font-bold mt-1 font-sans">
@@ -508,7 +628,27 @@ function renderAgentsTable() {
     return agentSortAsc ? valA - valB : valB - valA;
   });
 
-  document.getElementById('agents-table-body').innerHTML = agentsList.map(a => {
+  let maxUptAgent = null, maxUptVal = 0;
+  let maxAtvAgent = null, maxAtvVal = 0;
+
+  agentsList.forEach(a => {
+    const atv = a.billCount > 0 ? (a.revenue / a.billCount) : 0;
+    if (a.upt > maxUptVal && a.upt >= 1.5) { maxUptVal = a.upt; maxUptAgent = a.name; }
+    if (atv > maxAtvVal && atv >= 2000) { maxAtvVal = atv; maxAtvAgent = a.name; }
+  });
+
+  document.getElementById('agents-table-body').innerHTML = agentsList.map((a, idx) => {
+    let badgesHTML = '';
+    if (idx === 0 && !agentSortAsc && agentSortCol === 'revenue' && a.revenue > 0) {
+      badgesHTML += `<span class="bg-amber-100 text-amber-900 border border-amber-300 text-[8px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ml-1.5">🥇 Top Champ</span>`;
+    }
+    if (a.name === maxUptAgent) {
+      badgesHTML += `<span class="bg-blue-100 text-blue-900 border border-blue-300 text-[8px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ml-1">📦 Cross-Sell Master</span>`;
+    }
+    if (a.name === maxAtvAgent) {
+      badgesHTML += `<span class="bg-purple-100 text-purple-900 border border-purple-300 text-[8px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ml-1">💎 High Ticket Pro</span>`;
+    }
+
     let kpiHTML = '';
     if (isAdmin) {
       const atv = a.billCount > 0 ? (a.revenue / a.billCount) : 0;
@@ -525,7 +665,7 @@ function renderAgentsTable() {
       <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showAgentDetails('${a.name}')">
         <td class="p-3.5 font-bold text-stone-700 font-sans">
           <div class="flex justify-between items-center">
-            <span>${a.name}</span>
+            <span class="flex items-center flex-wrap">${a.name} ${badgesHTML}</span>
             <span class="text-[9px] text-[#DAA520] font-bold flex items-center gap-1 font-traditional">Analyze <i class="fa-solid fa-chevron-right text-[8px]"></i></span>
           </div>
           ${kpiHTML}
@@ -761,6 +901,87 @@ function shareStaffPayslipWhatsApp(index) {
   msg += `_Thank you for your dedicated service at Kailash Kalamkari!_`;
 
   window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function shareOwnerDailySummaryWhatsApp() {
+  const fromVal = document.getElementById('from-date').value || 'Start';
+  const toVal = document.getElementById('to-date').value || 'End';
+  const totalSalesText = document.getElementById('metric-total').textContent || '₹0';
+  const onlineSalesText = document.getElementById('metric-online').textContent || '₹0';
+  const offlineSalesText = document.getElementById('metric-offline').textContent || '₹0';
+  const wholesaleSalesText = document.getElementById('metric-wholesale').textContent || '₹0';
+
+  const upiStore = document.getElementById('paymode-upi-store').textContent || '₹0';
+  const upiOnl = document.getElementById('paymode-upi-onl').textContent || '₹0';
+  const cash = document.getElementById('paymode-cash').textContent || '₹0';
+  const card = document.getElementById('paymode-card').textContent || '₹0';
+  const hand = document.getElementById('paymode-hand').textContent || '₹0';
+
+  let topAgent = "N/A", topAgentRev = 0;
+  agentsList.forEach(a => {
+    if (a.revenue > topAgentRev) {
+      topAgentRev = a.revenue;
+      topAgent = a.name;
+    }
+  });
+
+  let topProduct = "N/A", topProdQty = 0;
+  productsList.forEach(p => {
+    if (p.qty > topProdQty) {
+      topProdQty = p.qty;
+      topProduct = p.name;
+    }
+  });
+
+  let msg = `🌸 *KAILASH KALAMKARI - EXECUTIVE DAILY SUMMARY* 🌸\n\n`;
+  msg += `🗓️ *Period:* ${fromVal} to ${toVal}\n`;
+  msg += `💰 *TOTAL STORE REVENUE:* ${totalSalesText}\n\n`;
+  msg += `📊 *CHANNEL SPLIT:*\n`;
+  msg += `• Online: ${onlineSalesText}\n`;
+  msg += `• Offline: ${offlineSalesText}\n`;
+  msg += `• Takebyhand: ${wholesaleSalesText}\n\n`;
+  msg += `💳 *PAYMENT MODE BREAKDOWN:*\n`;
+  msg += `• UPI Store: ${upiStore}\n`;
+  msg += `• UPI Online: ${upiOnl}\n`;
+  msg += `• Cash: ${cash}\n`;
+  msg += `• Card: ${card}\n`;
+  msg += `• Takebyhand Credit: ${hand}\n\n`;
+  msg += `🏆 *TOP STAFF:* ${topAgent} (₹${topAgentRev.toLocaleString('en-IN')})\n`;
+  msg += `🛍️ *TOP PRODUCT:* ${topProduct} (${topProdQty} units)\n\n`;
+  msg += `_Generated live from Kailash Kalamkari Store Dashboard_`;
+
+  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function backupFullDatabaseExcel() {
+  if (typeof XLSX === 'undefined') {
+    alert("Excel library loading or unavailable.");
+    return;
+  }
+
+  const workbook = XLSX.utils.book_new();
+
+  const salesSheetData = rawData.map(r => ({
+    "Date": normalizeToDateString(r['Bill Date']),
+    "Bill No": r['Bill No'] || r['Bill No.'] || 'N/A',
+    "Staff Name": r['SM Name'] || 'No Agent',
+    "Item Name": r['Item Name'] || '',
+    "Category": getItemCategory(r['Item Name']),
+    "Qty": parseInt(r['Qty']) || 0,
+    "Amount": parseFloat(r['BillAmount']) || 0,
+    "PayMode": r['PayMode'] || '',
+    "Channel": getSalesType(r['PayMode'])
+  }));
+  const salesWorksheet = XLSX.utils.json_to_sheet(salesSheetData);
+  XLSX.utils.book_append_sheet(workbook, salesWorksheet, "Sales Data");
+
+  if (rawAttendanceData && rawAttendanceData.length > 0) {
+    const attendanceWorksheet = XLSX.utils.json_to_sheet(rawAttendanceData);
+    XLSX.utils.book_append_sheet(workbook, attendanceWorksheet, "Attendance & Payroll");
+  }
+
+  const dateStr = new Date().toISOString().split('T')[0];
+  XLSX.writeFile(workbook, `Kailash_Kalamkari_Full_Backup_${dateStr}.xlsx`);
 }
 
 async function saveAttendanceData() {
@@ -1297,6 +1518,7 @@ document.getElementById('refresh-btn').addEventListener('click', () => {
 });
 document.getElementById('clear-dates-btn').addEventListener('click', () => {
   selectedChannel = "All";
+  selectedCategory = "All";
   closeProductDetail();
   closeAgentDetail();
   closeAgentAnalysisScreen();

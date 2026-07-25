@@ -5,10 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kailash Kalamkari - Live Executive Analytics</title>
   
-  <!-- Prevent favicon 404 console notice -->
   <link rel="icon" href="data:;base64,iVBORw0KGgo=">
 
-  <!-- Tailwind CSS & Configuration -->
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = { corePlugins: { preflight: true } }
@@ -22,12 +21,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
   
-  <!-- Export Libraries (PDF, Image, Excel) -->
+  <!-- Export Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <!-- External Stylesheet & JavaScript -->
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
 </head>
@@ -72,11 +70,17 @@
         <p class="text-[9px] sm:text-xs text-stone-300 font-medium tracking-wider uppercase">Executive Store Dashboard</p>
       </div>
       <div class="flex items-center gap-2">
-        <button id="refresh-btn" class="bg-[#DAA520] hover:bg-[#C59B27] text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md font-traditional border border-[#B38F4D] active:scale-95 duration-100">
+        <button onclick="shareOwnerDailySummaryWhatsApp()" class="bg-[#25D366] hover:bg-[#128C7E] text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md active:scale-95 duration-100" title="Send Daily WhatsApp Summary">
+          <i class="fa-brands fa-whatsapp text-sm"></i> <span class="hidden md:inline">Owner Summary</span>
+        </button>
+        <button onclick="backupFullDatabaseExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md border border-emerald-500 active:scale-95 duration-100" title="Backup Database to Excel">
+          <i class="fa-solid fa-file-excel text-xs text-emerald-300"></i> <span class="hidden md:inline">Backup Excel</span>
+        </button>
+        <button id="refresh-btn" class="bg-[#DAA520] hover:bg-[#C59B27] text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md font-traditional border border-[#B38F4D] active:scale-95 duration-100">
           <i class="fa-solid fa-arrows-rotate text-[10px]"></i> <span class="hidden sm:inline">Refresh Data</span>
         </button>
-        <button onclick="handleLogout()" class="bg-transparent border border-[#EFE5C9]/30 hover:bg-white/10 text-white rounded-xl p-2.5 transition-all shadow-md active:scale-95 duration-100" title="Logout">
-          <i class="fa-solid fa-right-from-bracket"></i>
+        <button onclick="handleLogout()" class="bg-transparent border border-[#EFE5C9]/30 hover:bg-white/10 text-white rounded-xl p-2 transition-all shadow-md active:scale-95 duration-100" title="Logout">
+          <i class="fa-solid fa-right-from-bracket text-xs"></i>
         </button>
       </div>
     </div>
@@ -89,13 +93,13 @@
     <p class="mt-4 text-xs text-stone-600 font-semibold tracking-wide font-traditional">Synchronizing live sales & attendance database...</p>
   </div>
 
-  <!-- MAIN CONTAINER (MOBILE & DESKTOP RESPONSIVE) -->
+  <!-- MAIN CONTAINER -->
   <main id="standard-main" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
     
     <!-- Top Filter & Target Controls Bar -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       
-      <!-- Date Filter Card -->
+      <!-- Date Filter Card with Quick Presets -->
       <div class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow space-y-3 relative overflow-hidden lg:col-span-2">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
         <div class="flex justify-between items-center border-b border-[#E5D5C6]/60 pb-1.5">
@@ -104,6 +108,16 @@
           </h2>
           <button id="clear-dates-btn" class="text-[10px] font-bold text-[#5C0612] hover:underline uppercase tracking-wider font-traditional">Reset Range</button>
         </div>
+
+        <!-- QUICK DATE PRESETS -->
+        <div class="flex flex-wrap gap-1.5 font-numeric text-[10px]">
+          <button onclick="setQuickDateRange('today')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">Today</button>
+          <button onclick="setQuickDateRange('yesterday')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">Yesterday</button>
+          <button onclick="setQuickDateRange('week')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">This Week</button>
+          <button onclick="setQuickDateRange('month')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">This Month</button>
+          <button onclick="setQuickDateRange('lastmonth')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">Last Month</button>
+        </div>
+
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">From Date</label>
@@ -126,19 +140,23 @@
         </div>
       </div>
 
-      <!-- Monthly Target Card (ADMIN ONLY) -->
+      <!-- Monthly Target & Sales Run-Rate Forecast Card (ADMIN ONLY) -->
       <div id="target-progress-card" class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow space-y-2 relative overflow-hidden flex flex-col justify-between">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
         <div>
           <div class="flex justify-between items-center text-xs mb-1">
             <span class="font-traditional font-bold text-stone-600 flex items-center gap-1.5">
-              <i class="fa-solid fa-bullseye text-[#DAA520]"></i> Monthly Revenue Target
+              <i class="fa-solid fa-bullseye text-[#DAA520]"></i> Monthly Target & Pacing
             </span>
             <span id="target-percent-text" class="font-numeric font-black text-[#5C0612]">0%</span>
           </div>
           
           <div class="w-full bg-[#E5D5C6]/40 h-2.5 rounded-full overflow-hidden my-2">
             <div id="target-progress-bar" class="bg-[#5C0612] h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+          </div>
+          
+          <div id="target-forecast-text" class="text-[9px] text-stone-500 font-numeric font-medium mt-1">
+            Pacing: Calculating forecast...
           </div>
         </div>
 
@@ -221,7 +239,7 @@
         <p class="text-lg sm:text-xl font-extrabold text-stone-800 mt-2 font-traditional">Day Share</p>
       </div>
 
-      <!-- Payment Mode Breakdown Card (SEPARATED UPI STORE & UPI ONL) -->
+      <!-- Payment Mode Breakdown Card -->
       <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow sm:col-span-2 space-y-2">
         <p class="text-[10px] font-bold text-stone-600 uppercase tracking-wider font-traditional flex items-center gap-1">
           <i class="fa-solid fa-wallet text-[#5C0612]"></i> Payment Mode Split (Cash & UPI)
@@ -295,11 +313,22 @@
       </button>
     </div>
 
-    <!-- Tab 1: Products -->
+    <!-- Tab 1: Products with Category Filtering -->
     <div id="products-tab" class="tab-content space-y-4">
-      <div class="relative max-w-xl mx-auto">
-        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-stone-400 text-xs"></i>
-        <input type="text" id="product-search" placeholder="Search product line..." class="w-full text-xs bg-white border border-[#E5D5C6] rounded-2xl py-3 pl-10 pr-4 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] shadow-sm font-sans">
+      <div class="relative max-w-xl mx-auto space-y-2">
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-stone-400 text-xs"></i>
+          <input type="text" id="product-search" placeholder="Search product line..." class="w-full text-xs bg-white border border-[#E5D5C6] rounded-2xl py-3 pl-10 pr-4 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] shadow-sm font-sans">
+        </div>
+
+        <!-- CATEGORY FILTER PILLS -->
+        <!-- CATEGORY FILTER PILLS -->
+        <div class="flex flex-wrap gap-1.5 justify-center text-[10px] font-bold font-traditional pt-1">
+          <button onclick="filterCategory('All')" id="cat-btn-all" class="px-3 py-1 rounded-full bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-bold shadow-sm transition-all">All Items</button>
+          <button onclick="filterCategory('Sarees')" id="cat-btn-sarees" class="px-3 py-1 rounded-full bg-[#FFFDF9] text-stone-600 border border-[#E5D5C6] hover:bg-stone-100 font-bold transition-all">🥻 Sarees</button>
+          <button onclick="filterCategory('Fabrics')" id="cat-btn-fabrics" class="px-3 py-1 rounded-full bg-[#FFFDF9] text-stone-600 border border-[#E5D5C6] hover:bg-stone-100 font-bold transition-all">🧵 Fabrics</button>
+          <button onclick="filterCategory('Frames')" id="cat-btn-frames" class="px-3 py-1 rounded-full bg-[#FFFDF9] text-stone-600 border border-[#E5D5C6] hover:bg-stone-100 font-bold transition-all">🖼️ Frames</button>
+        </div>
       </div>
 
       <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden warm-shadow">
@@ -343,7 +372,7 @@
       </div>
     </div>
 
-    <!-- Tab 2: Staff Sales Leaderboard -->
+    <!-- Tab 2: Staff Sales Leaderboard with Badges -->
     <div id="agents-tab" class="tab-content hidden space-y-4">
       <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden warm-shadow">
         <div class="p-4 bg-[#F3EFE9] border-b border-[#E5D5C6] flex justify-between items-center">
@@ -420,13 +449,17 @@
     <!-- Tab 4: ATTENDANCE, COMMISSIONS & AUTO-PAYROLL (ADMIN ONLY) -->
     <div id="attendance-tab" class="tab-content hidden space-y-4">
       
-      <!-- Store Financial Overview (Gross Profit Scorecard) -->
-      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow grid grid-cols-1 sm:grid-cols-3 gap-3 text-center font-numeric">
+      <!-- Store Financial Overview -->
+      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow grid grid-cols-1 sm:grid-cols-4 gap-3 text-center font-numeric">
+        <div>
+          <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Staff Count</span>
+          <strong id="payroll-staff-count" class="text-base font-black text-stone-800">0</strong>
+        </div>
         <div>
           <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Net Store Sales</span>
           <strong id="profit-store-sales" class="text-base font-black text-stone-800">₹0</strong>
         </div>
-        <div class="border-y sm:border-y-0 sm:border-x border-[#E5D5C6]/60 py-2 sm:py-0">
+        <div>
           <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Total Staff Payroll</span>
           <strong id="payroll-total-amount" class="text-base font-black text-[#5C0612]">₹0</strong>
         </div>
