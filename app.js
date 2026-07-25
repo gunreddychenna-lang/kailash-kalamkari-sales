@@ -57,15 +57,18 @@ function getItemCategory(itemName) {
   if (!itemName) return 'General';
   const name = itemName.toLowerCase();
 
-  if (name.includes('frame') || name.includes('painting') || name.includes('art') || name.includes('photo') || name.includes('wall') || name.includes('canvas') || name.includes('wood')) {
+  // 1. Frames & Paintings Category
+  if (name.includes('frame') || name.includes('painting') || name.includes('art') || name.includes('photo') || name.includes('wall') || name.includes('canvas') || name.includes('wood') || name.includes('chitra') || name.includes('picchwai') || name.includes('glass')) {
     return 'Frames';
   }
 
-  if (name.includes('saree') || name.includes('sari') || name.includes('silk') || name.includes('pattu') || name.includes('kanchi') || name.includes('tussar') || name.includes('soft') || name.includes('organza') || name.includes('georgette')) {
+  // 2. Sarees Category
+  if (name.includes('saree') || name.includes('sari') || name.includes('silk') || name.includes('pattu') || name.includes('kanchi') || name.includes('tussar') || name.includes('soft') || name.includes('organza') || name.includes('georgette') || name.includes('kota') || name.includes('linen') || name.includes('handloom') || name.includes('chanderi')) {
     return 'Sarees';
   }
 
-  if (name.includes('fabric') || name.includes('meter') || name.includes('running') || name.includes('print') || name.includes('blouse') || name.includes('material') || name.includes('cotton')) {
+  // 3. Fabrics & Dress Materials Category
+  if (name.includes('fabric') || name.includes('meter') || name.includes('running') || name.includes('print') || name.includes('blouse') || name.includes('material') || name.includes('cotton') || name.includes('dupatta') || name.includes('stole') || name.includes('dress') || name.includes('suit') || name.includes('kurti')) {
     return 'Fabrics';
   }
 
@@ -1518,7 +1521,7 @@ document.getElementById('refresh-btn').addEventListener('click', () => {
 });
 document.getElementById('clear-dates-btn').addEventListener('click', () => {
   selectedChannel = "All";
-  selectedCategory = "All";
+  filterCategory('All');
   closeProductDetail();
   closeAgentDetail();
   closeAgentAnalysisScreen();
