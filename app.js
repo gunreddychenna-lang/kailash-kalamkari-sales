@@ -55,19 +55,16 @@ function getSalesType(payMode) {
 
 function getItemCategory(itemName) {
   if (!itemName) return 'General';
-  const name = itemName.toLowerCase();
+  const name = itemName.toString().toLowerCase();
 
-  // 1. Frames & Paintings Category
   if (name.includes('frame') || name.includes('painting') || name.includes('art') || name.includes('photo') || name.includes('wall') || name.includes('canvas') || name.includes('wood') || name.includes('chitra') || name.includes('picchwai') || name.includes('glass')) {
     return 'Frames';
   }
 
-  // 2. Sarees Category
   if (name.includes('saree') || name.includes('sari') || name.includes('silk') || name.includes('pattu') || name.includes('kanchi') || name.includes('tussar') || name.includes('soft') || name.includes('organza') || name.includes('georgette') || name.includes('kota') || name.includes('linen') || name.includes('handloom') || name.includes('chanderi')) {
     return 'Sarees';
   }
 
-  // 3. Fabrics & Dress Materials Category
   if (name.includes('fabric') || name.includes('meter') || name.includes('running') || name.includes('print') || name.includes('blouse') || name.includes('material') || name.includes('cotton') || name.includes('dupatta') || name.includes('stole') || name.includes('dress') || name.includes('suit') || name.includes('kurti')) {
     return 'Fabrics';
   }
@@ -148,7 +145,7 @@ async function fetchData(user, pass) {
       rawAttendanceData = [];
     } else {
       rawData = data.sales || [];
-      rawAttendanceData = data.attendance || [];
+      rawAttendanceData = Array.isArray(data.attendance) ? data.attendance : [];
     }
 
     const targetEl = document.getElementById('target-input-field');
@@ -162,7 +159,7 @@ async function fetchData(user, pass) {
     applyState(history.state || { view: 'home' }, true);
   } catch (error) {
     console.error(error);
-    showLoginError("Connection failed. Check Web App URL permissions.");
+    showLoginError("Connection failed. Please check username/password or permissions.");
   }
 }
 
@@ -341,25 +338,36 @@ function updateMonthlyTarget(val) {
   processData();
 }
 
+// CRASH-PROOF AGENT REVENUE MATCHING
 function getStaffSalesAmount(empName) {
   if (!empName) return 0;
-  const cleanEmp = empName.toLowerCase().replace(/\s+/g, '').trim();
+  const cleanEmp = empName.toString().toLowerCase().replace(/\s+/g, '').trim();
 
-  let match = agentsList.find(a => a.name.toLowerCase().replace(/\s+/g, '').trim() === cleanEmp);
+  let match = agentsList.find(a => {
+    const agentName = (a && a.name !== undefined && a.name !== null) ? a.name.toString() : '';
+    return agentName.toLowerCase().replace(/\s+/g, '').trim() === cleanEmp;
+  });
   if (match) return match.revenue;
 
   match = agentsList.find(a => {
-    const cleanAgent = a.name.toLowerCase().replace(/\s+/g, '').trim();
-    return cleanEmp.includes(cleanAgent) || cleanAgent.includes(cleanEmp);
+    const agentName = (a && a.name !== undefined && a.name !== null) ? a.name.toString() : '';
+    const cleanAgent = agentName.toLowerCase().replace(/\s+/g, '').trim();
+    return cleanAgent && (cleanEmp.includes(cleanAgent) || cleanAgent.includes(cleanEmp));
   });
 
   return match ? match.revenue : 0;
 }
 
-function getEmpProp(emp, keys) {
-  for (let k of keys) {
-    if (emp[k] !== undefined && emp[k] !== null && emp[k] !== "") {
-      return emp[k];
+// SAFE OBJECT PROPERTY GETTER
+function getEmpProp(emp, targetKeys) {
+  if (!emp || typeof emp !== 'object') return "";
+  const empKeys = Object.keys(emp);
+  for (let target of targetKeys) {
+    const cleanTarget = target.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+    for (let k of empKeys) {
+      if (k.toString().toLowerCase().replace(/[^a-z0-9]/g, '') === cleanTarget && emp[k] !== undefined && emp[k] !== null && emp[k] !== "") {
+        return emp[k].toString().trim();
+      }
     }
   }
   return "";
@@ -393,13 +401,14 @@ function processData() {
   const dayWiseObj = {}; 
 
   filtered.forEach(row => {
-    const amount = parseFloat(row['BillAmount']) || 0;
-    const qty = parseInt(row['Qty']) || 0;
-    const item = row['Item Name'] || 'Unknown Item';
-    const agent = row['SM Name'] || 'No Agent';
-    const type = getSalesType(row['PayMode']);
+    const amount = parseFloat(row['BillAmount']) || parseFloat(row['Bill Amount']) || parseFloat(row['Amount']) || 0;
+    const qty = parseInt(row['Qty']) || parseInt(row['QTY']) || 0;
+    const item = (row['Item Name'] || row['ItemName'] || 'Unknown Item').toString().trim();
+    const agent = (row['SM Name'] || row['SMName'] || row['Agent'] || 'No Agent').toString().trim();
+    const payMode = row['PayMode'] || row['Pay Mode'] || row['Paymode'] || '';
+    const type = getSalesType(payMode);
     
-    const rawPm = (row['PayMode'] || '').toString().toLowerCase();
+    const rawPm = payMode.toString().toLowerCase();
     const cleanPm = rawPm.replace(/[^a-z0-9]/g, ' ').trim();
     
     const billNo = row['Bill No'] || row['Bill No.'] || row['BillNo'] || row['Invoice No'] || 'N/A';
@@ -679,6 +688,7 @@ function renderAgentsTable() {
   }).join('');
 }
 
+// ATTENDANCE & PAYROLL MODULE RENDERER
 function renderAttendanceSalaryModule() {
   if (!isAdmin) return; 
 
@@ -686,18 +696,25 @@ function renderAttendanceSalaryModule() {
   if (!container) return;
   container.innerHTML = '';
 
-  let staffData = rawAttendanceData;
-  if (!staffData || staffData.length === 0) {
+  let staffData = [];
+  if (Array.isArray(rawAttendanceData)) {
+    staffData = rawAttendanceData.filter(emp => {
+      const name = getEmpProp(emp, ['Employee Name', 'Name', 'Staff Name', 'Emp Name']);
+      return name && name.toString().trim().length > 0;
+    });
+  }
+
+  if (staffData.length === 0) {
     staffData = [
-      { "Emp ID": "KS-101", "Employee Name": "Chenna Kesava", "Designation": "Store Manager", "Monthly Salary": "", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-102", "Employee Name": "keerthi", "Designation": "Sales (Fabrics)", "Monthly Salary": "", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-103", "Employee Name": "mouni", "Designation": "Sales (Fabrics)", "Monthly Salary": "", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-104", "Employee Name": "latha", "Designation": "Sales (Fabrics)", "Monthly Salary": "", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-105", "Employee Name": "vara lakshmi", "Designation": "Sales (Fabrics)", "Monthly Salary": "", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-106", "Employee Name": "sanjana", "Designation": "Sales (Fabrics)", "Monthly Salary": "", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-107", "Employee Name": "sandhya", "Designation": "Sales (Fabrics)", "Monthly Salary": "", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-108", "Employee Name": "geethika", "Designation": "Sales (Fabrics)", "Monthly Salary": "", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-109", "Employee Name": "pushpa", "Designation": "Sales (Fabrics)", "Monthly Salary": "", "Commission Pct": "0", "Advance Taken": "0" }
+      { "Emp ID": "KS-101", "Employee Name": "Chenna Kesava", "Designation": "Store Manager", "Monthly Salary": "18000", "Commission Pct": "0", "Advance Taken": "0" },
+      { "Emp ID": "KS-102", "Employee Name": "keerthi", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" },
+      { "Emp ID": "KS-103", "Employee Name": "mouni", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" },
+      { "Emp ID": "KS-104", "Employee Name": "latha", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" },
+      { "Emp ID": "KS-105", "Employee Name": "vara lakshmi", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" },
+      { "Emp ID": "KS-106", "Employee Name": "sanjana", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" },
+      { "Emp ID": "KS-107", "Employee Name": "sandhya", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" },
+      { "Emp ID": "KS-108", "Employee Name": "geethika", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" },
+      { "Emp ID": "KS-109", "Employee Name": "pushpa", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" }
     ];
     rawAttendanceData = staffData;
   }
@@ -708,11 +725,15 @@ function renderAttendanceSalaryModule() {
   let totalStorePayroll = 0;
 
   staffData.forEach((emp, index) => {
-    const empId = getEmpProp(emp, ['Emp ID', 'ID']) || `KS-${101 + index}`;
-    const name = getEmpProp(emp, ['Employee Name', 'Name']) || 'Staff Member';
-    const role = getEmpProp(emp, ['Designation', 'Role']) || 'Staff';
+    const empId = getEmpProp(emp, ['Emp ID', 'ID', 'Employee ID']) || `KS-${101 + index}`;
+    const name = getEmpProp(emp, ['Employee Name', 'Name', 'Staff Name', 'Emp Name']) || `Staff ${index + 1}`;
+    const role = getEmpProp(emp, ['Designation', 'Role']) || 'Sales Staff';
     
-    let fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Full Salary', 'Basic Salary', 'Salary'])) || 0;
+    let fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Full Salary', 'Basic Salary', 'Salary']));
+    if (isNaN(fullSalary) || fullSalary <= 0) {
+      fullSalary = role.toLowerCase().includes('manager') ? 18000 : 12000;
+    }
+
     let commPct = parseFloat(getEmpProp(emp, ['Commission Pct', 'Commission %', 'Comm %', 'Commission']));
     if (isNaN(commPct)) commPct = 0;
     
@@ -731,7 +752,10 @@ function renderAttendanceSalaryModule() {
       else if (val === 'A') countA++;
     }
 
-    const payableDays = countP + (countHD * 0.5) + countWO + countPL;
+    const payableDays = (countP > 0 || countHD > 0 || countWO > 0 || countPL > 0 || countA > 0)
+      ? (countP + (countHD * 0.5) + countWO + countPL)
+      : 31;
+
     const totalDaysInMonth = 31;
     const perDayRate = fullSalary > 0 ? (fullSalary / totalDaysInMonth) : 0;
     const baseEarned = Math.round(payableDays * perDayRate);
@@ -830,7 +854,11 @@ function renderAttendanceSalaryModule() {
   });
 
   let overallStoreRevenue = 0;
-  rawData.forEach(r => { overallStoreRevenue += parseFloat(r['BillAmount']) || 0; });
+  rawData.forEach(r => {
+    const amt = parseFloat(r['BillAmount']) || parseFloat(r['Bill Amount']) || parseFloat(r['Amount']) || 0;
+    overallStoreRevenue += amt;
+  });
+
   const grossProfit = Math.max(0, overallStoreRevenue - totalStorePayroll);
 
   const payTotalEl = document.getElementById('payroll-total-amount');
@@ -967,13 +995,13 @@ function backupFullDatabaseExcel() {
   const salesSheetData = rawData.map(r => ({
     "Date": normalizeToDateString(r['Bill Date']),
     "Bill No": r['Bill No'] || r['Bill No.'] || 'N/A',
-    "Staff Name": r['SM Name'] || 'No Agent',
-    "Item Name": r['Item Name'] || '',
-    "Category": getItemCategory(r['Item Name']),
-    "Qty": parseInt(r['Qty']) || 0,
-    "Amount": parseFloat(r['BillAmount']) || 0,
-    "PayMode": r['PayMode'] || '',
-    "Channel": getSalesType(r['PayMode'])
+    "Staff Name": r['SM Name'] || r['SMName'] || 'No Agent',
+    "Item Name": r['Item Name'] || r['ItemName'] || '',
+    "Category": getItemCategory(r['Item Name'] || r['ItemName']),
+    "Qty": parseInt(r['Qty']) || parseInt(r['QTY']) || 0,
+    "Amount": parseFloat(r['BillAmount']) || parseFloat(r['Bill Amount']) || 0,
+    "PayMode": r['PayMode'] || r['Pay Mode'] || '',
+    "Channel": getSalesType(r['PayMode'] || r['Pay Mode'])
   }));
   const salesWorksheet = XLSX.utils.json_to_sheet(salesSheetData);
   XLSX.utils.book_append_sheet(workbook, salesWorksheet, "Sales Data");
@@ -1054,12 +1082,13 @@ function populateProductDetailsDOM(productName, isChannel = false) {
     if (fromVal && rDate < fromVal) return;
     if (toVal && rDate > toVal) return;
 
-    const item = row['Item Name'] || 'Unknown Item';
+    const item = row['Item Name'] || row['ItemName'] || 'Unknown Item';
     if (item !== productName) return;
 
-    const agent = row['SM Name'] || 'No Agent';
-    const amount = parseFloat(row['BillAmount']) || 0;
-    const type = getSalesType(row['PayMode']);
+    const agent = row['SM Name'] || row['SMName'] || 'No Agent';
+    const amount = parseFloat(row['BillAmount']) || parseFloat(row['Bill Amount']) || 0;
+    const payMode = row['PayMode'] || row['Pay Mode'] || '';
+    const type = getSalesType(payMode);
 
     if (!agentStats[agent]) {
       agentStats[agent] = { online: 0, offline: 0, wholesale: 0, total: 0 };
@@ -1162,7 +1191,8 @@ function populateChannelScreenDOM(channel) {
     let match = true;
     if (fromVal) match = match && (rDate >= fromVal);
     if (toVal) match = match && (rDate <= toVal);
-    const type = getSalesType(row['PayMode']);
+    const payMode = row['PayMode'] || row['Pay Mode'] || '';
+    const type = getSalesType(payMode);
     return match && (type === channel);
   });
 
@@ -1171,10 +1201,10 @@ function populateChannelScreenDOM(channel) {
   const productsObj = {};
 
   filtered.forEach(row => {
-    const amount = parseFloat(row['BillAmount']) || 0;
-    const qty = parseInt(row['Qty']) || 0;
-    const item = row['Item Name'] || 'Unknown Item';
-    const agent = row['SM Name'] || 'No Agent';
+    const amount = parseFloat(row['BillAmount']) || parseFloat(row['Bill Amount']) || 0;
+    const qty = parseInt(row['Qty']) || parseInt(row['QTY']) || 0;
+    const item = row['Item Name'] || row['ItemName'] || 'Unknown Item';
+    const agent = row['SM Name'] || row['SMName'] || 'No Agent';
 
     totalChannelRevenue += amount;
     agentsObj[agent] = (agentsObj[agent] || 0) + amount;
@@ -1251,8 +1281,11 @@ function populateAgentAnalysisScreenDOM(agentName) {
   activeAnalysisAgent = agentName;
   const fromVal = document.getElementById('from-date').value;
   const toVal = document.getElementById('to-date').value;
-  document.getElementById('agent-analysis-title').textContent = `${agentName} Ledger`;
-  document.getElementById('agent-analysis-subtitle').textContent = `Date limits: ${fromVal || 'Start'} to ${toVal || 'End'}`;
+  
+  const titleEl = document.getElementById('agent-analysis-title');
+  const subEl = document.getElementById('agent-analysis-subtitle');
+  if (titleEl) titleEl.textContent = `${agentName} Ledger`;
+  if (subEl) subEl.textContent = `Date limits: ${fromVal || 'Start'} to ${toVal || 'End'}`;
 
   const filtered = rawData.filter(row => {
     if (!row['Bill Date']) return false;
@@ -1263,7 +1296,11 @@ function populateAgentAnalysisScreenDOM(agentName) {
     return match;
   });
 
-  const agentRows = filtered.filter(row => (row['SM Name'] || 'No Agent') === agentName);
+  const agentRows = filtered.filter(row => {
+    const smName = row['SM Name'] || row['SMName'] || row['Agent'] || row['Staff'] || 'No Agent';
+    return smName.toString().trim().toLowerCase() === agentName.toString().trim().toLowerCase();
+  });
+
   let totalAgentRevenue = 0, totalAgentUnits = 0;
   let totalOnlineSales = 0, totalOfflineSales = 0, totalTakebyhandSales = 0;
   const dailyGroup = {};
@@ -1271,11 +1308,12 @@ function populateAgentAnalysisScreenDOM(agentName) {
 
   agentRows.forEach(row => {
     const date = normalizeToDateString(row['Bill Date']);
-    const amount = parseFloat(row['BillAmount']) || 0;
-    const qty = parseInt(row['Qty']) || 0;
-    const item = row['Item Name'] || 'Unknown Item';
-    const channel = getSalesType(row['PayMode']);
-    const billNo = row['Bill No'] || row['Bill No.'] || row['BillNo'] || 'N/A';
+    const amount = parseFloat(row['BillAmount']) || parseFloat(row['Bill Amount']) || parseFloat(row['Amount']) || 0;
+    const qty = parseInt(row['Qty']) || parseInt(row['QTY']) || 0;
+    const item = row['Item Name'] || row['ItemName'] || 'Unknown Item';
+    const payMode = row['PayMode'] || row['Pay Mode'] || row['Paymode'] || '';
+    const channel = getSalesType(payMode);
+    const billNo = row['Bill No'] || row['Bill No.'] || row['BillNo'] || row['Invoice No'] || 'N/A';
 
     totalAgentRevenue += amount;
     totalAgentUnits += qty;
@@ -1301,20 +1339,29 @@ function populateAgentAnalysisScreenDOM(agentName) {
     else productSales[item].offlineQty += qty;
   });
 
-  document.getElementById('agent-analysis-total-revenue').textContent = `₹${totalAgentRevenue.toLocaleString('en-IN')}`;
-  document.getElementById('agent-analysis-online-sales').textContent = `₹${totalOnlineSales.toLocaleString('en-IN')}`;
-  document.getElementById('agent-analysis-offline-sales').textContent = `₹${totalOfflineSales.toLocaleString('en-IN')}`;
-  document.getElementById('agent-analysis-takebyhand-sales').textContent = `₹${totalTakebyhandSales.toLocaleString('en-IN')}`;
+  const revEl = document.getElementById('agent-analysis-total-revenue');
+  const onlEl = document.getElementById('agent-analysis-online-sales');
+  const offEl = document.getElementById('agent-analysis-offline-sales');
+  const handEl = document.getElementById('agent-analysis-takebyhand-sales');
+
+  if (revEl) revEl.textContent = `₹${totalAgentRevenue.toLocaleString('en-IN')}`;
+  if (onlEl) onlEl.textContent = `₹${totalOnlineSales.toLocaleString('en-IN')}`;
+  if (offEl) offEl.textContent = `₹${totalOfflineSales.toLocaleString('en-IN')}`;
+  if (handEl) handEl.textContent = `₹${totalTakebyhandSales.toLocaleString('en-IN')}`;
 
   if (isAdmin) {
     const agentBillCount = Object.keys(dailyGroup).reduce((acc, date) => acc + Object.keys(dailyGroup[date].bills).length, 0);
     const agentATV = agentBillCount > 0 ? (totalAgentRevenue / agentBillCount) : 0;
     const agentAUV = totalAgentUnits > 0 ? (totalAgentRevenue / totalAgentUnits) : 0;
-    document.getElementById('admin-agent-analysis-kpi').classList.remove('hidden');
-    document.getElementById('agent-analysis-atv').textContent = `₹${Math.round(agentATV).toLocaleString('en-IN')}`;
-    document.getElementById('agent-analysis-auv').textContent = `₹${Math.round(agentAUV).toLocaleString('en-IN')}`;
+    const adminKpiContainer = document.getElementById('admin-agent-analysis-kpi');
+    if (adminKpiContainer) adminKpiContainer.classList.remove('hidden');
+    const atvEl = document.getElementById('agent-analysis-atv');
+    const auvEl = document.getElementById('agent-analysis-auv');
+    if (atvEl) atvEl.textContent = `₹${Math.round(agentATV).toLocaleString('en-IN')}`;
+    if (auvEl) auvEl.textContent = `₹${Math.round(agentAUV).toLocaleString('en-IN')}`;
   } else {
-    document.getElementById('admin-agent-analysis-kpi').classList.add('hidden');
+    const adminKpiContainer = document.getElementById('admin-agent-analysis-kpi');
+    if (adminKpiContainer) adminKpiContainer.classList.add('hidden');
   }
 
   const sortedProductSales = Object.values(productSales).map(p => {
@@ -1323,57 +1370,64 @@ function populateAgentAnalysisScreenDOM(agentName) {
   }).sort((a, b) => b.revenue - a.revenue);
 
   const productShareContainer = document.getElementById('agent-analysis-product-share');
-  productShareContainer.innerHTML = sortedProductSales.map(p => `
-    <div class="space-y-1.5 p-3 rounded-xl bg-[#FAF6EE]/60 border border-[#E5D5C6]/60">
-      <div class="flex justify-between items-center text-xs font-semibold text-stone-700">
-        <span class="font-traditional font-bold text-stone-800 truncate max-w-[200px]">${p.name}</span>
-        <span class="font-numeric text-[#5C0612] font-black">₹${p.revenue.toLocaleString('en-IN')} (${p.percent.toFixed(1)}%)</span>
+  if (productShareContainer) {
+    productShareContainer.innerHTML = sortedProductSales.length === 0 ? `
+      <p class="text-center text-stone-400 text-xs font-traditional py-4">No product sales recorded for this agent in this date range.</p>
+    ` : sortedProductSales.map(p => `
+      <div class="space-y-1.5 p-3 rounded-xl bg-[#FAF6EE]/60 border border-[#E5D5C6]/60">
+        <div class="flex justify-between items-center text-xs font-semibold text-stone-700">
+          <span class="font-traditional font-bold text-stone-800 truncate max-w-[200px]">${p.name}</span>
+          <span class="font-numeric text-[#5C0612] font-black">₹${p.revenue.toLocaleString('en-IN')} (${p.percent.toFixed(1)}%)</span>
+        </div>
+        <div class="w-full bg-[#E5D5C6]/40 h-1.5 rounded-full overflow-hidden">
+          <div class="bg-[#DAA520] h-full rounded-full" style="width: ${p.percent}%"></div>
+        </div>
       </div>
-      <div class="w-full bg-[#E5D5C6]/40 h-1.5 rounded-full overflow-hidden">
-        <div class="bg-[#DAA520] h-full rounded-full" style="width: ${p.percent}%"></div>
-      </div>
-    </div>
-  `).join('');
+    `).join('');
+  }
 
   const sortedDates = Object.keys(dailyGroup).sort((a, b) => b.localeCompare(a));
   const dailyListContainer = document.getElementById('agent-analysis-daily-list');
-  dailyListContainer.innerHTML = sortedDates.map(dateStr => {
-    const dayData = dailyGroup[dateStr];
-    const sortedBills = Object.entries(dayData.bills).sort((a, b) => b[1].total - a[1].total);
+  if (dailyListContainer) {
+    dailyListContainer.innerHTML = sortedDates.map(dateStr => {
+      const dayData = dailyGroup[dateStr];
+      const sortedBills = Object.entries(dayData.bills).sort((a, b) => b[1].total - a[1].total);
 
-    const billsHTML = sortedBills.map(([billNo, billData]) => {
-      const itemsHTML = billData.items.map(item => `
-        <div class="flex justify-between items-center text-[11px] text-stone-600 py-1.5">
-          <span class="font-sans font-medium text-stone-700">${item.name} x${item.qty}</span>
-          <span class="font-numeric font-semibold text-stone-800">₹${item.amount.toLocaleString('en-IN')}</span>
-        </div>
-      `).join('');
+      const billsHTML = sortedBills.map(([billNo, billData]) => {
+        const itemsHTML = billData.items.map(item => `
+          <div class="flex justify-between items-center text-[11px] text-stone-600 py-1.5">
+            <span class="font-sans font-medium text-stone-700">${item.name} x${item.qty}</span>
+            <span class="font-numeric font-semibold text-stone-800">₹${item.amount.toLocaleString('en-IN')}</span>
+          </div>
+        `).join('');
+
+        return `
+          <div class="bg-stone-50/60 rounded-xl p-3 border border-[#E5D5C6]/40 space-y-1.5">
+            <div class="flex justify-between items-center border-b border-[#E5D5C6]/30 pb-1">
+              <span class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Bill No: ${billNo}</span>
+              <span class="text-xs font-black text-[#5C0612] font-numeric">₹${billData.total.toLocaleString('en-IN')}</span>
+            </div>
+            <div class="divide-y divide-[#E5D5C6]/15">${itemsHTML}</div>
+          </div>
+        `;
+      }).join('');
 
       return `
-        <div class="bg-stone-50/60 rounded-xl p-3 border border-[#E5D5C6]/40 space-y-1.5">
-          <div class="flex justify-between items-center border-b border-[#E5D5C6]/30 pb-1">
-            <span class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Bill No: ${billNo}</span>
-            <span class="text-xs font-black text-[#5C0612] font-numeric">₹${billData.total.toLocaleString('en-IN')}</span>
+        <div class="border border-[#E5D5C6] rounded-2xl bg-[#FFFDF9] overflow-hidden warm-shadow">
+          <div class="bg-[#F3EFE9] px-4 py-3 border-b border-[#E5D5C6] flex justify-between items-center">
+            <span class="font-traditional font-bold text-stone-700 text-xs">${dateStr}</span>
+            <span class="font-numeric font-black text-[#5C0612] text-xs">Day Total: ₹${dayData.total.toLocaleString('en-IN')}</span>
           </div>
-          <div class="divide-y divide-[#E5D5C6]/15">${itemsHTML}</div>
+          <div class="p-3 space-y-3">${billsHTML}</div>
         </div>
       `;
     }).join('');
-
-    return `
-      <div class="border border-[#E5D5C6] rounded-2xl bg-[#FFFDF9] overflow-hidden warm-shadow">
-        <div class="bg-[#F3EFE9] px-4 py-3 border-b border-[#E5D5C6] flex justify-between items-center">
-          <span class="font-traditional font-bold text-stone-700 text-xs">${dateStr}</span>
-          <span class="font-numeric font-black text-[#5C0612] text-xs">Day Total: ₹${dayData.total.toLocaleString('en-IN')}</span>
-        </div>
-        <div class="p-3 space-y-3">${billsHTML}</div>
-      </div>
-    `;
-  }).join('');
+  }
 }
 
 function renderDayWiseSales(dayWiseObj) {
   const container = document.getElementById('daywise-sales-container');
+  if (!container) return;
   const sortedDates = Object.keys(dayWiseObj).sort((a, b) => b.localeCompare(a));
 
   if (sortedDates.length === 0) {
@@ -1444,7 +1498,8 @@ function exportAgentReportExcel() {
   const rows = rawData.filter(row => {
     if (!row['Bill Date']) return false;
     const rDate = normalizeToDateString(row['Bill Date']);
-    let match = (row['SM Name'] || 'No Agent') === activeAnalysisAgent;
+    const smName = row['SM Name'] || row['SMName'] || row['Agent'] || 'No Agent';
+    let match = smName.toString().trim().toLowerCase() === activeAnalysisAgent.toString().trim().toLowerCase();
     if (fromVal) match = match && (rDate >= fromVal);
     if (toVal) match = match && (rDate <= toVal);
     return match;
@@ -1453,11 +1508,11 @@ function exportAgentReportExcel() {
   const worksheetData = rows.map(r => ({
     "Date": normalizeToDateString(r['Bill Date']),
     "Bill No": r['Bill No'] || r['Bill No.'] || 'N/A',
-    "Item Name": r['Item Name'] || '',
-    "Qty": parseInt(r['Qty']) || 0,
-    "Amount": parseFloat(r['BillAmount']) || 0,
-    "Channel": getSalesType(r['PayMode']),
-    "PayMode": r['PayMode'] || ''
+    "Item Name": r['Item Name'] || r['ItemName'] || '',
+    "Qty": parseInt(r['Qty']) || parseInt(r['QTY']) || 0,
+    "Amount": parseFloat(r['BillAmount']) || parseFloat(r['Bill Amount']) || 0,
+    "Channel": getSalesType(r['PayMode'] || r['Pay Mode']),
+    "PayMode": r['PayMode'] || r['Pay Mode'] || ''
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(worksheetData);
