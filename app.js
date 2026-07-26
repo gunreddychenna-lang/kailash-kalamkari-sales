@@ -30,6 +30,34 @@ window.addEventListener('popstate', function(e) {
   applyState(e.state, true);
 });
 
+// UNIVERSAL PDF EXPORT ENGINE FOR ALL SECTIONS
+function exportSectionToPDF(elementId, titleFilename) {
+  const element = document.getElementById(elementId);
+  if (!element || typeof html2pdf === 'undefined') {
+    alert("PDF Engine is loading or view element was not found.");
+    return;
+  }
+
+  // Temporarily hide interactive buttons during PDF generation
+  const actionBtns = element.querySelectorAll('.export-ignore');
+  actionBtns.forEach(btn => btn.style.display = 'none');
+
+  const opt = {
+    margin: 0.3,
+    filename: `${titleFilename}_${new Date().toISOString().split('T')[0]}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+  };
+
+  html2pdf().set(opt).from(element).save().then(() => {
+    actionBtns.forEach(btn => btn.style.display = '');
+  }).catch(err => {
+    console.error("PDF Export error:", err);
+    actionBtns.forEach(btn => btn.style.display = '');
+  });
+}
+
 function normalizeToDateString(dateVal) {
   if (!dateVal) return '';
   const strVal = dateVal.toString().trim();
@@ -163,25 +191,18 @@ async function fetchData(user, pass) {
   }
 }
 
+// STRICT ROLE VISIBILITY ENFORCER (ADMIN VS NON-ADMIN)
 function updateRoleVisibility() {
-  const attNavBtn = document.getElementById('btn-attendance-tab');
-  const attTab = document.getElementById('attendance-tab');
-  const targetCard = document.getElementById('target-progress-card');
-  const adminKpis = document.getElementById('admin-overall-kpi');
-  const weeklyCard = document.getElementById('card-weekly-patterns');
+  const adminOnlyElements = document.querySelectorAll('.admin-only');
+  adminOnlyElements.forEach(el => {
+    if (isAdmin) {
+      el.classList.remove('hidden');
+    } else {
+      el.classList.add('hidden');
+    }
+  });
 
-  if (isAdmin) {
-    if (attNavBtn) attNavBtn.classList.remove('hidden');
-    if (targetCard) targetCard.classList.remove('hidden');
-    if (adminKpis) adminKpis.classList.remove('hidden');
-    if (weeklyCard) weeklyCard.classList.remove('hidden');
-  } else {
-    if (attNavBtn) attNavBtn.classList.add('hidden');
-    if (attTab) attTab.classList.add('hidden');
-    if (targetCard) targetCard.classList.add('hidden');
-    if (adminKpis) adminKpis.classList.add('hidden');
-    if (weeklyCard) weeklyCard.classList.add('hidden');
-
+  if (!isAdmin) {
     const isAttendanceActive = !document.getElementById('attendance-tab').classList.contains('hidden');
     if (isAttendanceActive) switchTab('products-tab');
   }
@@ -209,7 +230,7 @@ function applyState(state, isPopState = false) {
   document.getElementById('agent-detail-card').classList.add('hidden');
   document.getElementById('product-detail-card').classList.add('hidden');
 
-  document.getElementById('standard-header').classList.add('hidden');
+  document.getElementById('standard-header').classList.remove('hidden');
   document.getElementById('standard-main').classList.add('hidden');
   document.getElementById('channel-view').classList.add('hidden');
   document.getElementById('weekly-view').classList.add('hidden');
@@ -217,7 +238,6 @@ function applyState(state, isPopState = false) {
 
   if (state.view === 'home') {
     selectedChannel = 'All';
-    document.getElementById('standard-header').classList.remove('hidden');
     document.getElementById('standard-main').classList.remove('hidden');
 
     if (state.detail === 'agent') {
@@ -333,12 +353,12 @@ function selectChannel(channel) {
 }
 
 function updateMonthlyTarget(val) {
+  if (!isAdmin) return;
   monthlyTarget = parseFloat(val) || 0;
   localStorage.setItem('kk_monthly_target', monthlyTarget.toString());
   processData();
 }
 
-// CRASH-PROOF AGENT REVENUE MATCHING
 function getStaffSalesAmount(empName) {
   if (!empName) return 0;
   const cleanEmp = empName.toString().toLowerCase().replace(/\s+/g, '').trim();
@@ -358,7 +378,6 @@ function getStaffSalesAmount(empName) {
   return match ? match.revenue : 0;
 }
 
-// SAFE OBJECT PROPERTY GETTER
 function getEmpProp(emp, targetKeys) {
   if (!emp || typeof emp !== 'object') return "";
   const empKeys = Object.keys(emp);
@@ -473,10 +492,11 @@ function processData() {
     agentsObj[agent].bills[billKey].amount += amount;
   });
 
+  // UPDATED TICKET BUCKETS (< ₹10K, ₹10K - ₹1 Lakh, > ₹1 Lakh)
   Object.values(billTotalObj).forEach(val => {
-    if (val < 1000) bucketSmall++;
-    else if (val <= 5000) bucketMedium++;
-    else bucketHigh++;
+    if (val < 10000) bucketSmall++;           // Under ₹10,000 (Small)
+    else if (val <= 100000) bucketMedium++;   // ₹10,000 to ₹1 Lakh (Medium)
+    else bucketHigh++;                        // Above ₹1 Lakh (High)
   });
 
   let peakDate = "N/A", peakVal = 0;
@@ -488,6 +508,16 @@ function processData() {
   document.getElementById('metric-online').textContent = `₹${totalOnline.toLocaleString('en-IN')}`;
   document.getElementById('metric-offline').textContent = `₹${totalOffline.toLocaleString('en-IN')}`;
   document.getElementById('metric-wholesale').textContent = `₹${totalWholesale.toLocaleString('en-IN')}`;
+
+  // Retail Apparel KPIs (ASP & Digital adoption)
+  const asp = totalUnits > 0 ? (totalSales / totalUnits) : 0;
+  const digitalAmount = payUpiStore + payUpiOnline + payCard;
+  const digitalPct = totalSales > 0 ? ((digitalAmount / totalSales) * 100).toFixed(0) : 0;
+
+  const aspEl = document.getElementById('metric-asp');
+  const digEl = document.getElementById('metric-digital-pct');
+  if (aspEl) aspEl.textContent = `₹${Math.round(asp).toLocaleString('en-IN')}`;
+  if (digEl) digEl.textContent = `${digitalPct}% Digital`;
 
   const targetPct = monthlyTarget > 0 ? Math.min(100, (totalSales / monthlyTarget) * 100) : 0;
   const targetPctText = document.getElementById('target-percent-text');
@@ -524,16 +554,14 @@ function processData() {
   document.getElementById('peak-sales-date').textContent = peakDate;
   document.getElementById('peak-sales-amount').textContent = `₹${peakVal.toLocaleString('en-IN')}`;
 
-  if (isAdmin) {
-    const totalTransactions = uniqueBills.size;
-    const overallUPT = totalTransactions > 0 ? (totalUnits / totalTransactions) : 0;
-    const overallATV = totalTransactions > 0 ? (totalSales / totalTransactions) : 0;
-    const overallAUV = totalUnits > 0 ? (totalSales / totalUnits) : 0;
+  const totalTransactions = uniqueBills.size;
+  const overallUPT = totalTransactions > 0 ? (totalUnits / totalTransactions) : 0;
+  const overallATV = totalTransactions > 0 ? (totalSales / totalTransactions) : 0;
+  const overallAUV = totalUnits > 0 ? (totalSales / totalUnits) : 0;
 
-    document.getElementById('metric-upt').textContent = overallUPT.toFixed(2);
-    document.getElementById('metric-atv').textContent = `₹${Math.round(overallATV).toLocaleString('en-IN')}`;
-    document.getElementById('metric-auv').textContent = `₹${Math.round(overallAUV).toLocaleString('en-IN')}`;
-  }
+  document.getElementById('metric-upt').textContent = overallUPT.toFixed(2);
+  document.getElementById('metric-atv').textContent = `₹${Math.round(overallATV).toLocaleString('en-IN')}`;
+  document.getElementById('metric-auv').textContent = `₹${Math.round(overallAUV).toLocaleString('en-IN')}`;
 
   productsList = Object.values(productsObj).map(p => {
     p.share = totalSales > 0 ? (p.revenue / totalSales) * 100 : 0;
@@ -605,7 +633,9 @@ function renderProductsTable() {
   tbody.innerHTML = displayList.map(p => {
     const escapedName = p.name.replace(/'/g, "\\'");
     const isSlowMoving = p.qty <= 2;
-    const slowBadge = isSlowMoving ? `<span class="bg-rose-100 text-rose-800 text-[8px] font-extrabold px-1.5 py-0.5 rounded border border-rose-200 ml-1.5 uppercase">Slow Moving</span>` : '';
+    const slowBadge = isSlowMoving 
+      ? `<span class="bg-rose-100 text-rose-800 text-[8px] font-extrabold px-1.5 py-0.5 rounded border border-rose-200 ml-1.5 uppercase">Slow Velocity</span>` 
+      : (p.qty >= 10 ? `<span class="bg-emerald-100 text-emerald-800 text-[8px] font-extrabold px-1.5 py-0.5 rounded border border-emerald-200 ml-1.5 uppercase">Bestseller</span>` : '');
 
     return `
       <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showProductDetails('${escapedName}')">
@@ -655,30 +685,27 @@ function renderAgentsTable() {
       badgesHTML += `<span class="bg-amber-100 text-amber-900 border border-amber-300 text-[8px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ml-1.5">🥇 Top Champ</span>`;
     }
     if (a.name === maxUptAgent) {
-      badgesHTML += `<span class="bg-blue-100 text-blue-900 border border-blue-300 text-[8px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ml-1">📦 Cross-Sell Master</span>`;
+      badgesHTML += `<span class="bg-blue-100 text-blue-900 border border-blue-300 text-[8px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ml-1">📦 Cross-Sell Pro</span>`;
     }
     if (a.name === maxAtvAgent) {
-      badgesHTML += `<span class="bg-purple-100 text-purple-900 border border-purple-300 text-[8px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ml-1">💎 High Ticket Pro</span>`;
+      badgesHTML += `<span class="bg-purple-100 text-purple-900 border border-purple-300 text-[8px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ml-1">💎 High Ticket</span>`;
     }
 
-    let kpiHTML = '';
-    if (isAdmin) {
-      const atv = a.billCount > 0 ? (a.revenue / a.billCount) : 0;
-      kpiHTML = `
-        <div class="text-[9px] text-stone-500 font-bold mt-1 font-sans flex items-center gap-1.5">
-          <span>Cross-Selling UPT: <strong class="text-stone-800">${a.upt.toFixed(1)}</strong></span>
-          <span>•</span>
-          <span>ATV: <strong class="text-[#5C0612]">₹${Math.round(atv).toLocaleString('en-IN')}</strong></span>
-        </div>
-      `;
-    }
+    const atv = a.billCount > 0 ? (a.revenue / a.billCount) : 0;
+    const kpiHTML = `
+      <div class="text-[9px] text-stone-500 font-bold mt-1 font-sans flex items-center gap-1.5">
+        <span>Cross-Sell Basket (UPT): <strong class="text-stone-800">${a.upt.toFixed(1)}</strong></span>
+        <span>•</span>
+        <span>Avg Ticket (ATV): <strong class="text-[#5C0612]">₹${Math.round(atv).toLocaleString('en-IN')}</strong></span>
+      </div>
+    `;
 
     return `
       <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showAgentDetails('${a.name}')">
         <td class="p-3.5 font-bold text-stone-700 font-sans">
           <div class="flex justify-between items-center">
             <span class="flex items-center flex-wrap">${a.name} ${badgesHTML}</span>
-            <span class="text-[9px] text-[#DAA520] font-bold flex items-center gap-1 font-traditional">Analyze <i class="fa-solid fa-chevron-right text-[8px]"></i></span>
+            <span class="text-[9px] text-[#DAA520] font-bold flex items-center gap-1 font-traditional">Ledger <i class="fa-solid fa-chevron-right text-[8px]"></i></span>
           </div>
           ${kpiHTML}
         </td>
@@ -688,7 +715,7 @@ function renderAgentsTable() {
   }).join('');
 }
 
-// ATTENDANCE & PAYROLL MODULE RENDERER
+// ATTENDANCE & PAYROLL MODULE (STRICT ADMIN ONLY)
 function renderAttendanceSalaryModule() {
   if (!isAdmin) return; 
 
@@ -807,7 +834,7 @@ function renderAttendanceSalaryModule() {
         <div class="text-right font-numeric">
           <p class="text-[9px] text-stone-500 font-traditional">Final Net Salary</p>
           <p class="text-base font-black text-[#5C0612]" id="net-sal-${index}">₹${netSalary.toLocaleString('en-IN')}</p>
-          <button onclick="shareStaffPayslipWhatsApp(${index})" class="mt-1 text-[8px] bg-[#25D366] text-white px-2 py-0.5 rounded font-bold uppercase flex items-center gap-1 ml-auto">
+          <button onclick="shareStaffPayslipWhatsApp(${index})" class="mt-1 text-[8px] bg-[#25D366] text-white px-2 py-0.5 rounded font-bold uppercase flex items-center gap-1 ml-auto export-ignore">
             <i class="fa-brands fa-whatsapp"></i> Payslip
           </button>
         </div>
@@ -935,6 +962,7 @@ function shareStaffPayslipWhatsApp(index) {
 }
 
 function shareOwnerDailySummaryWhatsApp() {
+  if (!isAdmin) return;
   const fromVal = document.getElementById('from-date').value || 'Start';
   const toVal = document.getElementById('to-date').value || 'End';
   const totalSalesText = document.getElementById('metric-total').textContent || '₹0';
@@ -947,6 +975,10 @@ function shareOwnerDailySummaryWhatsApp() {
   const cash = document.getElementById('paymode-cash').textContent || '₹0';
   const card = document.getElementById('paymode-card').textContent || '₹0';
   const hand = document.getElementById('paymode-hand').textContent || '₹0';
+
+  const bSmall = document.getElementById('bucket-small').textContent || '0 Bills';
+  const bMedium = document.getElementById('bucket-medium').textContent || '0 Bills';
+  const bHigh = document.getElementById('bucket-high').textContent || '0 Bills';
 
   let topAgent = "N/A", topAgentRev = 0;
   agentsList.forEach(a => {
@@ -971,6 +1003,10 @@ function shareOwnerDailySummaryWhatsApp() {
   msg += `• Online: ${onlineSalesText}\n`;
   msg += `• Offline: ${offlineSalesText}\n`;
   msg += `• Takebyhand: ${wholesaleSalesText}\n\n`;
+  msg += `🎫 *TICKET BUCKET SPLIT:*\n`;
+  msg += `• Small (< ₹10K): ${bSmall}\n`;
+  msg += `• Medium (₹10K – ₹1 Lakh): ${bMedium}\n`;
+  msg += `• High (> ₹1 Lakh): ${bHigh}\n\n`;
   msg += `💳 *PAYMENT MODE BREAKDOWN:*\n`;
   msg += `• UPI Store: ${upiStore}\n`;
   msg += `• UPI Online: ${upiOnl}\n`;
@@ -985,6 +1021,7 @@ function shareOwnerDailySummaryWhatsApp() {
 }
 
 function backupFullDatabaseExcel() {
+  if (!isAdmin) return;
   if (typeof XLSX === 'undefined') {
     alert("Excel library loading or unavailable.");
     return;
@@ -992,17 +1029,26 @@ function backupFullDatabaseExcel() {
 
   const workbook = XLSX.utils.book_new();
 
-  const salesSheetData = rawData.map(r => ({
-    "Date": normalizeToDateString(r['Bill Date']),
-    "Bill No": r['Bill No'] || r['Bill No.'] || 'N/A',
-    "Staff Name": r['SM Name'] || r['SMName'] || 'No Agent',
-    "Item Name": r['Item Name'] || r['ItemName'] || '',
-    "Category": getItemCategory(r['Item Name'] || r['ItemName']),
-    "Qty": parseInt(r['Qty']) || parseInt(r['QTY']) || 0,
-    "Amount": parseFloat(r['BillAmount']) || parseFloat(r['Bill Amount']) || 0,
-    "PayMode": r['PayMode'] || r['Pay Mode'] || '',
-    "Channel": getSalesType(r['PayMode'] || r['Pay Mode'])
-  }));
+  const salesSheetData = rawData.map(r => {
+    const amt = parseFloat(r['BillAmount']) || parseFloat(r['Bill Amount']) || 0;
+    let ticketCategory = 'Small (< ₹10K)';
+    if (amt > 100000) ticketCategory = 'High (> ₹1 Lakh)';
+    else if (amt >= 10000) ticketCategory = 'Medium (₹10K-₹1Lakh)';
+
+    return {
+      "Date": normalizeToDateString(r['Bill Date']),
+      "Bill No": r['Bill No'] || r['Bill No.'] || 'N/A',
+      "Staff Name": r['SM Name'] || r['SMName'] || 'No Agent',
+      "Item Name": r['Item Name'] || r['ItemName'] || '',
+      "Category": getItemCategory(r['Item Name'] || r['ItemName']),
+      "Qty": parseInt(r['Qty']) || parseInt(r['QTY']) || 0,
+      "Amount": amt,
+      "Ticket Category": ticketCategory,
+      "PayMode": r['PayMode'] || r['Pay Mode'] || '',
+      "Channel": getSalesType(r['PayMode'] || r['Pay Mode'])
+    };
+  });
+
   const salesWorksheet = XLSX.utils.json_to_sheet(salesSheetData);
   XLSX.utils.book_append_sheet(workbook, salesWorksheet, "Sales Data");
 
@@ -1172,10 +1218,10 @@ function populateChannelScreenDOM(channel) {
   
   const headerEl = document.getElementById('channel-header');
   if (headerEl) {
-    if (channel === 'Online') headerEl.className = "bg-blue-900 text-white px-5 py-4 flex items-center gap-3.5 sticky top-0 z-50 shadow-md";
-    else if (channel === 'Offline') headerEl.className = "bg-orange-800 text-white px-5 py-4 flex items-center gap-3.5 sticky top-0 z-50 shadow-md";
-    else if (channel === 'Wholesale') headerEl.className = "bg-purple-900 text-white px-5 py-4 flex items-center gap-3.5 sticky top-0 z-50 shadow-md";
-    else headerEl.className = "bg-[#5C0612] text-white px-5 py-4 flex items-center gap-3.5 sticky top-0 z-50 shadow-md";
+    if (channel === 'Online') headerEl.className = "bg-blue-900 text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md";
+    else if (channel === 'Offline') headerEl.className = "bg-orange-800 text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md";
+    else if (channel === 'Wholesale') headerEl.className = "bg-purple-900 text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md";
+    else headerEl.className = "bg-[#5C0612] text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md";
   }
 
   const titleEl = document.getElementById('channel-view-title');
@@ -1349,20 +1395,14 @@ function populateAgentAnalysisScreenDOM(agentName) {
   if (offEl) offEl.textContent = `₹${totalOfflineSales.toLocaleString('en-IN')}`;
   if (handEl) handEl.textContent = `₹${totalTakebyhandSales.toLocaleString('en-IN')}`;
 
-  if (isAdmin) {
-    const agentBillCount = Object.keys(dailyGroup).reduce((acc, date) => acc + Object.keys(dailyGroup[date].bills).length, 0);
-    const agentATV = agentBillCount > 0 ? (totalAgentRevenue / agentBillCount) : 0;
-    const agentAUV = totalAgentUnits > 0 ? (totalAgentRevenue / totalAgentUnits) : 0;
-    const adminKpiContainer = document.getElementById('admin-agent-analysis-kpi');
-    if (adminKpiContainer) adminKpiContainer.classList.remove('hidden');
-    const atvEl = document.getElementById('agent-analysis-atv');
-    const auvEl = document.getElementById('agent-analysis-auv');
-    if (atvEl) atvEl.textContent = `₹${Math.round(agentATV).toLocaleString('en-IN')}`;
-    if (auvEl) auvEl.textContent = `₹${Math.round(agentAUV).toLocaleString('en-IN')}`;
-  } else {
-    const adminKpiContainer = document.getElementById('admin-agent-analysis-kpi');
-    if (adminKpiContainer) adminKpiContainer.classList.add('hidden');
-  }
+  const agentBillCount = Object.keys(dailyGroup).reduce((acc, date) => acc + Object.keys(dailyGroup[date].bills).length, 0);
+  const agentATV = agentBillCount > 0 ? (totalAgentRevenue / agentBillCount) : 0;
+  const agentAUV = totalAgentUnits > 0 ? (totalAgentRevenue / totalAgentUnits) : 0;
+  
+  const atvEl = document.getElementById('agent-analysis-atv');
+  const auvEl = document.getElementById('agent-analysis-auv');
+  if (atvEl) atvEl.textContent = `₹${Math.round(agentATV).toLocaleString('en-IN')}`;
+  if (auvEl) auvEl.textContent = `₹${Math.round(agentAUV).toLocaleString('en-IN')}`;
 
   const sortedProductSales = Object.values(productSales).map(p => {
     p.percent = totalAgentRevenue > 0 ? (p.revenue / totalAgentRevenue) * 100 : 0;
@@ -1457,70 +1497,6 @@ function renderDayWiseSales(dayWiseObj) {
   }).join('');
 }
 
-function exportAgentReportPDF() {
-  const element = document.getElementById('agent-analysis-view');
-  if (!element || typeof html2pdf === 'undefined') {
-    alert("PDF library loading or view not ready.");
-    return;
-  }
-  const opt = {
-    margin: 0.5,
-    filename: `${activeAnalysisAgent}_Performance_Report.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2 },
-    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-  };
-  html2pdf().set(opt).from(element).save();
-}
-
-function exportAgentReportJPG() {
-  const element = document.getElementById('agent-analysis-view');
-  if (!element || typeof html2canvas === 'undefined') {
-    alert("Image export library loading or view not ready.");
-    return;
-  }
-  html2canvas(element, { scale: 2 }).then(canvas => {
-    const link = document.createElement('a');
-    link.download = `${activeAnalysisAgent}_Performance_Report.jpg`;
-    link.href = canvas.toDataURL('image/jpeg');
-    link.click();
-  });
-}
-
-function exportAgentReportExcel() {
-  if (typeof XLSX === 'undefined') {
-    alert("Excel library not loaded.");
-    return;
-  }
-  const fromVal = document.getElementById('from-date').value;
-  const toVal = document.getElementById('to-date').value;
-
-  const rows = rawData.filter(row => {
-    if (!row['Bill Date']) return false;
-    const rDate = normalizeToDateString(row['Bill Date']);
-    const smName = row['SM Name'] || row['SMName'] || row['Agent'] || 'No Agent';
-    let match = smName.toString().trim().toLowerCase() === activeAnalysisAgent.toString().trim().toLowerCase();
-    if (fromVal) match = match && (rDate >= fromVal);
-    if (toVal) match = match && (rDate <= toVal);
-    return match;
-  });
-
-  const worksheetData = rows.map(r => ({
-    "Date": normalizeToDateString(r['Bill Date']),
-    "Bill No": r['Bill No'] || r['Bill No.'] || 'N/A',
-    "Item Name": r['Item Name'] || r['ItemName'] || '',
-    "Qty": parseInt(r['Qty']) || parseInt(r['QTY']) || 0,
-    "Amount": parseFloat(r['BillAmount']) || parseFloat(r['Bill Amount']) || 0,
-    "Channel": getSalesType(r['PayMode'] || r['Pay Mode']),
-    "PayMode": r['PayMode'] || r['Pay Mode'] || ''
-  }));
-
-  const worksheet = XLSX.utils.json_to_sheet(worksheetData);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Sales Ledger");
-  XLSX.writeFile(workbook, `${activeAnalysisAgent}_Ledger.xlsx`);
-}
-
 function shareAgentSalesReportWhatsApp() {
   const revEl = document.getElementById('agent-analysis-total-revenue');
   const revText = revEl ? revEl.textContent : '₹0';
@@ -1537,6 +1513,11 @@ function shareAgentSalesReportWhatsApp() {
 }
 
 function switchTab(tabId) {
+  if (tabId === 'attendance-tab' && !isAdmin) {
+    switchTab('products-tab');
+    return;
+  }
+
   document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
   document.getElementById(tabId).classList.remove('hidden');
 

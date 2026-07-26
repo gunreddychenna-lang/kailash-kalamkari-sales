@@ -38,7 +38,7 @@
       
       <div class="p-6 bg-[#5C0612] text-center border-b border-[#DAA520]">
         <h2 class="text-2xl font-bold font-traditional text-[#EFE5C9]">Kailash Kalamkari</h2>
-        <p class="text-[10px] text-stone-300 font-medium tracking-wider uppercase mt-1">Live Sales, Analytics & Payroll Portal</p>
+        <p class="text-[10px] text-stone-300 font-medium tracking-wider uppercase mt-1">Live Sales & Executive Analytics Portal</p>
       </div>
 
       <form id="login-form" class="p-6 space-y-4">
@@ -67,17 +67,24 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
       <div>
         <h1 class="text-xl sm:text-2xl font-bold tracking-wide font-traditional text-[#EFE5C9]">Kailash Kalamkari</h1>
-        <p class="text-[9px] sm:text-xs text-stone-300 font-medium tracking-wider uppercase">Executive Store Dashboard</p>
+        <p class="text-[9px] sm:text-xs text-stone-300 font-medium tracking-wider uppercase">Executive Store Analytics</p>
       </div>
       <div class="flex items-center gap-2">
-        <button onclick="shareOwnerDailySummaryWhatsApp()" class="bg-[#25D366] hover:bg-[#128C7E] text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md active:scale-95 duration-100" title="Send Daily WhatsApp Summary">
+        <!-- GLOBAL DASHBOARD PDF EXPORT -->
+        <button onclick="exportSectionToPDF('standard-main', 'Kailash_Kalamkari_Full_Dashboard')" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md border border-rose-700 active:scale-95 duration-100" title="Export Full Dashboard PDF">
+          <i class="fa-solid fa-file-pdf text-xs text-[#DAA520]"></i> <span class="hidden md:inline">Export PDF</span>
+        </button>
+
+        <!-- ADMIN EXCLUSIVE ACTIONS -->
+        <button onclick="shareOwnerDailySummaryWhatsApp()" class="admin-only hidden bg-[#25D366] hover:bg-[#128C7E] text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md active:scale-95 duration-100" title="Send Daily WhatsApp Summary">
           <i class="fa-brands fa-whatsapp text-sm"></i> <span class="hidden md:inline">Owner Summary</span>
         </button>
-        <button onclick="backupFullDatabaseExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md border border-emerald-500 active:scale-95 duration-100" title="Backup Database to Excel">
+        <button onclick="backupFullDatabaseExcel()" class="admin-only hidden bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md border border-emerald-500 active:scale-95 duration-100" title="Backup Database to Excel">
           <i class="fa-solid fa-file-excel text-xs text-emerald-300"></i> <span class="hidden md:inline">Backup Excel</span>
         </button>
+
         <button id="refresh-btn" class="bg-[#DAA520] hover:bg-[#C59B27] text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md font-traditional border border-[#B38F4D] active:scale-95 duration-100">
-          <i class="fa-solid fa-arrows-rotate text-[10px]"></i> <span class="hidden sm:inline">Refresh Data</span>
+          <i class="fa-solid fa-arrows-rotate text-[10px]"></i> <span class="hidden sm:inline">Refresh</span>
         </button>
         <button onclick="handleLogout()" class="bg-transparent border border-[#EFE5C9]/30 hover:bg-white/10 text-white rounded-xl p-2 transition-all shadow-md active:scale-95 duration-100" title="Logout">
           <i class="fa-solid fa-right-from-bracket text-xs"></i>
@@ -90,7 +97,7 @@
   <!-- LOADING SPINNER -->
   <div id="loader" class="text-center py-24">
     <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-[#5C0612] mx-auto"></div>
-    <p class="mt-4 text-xs text-stone-600 font-semibold tracking-wide font-traditional">Synchronizing live sales & attendance database...</p>
+    <p class="mt-4 text-xs text-stone-600 font-semibold tracking-wide font-traditional">Synchronizing live store analytics & database...</p>
   </div>
 
   <!-- MAIN CONTAINER -->
@@ -140,8 +147,8 @@
         </div>
       </div>
 
-      <!-- Monthly Target & Sales Run-Rate Forecast Card (ADMIN ONLY) -->
-      <div id="target-progress-card" class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow space-y-2 relative overflow-hidden flex flex-col justify-between">
+      <!-- Monthly Target & Pacing Card (ADMIN ONLY) -->
+      <div id="target-progress-card" class="admin-only hidden bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow space-y-2 relative overflow-hidden flex flex-col justify-between">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
         <div>
           <div class="flex justify-between items-center text-xs mb-1">
@@ -173,32 +180,37 @@
 
     </div>
 
-    <!-- Visual Scorecards Grid -->
+    <!-- Visual Analytics Scorecards Grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       
-      <!-- Total Sales Revenue + Admin KPIs -->
+      <!-- Total Sales Revenue + Retail KPIs -->
       <div id="card-total" onclick="selectChannel('All')" class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] warm-shadow sm:col-span-2 cursor-pointer transition-all hover:scale-[1.01] hover:border-[#DAA520] duration-200 relative overflow-hidden">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
         <div class="p-5">
           <div class="flex justify-between items-center">
-            <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Total Sales Revenue</p>
+            <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Total Store Revenue</p>
             <span class="text-[8px] text-white bg-[#5C0612] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-[#DAA520]">All Channels</span>
           </div>
           <p id="metric-total" class="text-3xl sm:text-4xl font-black text-[#5C0612] mt-1 font-sans">₹0</p>
         </div>
         
-        <div id="admin-overall-kpi" class="hidden bg-[#F3EFE9] border-t border-[#E5D5C6] p-3 grid grid-cols-3 gap-1 text-center text-xs font-numeric">
+        <!-- Retail Analytics Breakdown (UPT, ATV, AUV, ASP) -->
+        <div class="bg-[#F3EFE9] border-t border-[#E5D5C6] p-3 grid grid-cols-4 gap-1 text-center text-xs font-numeric">
           <div class="border-r border-[#E5D5C6]">
-            <p class="text-[8px] font-bold text-stone-500 uppercase font-traditional">Basket Size (UPT)</p>
+            <p class="text-[8px] font-bold text-stone-500 uppercase font-traditional">Basket (UPT)</p>
             <p id="metric-upt" class="text-xs sm:text-sm font-black text-stone-800 font-sans">0.0</p>
           </div>
           <div class="border-r border-[#E5D5C6]">
-            <p class="text-[8px] font-bold text-stone-500 uppercase font-traditional">Avg Ticket (ATV)</p>
+            <p class="text-[8px] font-bold text-stone-500 uppercase font-traditional">Avg Bill (ATV)</p>
             <p id="metric-atv" class="text-xs sm:text-sm font-black text-[#5C0612] font-sans">₹0</p>
           </div>
-          <div>
+          <div class="border-r border-[#E5D5C6]">
             <p class="text-[8px] font-bold text-stone-500 uppercase font-traditional">Avg Unit (AUV)</p>
             <p id="metric-auv" class="text-xs sm:text-sm font-black text-[#5C0612] font-sans">₹0</p>
+          </div>
+          <div>
+            <p class="text-[8px] font-bold text-stone-500 uppercase font-traditional">Avg Price (ASP)</p>
+            <p id="metric-asp" class="text-xs sm:text-sm font-black text-emerald-800 font-sans">₹0</p>
           </div>
         </div>
       </div>
@@ -215,7 +227,7 @@
       <!-- Offline Sale Card -->
       <div id="card-offline" onclick="selectChannel('Offline')" class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow cursor-pointer transition-all hover:scale-[1.01] duration-200 hover:border-orange-400">
         <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between font-traditional">
-          <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block"></span> Offline Sale</span>
+          <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block"></span> Offline Store</span>
           <span class="text-[8px] text-orange-600 font-extrabold uppercase flex items-center gap-0.5">Explore <i class="fa-solid fa-chevron-right text-[6px]"></i></span>
         </p>
         <p id="metric-offline" class="text-lg sm:text-xl font-extrabold text-stone-800 mt-2 font-numeric">₹0</p>
@@ -231,19 +243,22 @@
       </div>
 
       <!-- Weekly Share Card (ADMIN ONLY) -->
-      <div id="card-weekly-patterns" onclick="openWeeklyScreen()" class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow cursor-pointer transition-all hover:scale-[1.01] duration-200 hover:border-[#DAA520]">
+      <div id="card-weekly-patterns" onclick="openWeeklyScreen()" class="admin-only hidden bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow cursor-pointer transition-all hover:scale-[1.01] duration-200 hover:border-[#DAA520]">
         <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between font-traditional">
-          <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-[#DAA520] inline-block"></span> Weekly Share</span>
+          <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-[#DAA520] inline-block"></span> Weekly Pattern</span>
           <span class="text-[8px] text-[#DAA520] font-extrabold uppercase flex items-center gap-0.5">Explore <i class="fa-solid fa-chevron-right text-[6px]"></i></span>
         </p>
-        <p class="text-lg sm:text-xl font-extrabold text-stone-800 mt-2 font-traditional">Day Share</p>
+        <p class="text-lg sm:text-xl font-extrabold text-stone-800 mt-2 font-traditional">Day Distribution</p>
       </div>
 
-      <!-- Payment Mode Breakdown Card -->
+      <!-- Payment Mode Split & Digital Ratio -->
       <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow sm:col-span-2 space-y-2">
-        <p class="text-[10px] font-bold text-stone-600 uppercase tracking-wider font-traditional flex items-center gap-1">
-          <i class="fa-solid fa-wallet text-[#5C0612]"></i> Payment Mode Split (Cash & UPI)
-        </p>
+        <div class="flex justify-between items-center">
+          <p class="text-[10px] font-bold text-stone-600 uppercase tracking-wider font-traditional flex items-center gap-1">
+            <i class="fa-solid fa-wallet text-[#5C0612]"></i> Payment Mode Split
+          </p>
+          <span id="metric-digital-pct" class="text-[9px] bg-emerald-100 text-emerald-900 border border-emerald-300 font-extrabold px-2 py-0.5 rounded-full font-numeric">0% Digital</span>
+        </div>
         <div class="grid grid-cols-5 gap-1.5 text-center font-numeric text-xs">
           <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-200">
             <span class="block text-[7px] sm:text-[8px] font-bold text-emerald-800 uppercase">UPI STORE</span>
@@ -268,28 +283,28 @@
         </div>
       </div>
 
-      <!-- Ticket Size Buckets Card -->
+      <!-- Ticket Size Buckets Card (UPDATED THRESHOLDS) -->
       <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow sm:col-span-2 space-y-2">
         <p class="text-[10px] font-bold text-stone-600 uppercase tracking-wider font-traditional flex items-center gap-1">
           <i class="fa-solid fa-receipt text-[#5C0612]"></i> Ticket Size Buckets
         </p>
         <div class="grid grid-cols-3 gap-2 text-center font-numeric text-xs">
           <div class="bg-stone-50 p-2 rounded-xl border border-stone-200">
-            <span class="block text-[8px] font-bold text-stone-500 uppercase">&lt; ₹1,000 (Small)</span>
+            <span class="block text-[8px] font-bold text-stone-500 uppercase">&lt; ₹10,000 (Small)</span>
             <strong id="bucket-small" class="text-stone-800 text-xs">0 Bills</strong>
           </div>
           <div class="bg-amber-50 p-2 rounded-xl border border-amber-200">
-            <span class="block text-[8px] font-bold text-amber-800 uppercase">₹1k – ₹5k (Medium)</span>
+            <span class="block text-[8px] font-bold text-amber-800 uppercase">₹10K – ₹1 Lakh (Medium)</span>
             <strong id="bucket-medium" class="text-amber-900 text-xs">0 Bills</strong>
           </div>
           <div class="bg-rose-50 p-2 rounded-xl border border-rose-200">
-            <span class="block text-[8px] font-bold text-rose-800 uppercase">&gt; ₹5,000 (High)</span>
+            <span class="block text-[8px] font-bold text-rose-800 uppercase">&gt; ₹1 Lakh (High)</span>
             <strong id="bucket-high" class="text-rose-900 text-xs">0 Bills</strong>
           </div>
         </div>
       </div>
 
-      <!-- Peak Sales Callout -->
+      <!-- Peak Revenue Day Callout -->
       <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow sm:col-span-2 flex justify-between items-center text-xs font-numeric">
         <div>
           <span class="text-[9px] font-bold text-stone-500 uppercase font-traditional block">🏆 Peak Revenue Day</span>
@@ -308,20 +323,28 @@
       <button onclick="switchTab('products-tab')" id="btn-products-tab" class="flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-white text-[#5C0612] shadow-sm font-traditional">Products</button>
       <button onclick="switchTab('agents-tab')" id="btn-agents-tab" class="flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional">Staff Sales</button>
       <button onclick="switchTab('daywise-tab')" id="btn-daywise-tab" class="flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional">Day-Wise</button>
-      <button onclick="switchTab('attendance-tab')" id="btn-attendance-tab" class="flex-1 min-w-[110px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional flex items-center justify-center gap-1">
+      
+      <!-- ATTENDANCE TAB BUTTON (ADMIN ONLY) -->
+      <button onclick="switchTab('attendance-tab')" id="btn-attendance-tab" class="admin-only hidden flex-1 min-w-[110px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional flex items-center justify-center gap-1">
         <i class="fa-solid fa-user-check text-[10px]"></i> Payroll & Attendance
       </button>
     </div>
 
-    <!-- Tab 1: Products with Category Filtering -->
+    <!-- Tab 1: Products & Categories -->
     <div id="products-tab" class="tab-content space-y-4">
+      <div class="flex justify-between items-center">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional">Product Line Analysis</h3>
+        <button onclick="exportSectionToPDF('products-tab', 'Product_Sales_Report')" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-rose-700 flex items-center gap-1 export-ignore">
+          <i class="fa-solid fa-file-pdf text-[#DAA520]"></i> PDF Report
+        </button>
+      </div>
+
       <div class="relative max-w-xl mx-auto space-y-2">
         <div class="relative">
           <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-stone-400 text-xs"></i>
           <input type="text" id="product-search" placeholder="Search product line..." class="w-full text-xs bg-white border border-[#E5D5C6] rounded-2xl py-3 pl-10 pr-4 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] shadow-sm font-sans">
         </div>
 
-        <!-- CATEGORY FILTER PILLS -->
         <!-- CATEGORY FILTER PILLS -->
         <div class="flex flex-wrap gap-1.5 justify-center text-[10px] font-bold font-traditional pt-1">
           <button onclick="filterCategory('All')" id="cat-btn-all" class="px-3 py-1 rounded-full bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-bold shadow-sm transition-all">All Items</button>
@@ -353,7 +376,7 @@
             <h3 id="detail-product-name" class="font-bold text-sm tracking-wide font-traditional text-[#EFE5C9]">Product Details</h3>
             <p class="text-[10px] text-stone-200 font-medium">Staff Sales Breakdown</p>
           </div>
-          <button onclick="closeProductDetail()" class="text-[#EFE5C9] font-bold hover:opacity-80"><i class="fa-solid fa-circle-xmark text-lg"></i></button>
+          <button onclick="closeProductDetail()" class="text-[#EFE5C9] font-bold hover:opacity-80 export-ignore"><i class="fa-solid fa-circle-xmark text-lg"></i></button>
         </div>
         <div class="p-2 overflow-x-auto">
           <table class="w-full text-left border-collapse text-xs table-layout-fixed font-numeric">
@@ -372,11 +395,14 @@
       </div>
     </div>
 
-    <!-- Tab 2: Staff Sales Leaderboard with Badges -->
+    <!-- Tab 2: Staff Sales Leaderboard -->
     <div id="agents-tab" class="tab-content hidden space-y-4">
       <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden warm-shadow">
         <div class="p-4 bg-[#F3EFE9] border-b border-[#E5D5C6] flex justify-between items-center">
           <h3 class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional">Staff Cross-Selling & Sales Leaderboard</h3>
+          <button onclick="exportSectionToPDF('agents-tab', 'Staff_Sales_Leaderboard')" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-rose-700 flex items-center gap-1 export-ignore">
+            <i class="fa-solid fa-file-pdf text-[#DAA520]"></i> PDF Report
+          </button>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-xs font-numeric">
@@ -398,10 +424,10 @@
             <h3 id="detail-agent-name" class="font-bold text-sm tracking-wide font-traditional text-[#EFE5C9]">Staff Detail</h3>
             <p class="text-[10px] text-stone-200 font-medium">Sales Breakdown</p>
           </div>
-          <button onclick="closeAgentDetail()" class="text-[#EFE5C9] font-bold hover:opacity-80"><i class="fa-solid fa-circle-xmark text-lg"></i></button>
+          <button onclick="closeAgentDetail()" class="text-[#EFE5C9] font-bold hover:opacity-80 export-ignore"><i class="fa-solid fa-circle-xmark text-lg"></i></button>
         </div>
 
-        <div class="px-4 pt-1 max-w-sm">
+        <div class="px-4 pt-1 max-w-sm export-ignore">
           <div class="flex bg-[#EFE5C9]/40 rounded-xl p-1 border border-[#E5D5C6]">
             <button onclick="toggleAgentDetailView('product')" id="btn-agent-detail-product" class="flex-1 text-center py-2 text-[10px] font-extrabold rounded-lg bg-white text-[#5C0612] shadow-sm font-traditional">Product-wise</button>
             <button onclick="toggleAgentDetailView('bill')" id="btn-agent-detail-bill" class="flex-1 text-center py-2 text-[10px] font-extrabold rounded-lg text-stone-500 hover:text-stone-700 font-traditional">Bill-wise</button>
@@ -439,24 +465,35 @@
     <!-- Tab 3: Day-Wise Sales -->
     <div id="daywise-tab" class="tab-content hidden space-y-4">
       <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden warm-shadow">
-        <div class="p-4 bg-[#F3EFE9] border-b border-[#E5D5C6]">
+        <div class="p-4 bg-[#F3EFE9] border-b border-[#E5D5C6] flex justify-between items-center">
           <h3 class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional">Daily Store & Staff Revenue</h3>
+          <button onclick="exportSectionToPDF('daywise-tab', 'Daily_Sales_Report')" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-rose-700 flex items-center gap-1 export-ignore">
+            <i class="fa-solid fa-file-pdf text-[#DAA520]"></i> PDF Report
+          </button>
         </div>
         <div class="p-4 space-y-4 animate-fade-in" id="daywise-sales-container"></div>
       </div>
     </div>
 
-    <!-- Tab 4: ATTENDANCE, COMMISSIONS & AUTO-PAYROLL (ADMIN ONLY) -->
-    <div id="attendance-tab" class="tab-content hidden space-y-4">
+    <!-- Tab 4: ATTENDANCE, COMMISSIONS & PAYROLL (ADMIN ONLY) -->
+    <div id="attendance-tab" class="tab-content admin-only hidden space-y-4">
       
-      <!-- Store Financial Overview -->
+      <!-- Section Header with PDF Button -->
+      <div class="flex justify-between items-center">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional">Monthly Payroll, Commissions & Attendance</h3>
+        <button onclick="exportSectionToPDF('attendance-tab', 'Monthly_Payroll_Report')" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-rose-700 flex items-center gap-1 export-ignore">
+          <i class="fa-solid fa-file-pdf text-[#DAA520]"></i> PDF Report
+        </button>
+      </div>
+
+      <!-- Financial Margins & Store Net Overview -->
       <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow grid grid-cols-1 sm:grid-cols-4 gap-3 text-center font-numeric">
         <div>
-          <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Staff Count</span>
+          <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Active Staff</span>
           <strong id="payroll-staff-count" class="text-base font-black text-stone-800">0</strong>
         </div>
         <div>
-          <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Net Store Sales</span>
+          <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Net Store Revenue</span>
           <strong id="profit-store-sales" class="text-base font-black text-stone-800">₹0</strong>
         </div>
         <div>
@@ -464,23 +501,23 @@
           <strong id="payroll-total-amount" class="text-base font-black text-[#5C0612]">₹0</strong>
         </div>
         <div>
-          <span class="block text-[8px] font-bold text-emerald-800 uppercase font-traditional">Gross Store Profit</span>
+          <span class="block text-[8px] font-bold text-emerald-800 uppercase font-traditional">Gross Operating Profit</span>
           <strong id="profit-gross-amount" class="text-base font-black text-emerald-700">₹0</strong>
         </div>
       </div>
 
-      <!-- Settings & Sync Controls -->
+      <!-- Incentive Settings & Google Sheets Sync -->
       <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex justify-between items-center">
         <div>
-          <label class="block text-[8px] font-bold uppercase text-stone-500 font-traditional">Default Sales Incentive %</label>
+          <label class="block text-[8px] font-bold uppercase text-stone-500 font-traditional">Global Incentive Rate (%)</label>
           <input type="number" id="global-commission-input" value="1.0" step="0.1" onchange="updateGlobalCommission(this.value)" class="w-24 text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2 focus:outline-none font-numeric">
         </div>
-        <button onclick="saveAttendanceData()" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs px-4 py-2.5 rounded-xl border border-[#DAA520] font-traditional flex items-center gap-1.5 shadow-md active:scale-95 duration-100">
+        <button onclick="saveAttendanceData()" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs px-4 py-2.5 rounded-xl border border-[#DAA520] font-traditional flex items-center gap-1.5 shadow-md active:scale-95 duration-100 export-ignore">
           <i class="fa-solid fa-floppy-disk"></i> Save to Sheet
         </button>
       </div>
 
-      <!-- Staff Attendance Cards Grid -->
+      <!-- Staff Attendance & Salary Cards Grid -->
       <div id="staff-salary-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
     </div>
 
@@ -488,27 +525,32 @@
 
   <!-- CHANNEL VIEW SCREEN -->
   <div id="channel-view" class="hidden min-h-screen bg-[#FAF6EE] pb-16">
-    <div id="channel-header" class="text-white px-5 py-4 flex items-center gap-3.5 sticky top-0 z-50 shadow-md">
-      <button onclick="closeChannelScreen()" class="text-white text-base hover:opacity-80 p-1">
-        <i class="fa-solid fa-arrow-left"></i> Back
-      </button>
-      <div>
-        <h2 id="channel-view-title" class="text-sm font-bold tracking-wide uppercase font-traditional">Channel Sales</h2>
-        <p id="channel-view-subtitle" class="text-[9px] text-stone-200 font-medium uppercase"></p>
+    <div id="channel-header" class="text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md">
+      <div class="flex items-center gap-3.5">
+        <button onclick="closeChannelScreen()" class="text-white text-base hover:opacity-80 p-1 export-ignore">
+          <i class="fa-solid fa-arrow-left"></i> Back
+        </button>
+        <div>
+          <h2 id="channel-view-title" class="text-sm font-bold tracking-wide uppercase font-traditional">Channel Sales</h2>
+          <p id="channel-view-subtitle" class="text-[9px] text-stone-200 font-medium uppercase"></p>
+        </div>
       </div>
+      <button onclick="exportSectionToPDF('channel-view', 'Channel_Sales_Performance')" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-rose-700 flex items-center gap-1 export-ignore">
+        <i class="fa-solid fa-file-pdf text-[#DAA520]"></i> Export PDF
+      </button>
     </div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-4">
       <div class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow text-center relative overflow-hidden max-w-md mx-auto">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
-        <p id="channel-revenue-label" class="text-[10px] font-bold text-stone-500 uppercase font-traditional">Online Revenue</p>
+        <p id="channel-revenue-label" class="text-[10px] font-bold text-stone-500 uppercase font-traditional">Channel Revenue</p>
         <p id="channel-view-total" class="text-3xl font-black mt-1 text-stone-800 font-sans">₹0</p>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden warm-shadow">
-          <div class="p-4 bg-stone-100 border-b border-[#E5D5C6] flex justify-between items-center">
-            <h3 id="channel-leaderboard-label" class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional">Which Agent Sold High?</h3>
+          <div class="p-4 bg-stone-100 border-b border-[#E5D5C6]">
+            <h3 id="channel-leaderboard-label" class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional">Staff Channel Breakdown</h3>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs">
@@ -524,7 +566,7 @@
         </div>
 
         <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden warm-shadow">
-          <div class="p-4 bg-stone-100 border-b border-[#E5D5C6] flex justify-between items-center">
+          <div class="p-4 bg-stone-100 border-b border-[#E5D5C6]">
             <h3 id="channel-product-label" class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional">Channel Product Ranking</h3>
           </div>
           <div class="overflow-x-auto">
@@ -544,16 +586,21 @@
     </div>
   </div>
 
-  <!-- WEEKLY VIEW SCREEN -->
+  <!-- WEEKLY VIEW SCREEN (ADMIN ONLY) -->
   <div id="weekly-view" class="hidden min-h-screen bg-[#FAF6EE] pb-16">
-    <div class="bg-[#5C0612] text-white px-5 py-4 flex items-center gap-3.5 sticky top-0 z-50 shadow-md border-b-2 border-[#DAA520]">
-      <button onclick="closeWeeklyScreen()" class="text-white text-base hover:opacity-80 p-1">
-        <i class="fa-solid fa-arrow-left"></i> Back
-      </button>
-      <div>
-        <h2 class="text-sm font-bold tracking-wide uppercase font-traditional text-[#EFE5C9]">Weekly Sales Distribution</h2>
-        <p id="weekly-view-subtitle" class="text-[9px] text-stone-200 font-medium uppercase"></p>
+    <div class="bg-[#5C0612] text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md border-b-2 border-[#DAA520]">
+      <div class="flex items-center gap-3.5">
+        <button onclick="closeWeeklyScreen()" class="text-white text-base hover:opacity-80 p-1 export-ignore">
+          <i class="fa-solid fa-arrow-left"></i> Back
+        </button>
+        <div>
+          <h2 class="text-sm font-bold tracking-wide uppercase font-traditional text-[#EFE5C9]">Weekly Sales Distribution</h2>
+          <p id="weekly-view-subtitle" class="text-[9px] text-stone-200 font-medium uppercase"></p>
+        </div>
       </div>
+      <button onclick="exportSectionToPDF('weekly-view', 'Weekly_Sales_Distribution')" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-rose-700 flex items-center gap-1 export-ignore">
+        <i class="fa-solid fa-file-pdf text-[#DAA520]"></i> Export PDF
+      </button>
     </div>
 
     <div class="max-w-xl mx-auto px-4 mt-6 space-y-4">
@@ -567,16 +614,21 @@
     </div>
   </div>
 
-  <!-- STAFF SALES ANALYSIS SCREEN -->
+  <!-- STAFF SALES ANALYSIS / LEDGER SCREEN -->
   <div id="agent-analysis-view" class="hidden min-h-screen bg-[#FAF6EE] pb-16">
-    <div class="bg-[#5C0612] text-white px-5 py-4 flex items-center gap-3.5 sticky top-0 z-50 shadow-md border-b-2 border-[#DAA520]">
-      <button onclick="closeAgentAnalysisScreen()" class="text-white text-base hover:opacity-80 p-1">
-        <i class="fa-solid fa-arrow-left"></i> Back
-      </button>
-      <div>
-        <h2 id="agent-analysis-title" class="text-sm font-bold tracking-wide uppercase font-traditional text-[#EFE5C9]">Staff Performance Ledger</h2>
-        <p id="agent-analysis-subtitle" class="text-[9px] text-stone-200 font-medium uppercase"></p>
+    <div class="bg-[#5C0612] text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md border-b-2 border-[#DAA520]">
+      <div class="flex items-center gap-3.5">
+        <button onclick="closeAgentAnalysisScreen()" class="text-white text-base hover:opacity-80 p-1 export-ignore">
+          <i class="fa-solid fa-arrow-left"></i> Back
+        </button>
+        <div>
+          <h2 id="agent-analysis-title" class="text-sm font-bold tracking-wide uppercase font-traditional text-[#EFE5C9]">Staff Performance Ledger</h2>
+          <p id="agent-analysis-subtitle" class="text-[9px] text-stone-200 font-medium uppercase"></p>
+        </div>
       </div>
+      <button onclick="exportSectionToPDF('agent-analysis-view', `${activeAnalysisAgent}_Performance_Ledger`)" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-rose-700 flex items-center gap-1 export-ignore">
+        <i class="fa-solid fa-file-pdf text-[#DAA520]"></i> Export PDF
+      </button>
     </div>
 
     <div class="max-w-4xl mx-auto px-4 mt-6 space-y-4">
@@ -601,7 +653,7 @@
             </div>
           </div>
 
-          <div id="admin-agent-analysis-kpi" class="hidden mt-3 pt-3 border-t border-[#E5D5C6]/60 grid grid-cols-2 gap-2 text-center text-xs">
+          <div id="admin-agent-analysis-kpi" class="mt-3 pt-3 border-t border-[#E5D5C6]/60 grid grid-cols-2 gap-2 text-center text-xs">
             <div class="border-r border-[#E5D5C6]/60">
               <p class="text-[9px] font-bold text-stone-500 uppercase font-traditional">Staff ATV</p>
               <p id="agent-analysis-atv" class="text-sm font-black text-stone-800 font-sans">₹0</p>
@@ -613,18 +665,12 @@
           </div>
 
           <!-- EXPORT BUTTONS -->
-          <div class="mt-4 flex flex-wrap gap-2 justify-center">
-            <button onclick="exportAgentReportPDF()" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md font-traditional flex items-center gap-1.5 border border-[#DAA520] active:scale-95 duration-100">
+          <div class="mt-4 flex flex-wrap gap-2 justify-center export-ignore">
+            <button onclick="exportSectionToPDF('agent-analysis-view', `${activeAnalysisAgent}_Performance_Report`)" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md font-traditional flex items-center gap-1.5 border border-[#DAA520] active:scale-95 duration-100">
               <i class="fa-solid fa-file-pdf text-sm text-[#DAA520]"></i> Export PDF
             </button>
-            <button onclick="exportAgentReportJPG()" class="bg-[#DAA520] hover:bg-[#C59B27] text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md font-traditional flex items-center gap-1.5 border border-[#B38F4D] active:scale-95 duration-100">
-              <i class="fa-solid fa-file-image text-sm"></i> Export JPG
-            </button>
-            <button onclick="exportAgentReportExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md font-traditional flex items-center gap-1.5 border border-emerald-500 active:scale-95 duration-100">
-              <i class="fa-solid fa-file-excel text-sm text-emerald-300"></i> Export Excel
-            </button>
             <button onclick="shareAgentSalesReportWhatsApp()" class="bg-[#25D366] hover:bg-[#128C7E] text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md font-traditional flex items-center gap-1.5 active:scale-95 duration-100">
-              <i class="fa-brands fa-whatsapp text-sm"></i> WhatsApp Text
+              <i class="fa-brands fa-whatsapp text-sm"></i> WhatsApp Summary
             </button>
           </div>
         </div>
