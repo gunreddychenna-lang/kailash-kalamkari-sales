@@ -1,44 +1,36 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbz2o4Oex6mVE3gep-7-iVK6xlmvzMjAaFy_mYheIufrZeC1exERMuQ5GP5riF5Wn-Q/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbwG2Sacsn40OSeSgalo1R_2VkJlPHXg3mJGGbDsrs_OFBrnAsP1Fy8WNdvcm4nEBF8n/exec";
 const SESSION_TIMEOUT = 6 * 60 * 60 * 1000;
 
 let rawData = [];
 let rawAttendanceData = [];
+let bankAccountsList = [];
 let productsList = [];
 let agentsList = [];
 let selectedAgentDetail = null;
 let selectedChannel = "All";
+let selectedStore = "All";
 let selectedCategory = "All";
+let selectedAttendanceMonth = "All";
 let activeAnalysisAgent = "";
 let isAdmin = false;
+let globalBillBankMap = {};
 
-let currentChannelAgents = {}; 
 let currentDaySales = [0, 0, 0, 0, 0, 0, 0];
+let prodSortCol = 'qty', prodSortAsc = false;
+let agentSortCol = 'revenue', agentSortAsc = false;
 
-let prodSortCol = 'qty';
-let prodSortAsc = false;
-let agentSortCol = 'revenue';
-let agentSortAsc = false;
+let monthlyTarget = parseFloat(localStorage.getItem('kk_monthly_target')) || 10000000;
+let defaultCommissionPct = 0.0;
 
-let monthlyTarget = parseFloat(localStorage.getItem('kk_monthly_target')) || 1000000;
-let defaultCommissionPct = 0.0; 
+if (history.state === null) history.replaceState({ view: 'home' }, '');
+window.addEventListener('popstate', e => applyState(e.state, true));
 
-if (history.state === null) {
-  history.replaceState({ view: 'home' }, '');
-}
-
-window.addEventListener('popstate', function(e) {
-  applyState(e.state, true);
-});
-
-// UNIVERSAL PDF EXPORT ENGINE FOR ALL SECTIONS
 function exportSectionToPDF(elementId, titleFilename) {
   const element = document.getElementById(elementId);
   if (!element || typeof html2pdf === 'undefined') {
     alert("PDF Engine is loading or view element was not found.");
     return;
   }
-
-  // Temporarily hide interactive buttons during PDF generation
   const actionBtns = element.querySelectorAll('.export-ignore');
   actionBtns.forEach(btn => btn.style.display = 'none');
 
@@ -60,8 +52,22 @@ function exportSectionToPDF(elementId, titleFilename) {
 
 function normalizeToDateString(dateVal) {
   if (!dateVal) return '';
-  const strVal = dateVal.toString().trim();
+  let strVal = dateVal.toString().trim();
+  if (!strVal) return '';
+
   if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) return strVal;
+
+  const dMmmYyyyMatch = strVal.match(/^(\d{1,2})[-/ ]([A-Za-z]{3})[-/ ](\d{4})$/);
+  if (dMmmYyyyMatch) {
+    const day = String(dMmmYyyyMatch[1]).padStart(2, '0');
+    const monthStr = dMmmYyyyMatch[2].toLowerCase();
+    const year = dMmmYyyyMatch[3];
+    const months = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
+    if (months[monthStr]) {
+      return `${year}-${months[monthStr]}-${day}`;
+    }
+  }
+
   const parsed = new Date(strVal);
   if (!isNaN(parsed.getTime())) {
     const yyyy = parsed.getFullYear();
@@ -69,8 +75,146 @@ function normalizeToDateString(dateVal) {
     const dd = String(parsed.getDate()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
   }
-  if (strVal.includes('T')) return strVal.split('T')[0];
-  return strVal;
+  return strVal.split('T')[0];
+}
+
+function getBillNo(row) {
+  if (!row || typeof row !== 'object') return 'N/A';
+  
+  const directKeys = [
+    'Bil No', 'Bil No.', 'BilNo', 'Bill No', 'Bill No.', 'BillNo', 
+    'Invoice No', 'InvoiceNo', 'Bill #', 'Invoice #', 'Bill Number', 
+    'Invoice Number', 'Doc No', 'Voucher No', 'Ref No', 'Bill_No', 'Invoice_No'
+  ];
+  for (let k of directKeys) {
+    if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
+      const val = row[k].toString().trim();
+      if (val && val !== '0' && !val.includes('T') && !val.includes('Z') && val.toLowerCase() !== 'null' && val.toLowerCase() !== 'undefined') {
+        return val;
+      }
+    }
+  }
+
+  for (let key in row) {
+    const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (
+      cleanKey === 'bilno' || 
+      cleanKey === 'billno' || 
+      cleanKey === 'billnum' || 
+      cleanKey === 'billnumber' || 
+      cleanKey === 'invoiceno' || 
+      cleanKey === 'invoicenumber' || 
+      cleanKey === 'docno' || 
+      cleanKey === 'voucherno' || 
+      cleanKey === 'refno' || 
+      cleanKey === 'billcode'
+    ) {
+      const val = (row[key] || '').toString().trim();
+      if (val && val !== '0' && !val.includes('T') && !val.includes('Z') && val.toLowerCase() !== 'null' && val.toLowerCase() !== 'undefined') {
+        return val;
+      }
+    }
+  }
+
+  for (let key in row) {
+    const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!cleanKey.includes('date') && (cleanKey.includes('bill') || cleanKey.includes('bil') || cleanKey.includes('invoice') || cleanKey.includes('voucher'))) {
+      const val = (row[key] || '').toString().trim();
+      if (val && val !== '0' && !val.includes('T') && !val.includes('Z') && val.toLowerCase() !== 'null' && val.toLowerCase() !== 'undefined') {
+        return val;
+      }
+    }
+  }
+
+  return 'N/A';
+}
+
+function getRowBankDirect(row) {
+  if (!row || typeof row !== 'object') return 'Not Defined';
+
+  const directKeys = [
+    'Acc No', 'Acc No.', 'AccNo', 'Acc_No', 
+    'Account No', 'Account No.', 'AccountNo', 'Account_No', 
+    'Bank', 'Credited Bank', 'Credited Bank Account', 'Account', 
+    'Bank Account', 'Credited Bank Name', 'Bank Name'
+  ];
+
+  for (let k of directKeys) {
+    if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
+      const val = row[k].toString().trim();
+      if (
+        val && 
+        val !== '0' && 
+        val !== '-' && 
+        val.toLowerCase() !== 'null' && 
+        val.toLowerCase() !== 'undefined' && 
+        val.toLowerCase() !== 'n/a' && 
+        val.toLowerCase() !== 'not defined' &&
+        val.toLowerCase() !== 'acc no'
+      ) {
+        return val;
+      }
+    }
+  }
+
+  for (let key in row) {
+    const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (
+      cleanKey === 'accno' || 
+      cleanKey === 'accountno' || 
+      cleanKey === 'bank' || 
+      cleanKey === 'creditedbank' || 
+      cleanKey === 'account' || 
+      cleanKey === 'bankaccount' ||
+      cleanKey === 'creditedbankaccount'
+    ) {
+      const val = (row[key] || '').toString().trim();
+      if (
+        val && 
+        val !== '0' && 
+        val !== '-' && 
+        val.toLowerCase() !== 'null' && 
+        val.toLowerCase() !== 'undefined' && 
+        val.toLowerCase() !== 'n/a' && 
+        val.toLowerCase() !== 'not defined' &&
+        val.toLowerCase() !== 'acc no'
+      ) {
+        return val;
+      }
+    }
+  }
+  return 'Not Defined';
+}
+
+function getRowBank(row) {
+  if (!row || typeof row !== 'object') return 'Not Defined';
+  
+  const directVal = getRowBankDirect(row);
+  if (directVal !== 'Not Defined') return directVal;
+
+  const bNo = getBillNo(row);
+  if (bNo && bNo !== 'N/A') {
+    if (globalBillBankMap[bNo]) return globalBillBankMap[bNo];
+    if (globalBillBankMap[bNo.toLowerCase()]) return globalBillBankMap[bNo.toLowerCase()];
+    const cleanKey = bNo.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (globalBillBankMap[cleanKey]) return globalBillBankMap[cleanKey];
+  }
+
+  return 'Not Defined';
+}
+
+function buildGlobalBillBankMap() {
+  rawData.forEach(row => {
+    const bNo = getBillNo(row);
+    if (bNo && bNo !== 'N/A') {
+      const bnk = getRowBankDirect(row);
+      if (bnk !== 'Not Defined') {
+        globalBillBankMap[bNo] = bnk;
+        globalBillBankMap[bNo.toLowerCase()] = bnk;
+        globalBillBankMap[bNo.toLowerCase().replace(/[^a-z0-9]/g, '')] = bnk;
+      }
+    }
+  });
 }
 
 function getSalesType(payMode) {
@@ -84,19 +228,9 @@ function getSalesType(payMode) {
 function getItemCategory(itemName) {
   if (!itemName) return 'General';
   const name = itemName.toString().toLowerCase();
-
-  if (name.includes('frame') || name.includes('painting') || name.includes('art') || name.includes('photo') || name.includes('wall') || name.includes('canvas') || name.includes('wood') || name.includes('chitra') || name.includes('picchwai') || name.includes('glass')) {
-    return 'Frames';
-  }
-
-  if (name.includes('saree') || name.includes('sari') || name.includes('silk') || name.includes('pattu') || name.includes('kanchi') || name.includes('tussar') || name.includes('soft') || name.includes('organza') || name.includes('georgette') || name.includes('kota') || name.includes('linen') || name.includes('handloom') || name.includes('chanderi')) {
-    return 'Sarees';
-  }
-
-  if (name.includes('fabric') || name.includes('meter') || name.includes('running') || name.includes('print') || name.includes('blouse') || name.includes('material') || name.includes('cotton') || name.includes('dupatta') || name.includes('stole') || name.includes('dress') || name.includes('suit') || name.includes('kurti')) {
-    return 'Fabrics';
-  }
-
+  if (name.includes('frame') || name.includes('painting') || name.includes('art') || name.includes('photo') || name.includes('wall') || name.includes('canvas') || name.includes('wood') || name.includes('chitra') || name.includes('picchwai') || name.includes('glass')) return 'Frames';
+  if (name.includes('saree') || name.includes('sari') || name.includes('silk') || name.includes('pattu') || name.includes('kanchi') || name.includes('tussar') || name.includes('soft') || name.includes('organza') || name.includes('georgette') || name.includes('kota') || name.includes('linen') || name.includes('handloom') || name.includes('chanderi')) return 'Sarees';
+  if (name.includes('fabric') || name.includes('meter') || name.includes('running') || name.includes('print') || name.includes('blouse') || name.includes('material') || name.includes('cotton') || name.includes('dupatta') || name.includes('stole') || name.includes('dress') || name.includes('suit') || name.includes('kurti')) return 'Fabrics';
   return 'General';
 }
 
@@ -104,39 +238,31 @@ function checkSession() {
   const savedUser = localStorage.getItem('kk_user');
   const savedPass = localStorage.getItem('kk_pass');
   const loginTime = localStorage.getItem('kk_login_time');
-  
-  if (!savedUser || !savedPass || !loginTime) return { valid: false, reason: 'none' };
-  
-  const now = Date.now();
-  if (now - parseInt(loginTime, 10) > SESSION_TIMEOUT) {
-    localStorage.removeItem('kk_user');
-    localStorage.removeItem('kk_pass');
-    localStorage.removeItem('kk_login_time');
-    return { valid: false, reason: 'expired' };
+  if (!savedUser || !savedPass || !loginTime) return { valid: false };
+  if (Date.now() - parseInt(loginTime, 10) > SESSION_TIMEOUT) {
+    localStorage.clear();
+    return { valid: false };
   }
-  
   const cleanUser = savedUser.trim().toLowerCase();
-  const cleanPass = savedPass.trim().toLowerCase();
   isAdmin = cleanUser === 'admin';
-  return { valid: true, user: cleanUser, pass: cleanPass };
+  return { valid: true, user: cleanUser, pass: savedPass.trim().toLowerCase() };
 }
 
-document.getElementById('login-form').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const user = document.getElementById('login-username').value.trim().toLowerCase();
-  const pass = document.getElementById('login-password').value.trim().toLowerCase();
-  
-  document.getElementById('login-error').classList.add('hidden');
-  document.getElementById('login-btn-text').classList.add('hidden');
-  document.getElementById('login-btn-spinner').classList.remove('hidden');
-  
-  await fetchData(user, pass);
-});
+const loginForm = document.getElementById('login-form');
+if (loginForm) {
+  loginForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const user = document.getElementById('login-username').value.trim().toLowerCase();
+    const pass = document.getElementById('login-password').value.trim().toLowerCase();
+    document.getElementById('login-error').classList.add('hidden');
+    document.getElementById('login-btn-text').classList.add('hidden');
+    document.getElementById('login-btn-spinner').classList.remove('hidden');
+    await fetchData(user, pass);
+  });
+}
 
 function handleLogout() {
-  localStorage.removeItem('kk_user');
-  localStorage.removeItem('kk_pass');
-  localStorage.removeItem('kk_login_time');
+  localStorage.clear();
   location.reload();
 }
 
@@ -146,12 +272,11 @@ async function fetchData(user, pass) {
 
   document.getElementById('loader').classList.remove('hidden');
   document.getElementById('standard-main').classList.add('hidden');
-  document.getElementById('channel-view').classList.add('hidden');
-  document.getElementById('weekly-view').classList.add('hidden');
-  document.getElementById('agent-analysis-view').classList.add('hidden');
   document.getElementById('login-screen').classList.add('hidden');
   
   try {
+    globalBillBankMap = {};
+
     const url = `${API_URL}?username=${encodeURIComponent(cleanUser)}&password=${encodeURIComponent(cleanPass)}`;
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Server status ${response.status}`);
@@ -167,44 +292,162 @@ async function fetchData(user, pass) {
     localStorage.setItem('kk_login_time', Date.now().toString());
     
     isAdmin = cleanUser === 'admin';
-    
+    rawData = [];
+    rawAttendanceData = [];
+    bankAccountsList = Array.isArray(data.banks) ? data.banks : [];
+
     if (Array.isArray(data)) {
       rawData = data;
-      rawAttendanceData = [];
-    } else {
-      rawData = data.sales || [];
+    } else if (data.sales) {
+      if (Array.isArray(data.sales)) {
+        rawData = data.sales;
+      } else if (typeof data.sales === 'object') {
+        Object.keys(data.sales).forEach(tabName => {
+          if (Array.isArray(data.sales[tabName])) {
+            data.sales[tabName].forEach(row => {
+              if (!row['Store'] && !row['Shop']) row['Store'] = tabName;
+              rawData.push(row);
+            });
+          }
+        });
+      }
       rawAttendanceData = Array.isArray(data.attendance) ? data.attendance : [];
+    }
+
+    if (data.recievables && Array.isArray(data.recievables)) {
+      data.recievables.forEach(r => {
+        const bNo = getBillNo(r);
+        const bnk = getRowBankDirect(r);
+        if (bNo && bNo !== 'N/A' && bnk && bnk !== 'Not Defined') {
+          globalBillBankMap[bNo] = bnk;
+          globalBillBankMap[bNo.toLowerCase()] = bnk;
+          globalBillBankMap[bNo.toLowerCase().replace(/[^a-z0-9]/g, '')] = bnk;
+        }
+      });
     }
 
     const targetEl = document.getElementById('target-input-field');
     if (targetEl) targetEl.value = monthlyTarget;
 
+    buildGlobalBillBankMap();
     updateRoleVisibility();
-    detectDateRanges();
+    detectDateRanges(); // Sets "THIS MONTH" by default
+    detectAndPopulateStores();
+    populateBankDropdown();
+    populateAttendanceMonthDropdown();
     processData();
 
     document.getElementById('loader').classList.add('hidden');
     applyState(history.state || { view: 'home' }, true);
   } catch (error) {
     console.error(error);
-    showLoginError("Connection failed. Please check username/password or permissions.");
+    showLoginError("Connection failed. Please check credentials.");
+  } finally {
+    document.getElementById('loader').classList.add('hidden');
   }
 }
 
-// STRICT ROLE VISIBILITY ENFORCER (ADMIN VS NON-ADMIN)
-function updateRoleVisibility() {
-  const adminOnlyElements = document.querySelectorAll('.admin-only');
-  adminOnlyElements.forEach(el => {
-    if (isAdmin) {
-      el.classList.remove('hidden');
-    } else {
-      el.classList.add('hidden');
+function detectAndPopulateStores() {
+  const storeSelect = document.getElementById('store-filter');
+  if (!storeSelect) return;
+  const storeSet = new Set();
+  rawData.forEach(row => {
+    const sName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || '').toString().trim();
+    if (sName) storeSet.add(sName);
+  });
+  const currentSelection = storeSelect.value || 'All';
+  storeSelect.innerHTML = `<option value="All">All Branches / Stores</option>`;
+  storeSet.forEach(sName => {
+    storeSelect.innerHTML += `<option value="${sName}">${sName}</option>`;
+  });
+  storeSelect.value = currentSelection;
+}
+
+function selectStoreFilter(storeName) {
+  const storeSelect = document.getElementById('store-filter');
+  if (storeSelect) {
+    storeSelect.value = storeName;
+    processData();
+  }
+}
+
+function populateBankDropdown() {
+  const bSelect = document.getElementById('bank-filter-select');
+  if (!bSelect) return;
+
+  const bankSet = new Set();
+  
+  bankAccountsList.forEach(bk => {
+    const bStr = (bk || '').toString().trim();
+    if (bStr) bankSet.add(bStr);
+  });
+
+  rawData.forEach(row => {
+    const bName = getRowBank(row);
+    if (bName && bName !== 'Not Defined') {
+      bankSet.add(bName);
     }
   });
 
-  if (!isAdmin) {
-    const isAttendanceActive = !document.getElementById('attendance-tab').classList.contains('hidden');
-    if (isAttendanceActive) switchTab('products-tab');
+  const currentSelection = bSelect.value || 'All';
+  bSelect.innerHTML = `<option value="All">All Bank Accounts</option>`;
+  bankSet.forEach(bk => {
+    bSelect.innerHTML += `<option value="${bk}">${bk}</option>`;
+  });
+
+  if (Array.from(bankSet).includes(currentSelection)) {
+    bSelect.value = currentSelection;
+  } else {
+    bSelect.value = 'All';
+  }
+}
+
+function populateAttendanceMonthDropdown() {
+  const mSelect = document.getElementById('attendance-month-select');
+  if (!mSelect) return;
+
+  const monthSet = new Set();
+  if (Array.isArray(rawAttendanceData)) {
+    rawAttendanceData.forEach(emp => {
+      const mStr = (emp['Month_Sheet'] || emp['Month'] || '').toString().trim();
+      if (mStr) monthSet.add(mStr);
+    });
+  }
+
+  const monthList = Array.from(monthSet);
+  if (monthList.length === 0) {
+    mSelect.innerHTML = `<option value="All">All Months (Combined)</option>`;
+    return;
+  }
+
+  let optionsHTML = `<option value="All">All Months (Combined)</option>`;
+  monthList.forEach(m => {
+    optionsHTML += `<option value="${m}">${m}</option>`;
+  });
+
+  mSelect.innerHTML = optionsHTML;
+
+  // Auto-default to Current Month sheet (e.g. 'attendance' or matching current month name)
+  if (selectedAttendanceMonth === 'All') {
+    const curMonthName = new Date().toLocaleString('en-US', { month: 'short' }).toLowerCase(); // e.g., 'aug'
+    let matchedSheet = monthList.find(m => m.toLowerCase() === 'attendance') || 
+                       monthList.find(m => m.toLowerCase().includes(curMonthName)) || 
+                       monthList[monthList.length - 1]; // or latest month sheet
+    if (matchedSheet) {
+      selectedAttendanceMonth = matchedSheet;
+    }
+  }
+
+  mSelect.value = selectedAttendanceMonth;
+}
+
+function updateRoleVisibility() {
+  document.querySelectorAll('.admin-only').forEach(el => {
+    if (isAdmin) el.classList.remove('hidden');
+    else el.classList.add('hidden');
+  });
+  if (!isAdmin && document.getElementById('attendance-tab') && !document.getElementById('attendance-tab').classList.contains('hidden')) {
+    switchTab('products-tab');
   }
 }
 
@@ -239,19 +482,14 @@ function applyState(state, isPopState = false) {
   if (state.view === 'home') {
     selectedChannel = 'All';
     document.getElementById('standard-main').classList.remove('hidden');
-
     if (state.detail === 'agent') {
       selectedAgentDetail = state.name;
       if (populateAgentDetailsDOM(state.name)) {
         document.getElementById('agent-detail-card').classList.remove('hidden');
-        document.getElementById('agent-detail-card').scrollIntoView({ behavior: 'smooth' });
       }
     } else if (state.detail === 'product') {
       populateProductDetailsDOM(state.name, false);
       document.getElementById('product-detail-card').classList.remove('hidden');
-      document.getElementById('product-detail-card').scrollIntoView({ behavior: 'smooth' });
-    } else {
-      selectedAgentDetail = null;
     }
   } else if (state.view === 'channel') {
     selectedChannel = state.channel;
@@ -276,17 +514,21 @@ function showLoginError(message) {
   errEl.classList.remove('hidden');
   document.getElementById('login-btn-text').classList.remove('hidden');
   document.getElementById('login-btn-spinner').classList.add('hidden');
-  localStorage.removeItem('kk_user');
-  localStorage.removeItem('kk_pass');
-  localStorage.removeItem('kk_login_time');
 }
 
+// DEFAULT TO THIS MONTH ONLY (From 1st of current month to latest date)
 function detectDateRanges() {
   if (rawData.length === 0) return;
-  const dates = rawData.map(row => normalizeToDateString(row['Bill Date'])).filter(Boolean).sort();
-  if (dates.length > 0) {
-    document.getElementById('from-date').value = dates[0];
-    document.getElementById('to-date').value = dates[dates.length - 1];
+  const allDates = rawData.map(row => normalizeToDateString(row['Bill Date'])).filter(Boolean).sort();
+  if (allDates.length > 0) {
+    const maxDateStr = allDates[allDates.length - 1]; // e.g. "2026-08-02"
+    const [yyyy, mm] = maxDateStr.split('-');
+    
+    // Set 1st day of the current month
+    const firstDayOfMonth = `${yyyy}-${mm}-01`;
+    
+    document.getElementById('from-date').value = firstDayOfMonth;
+    document.getElementById('to-date').value = maxDateStr;
   }
 }
 
@@ -301,29 +543,19 @@ function setQuickDateRange(preset) {
   const dd = String(refDate.getDate()).padStart(2, '0');
   const todayStr = `${yyyy}-${mm}-${dd}`;
 
-  let fromDate = todayStr;
-  let toDate = todayStr;
+  let fromDate = todayStr, toDate = todayStr;
 
-  if (preset === 'today') {
-    fromDate = todayStr;
-    toDate = todayStr;
-  } else if (preset === 'yesterday') {
+  if (preset === 'yesterday') {
     const yest = new Date(refDate);
     yest.setDate(refDate.getDate() - 1);
-    const yYyyy = yest.getFullYear();
-    const yMm = String(yest.getMonth() + 1).padStart(2, '0');
-    const yDd = String(yest.getDate()).padStart(2, '0');
-    fromDate = `${yYyyy}-${yMm}-${yDd}`;
+    fromDate = normalizeToDateString(yest);
     toDate = fromDate;
   } else if (preset === 'week') {
     const day = refDate.getDay();
     const diff = refDate.getDate() - day + (day === 0 ? -6 : 1);
     const startOfWeek = new Date(refDate);
     startOfWeek.setDate(diff);
-    const sYyyy = startOfWeek.getFullYear();
-    const sMm = String(startOfWeek.getMonth() + 1).padStart(2, '0');
-    const sDd = String(startOfWeek.getDate()).padStart(2, '0');
-    fromDate = `${sYyyy}-${sMm}-${sDd}`;
+    fromDate = normalizeToDateString(startOfWeek);
     toDate = todayStr;
   } else if (preset === 'month') {
     fromDate = `${yyyy}-${mm}-01`;
@@ -331,11 +563,8 @@ function setQuickDateRange(preset) {
   } else if (preset === 'lastmonth') {
     const prevMonth = new Date(refDate.getFullYear(), refDate.getMonth() - 1, 1);
     const lastDayPrevMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 0);
-    const pYyyy = prevMonth.getFullYear();
-    const pMm = String(prevMonth.getMonth() + 1).padStart(2, '0');
-    const pEndDd = String(lastDayPrevMonth.getDate()).padStart(2, '0');
-    fromDate = `${pYyyy}-${pMm}-01`;
-    toDate = `${pYyyy}-${pMm}-${pEndDd}`;
+    fromDate = normalizeToDateString(prevMonth);
+    toDate = normalizeToDateString(lastDayPrevMonth);
   }
 
   document.getElementById('from-date').value = fromDate;
@@ -362,19 +591,12 @@ function updateMonthlyTarget(val) {
 function getStaffSalesAmount(empName) {
   if (!empName) return 0;
   const cleanEmp = empName.toString().toLowerCase().replace(/\s+/g, '').trim();
-
-  let match = agentsList.find(a => {
-    const agentName = (a && a.name !== undefined && a.name !== null) ? a.name.toString() : '';
-    return agentName.toLowerCase().replace(/\s+/g, '').trim() === cleanEmp;
-  });
+  let match = agentsList.find(a => (a.name || '').toString().toLowerCase().replace(/\s+/g, '').trim() === cleanEmp);
   if (match) return match.revenue;
-
   match = agentsList.find(a => {
-    const agentName = (a && a.name !== undefined && a.name !== null) ? a.name.toString() : '';
-    const cleanAgent = agentName.toLowerCase().replace(/\s+/g, '').trim();
+    const cleanAgent = (a.name || '').toString().toLowerCase().replace(/\s+/g, '').trim();
     return cleanAgent && (cleanEmp.includes(cleanAgent) || cleanAgent.includes(cleanEmp));
   });
-
   return match ? match.revenue : 0;
 }
 
@@ -392,10 +614,39 @@ function getEmpProp(emp, targetKeys) {
   return "";
 }
 
+function formatPhoneForWhatsApp(phoneRaw) {
+  if (!phoneRaw) return "";
+  let digits = phoneRaw.toString().replace(/\D/g, '');
+  if (!digits) return "";
+  if (digits.length === 10) return `91${digits}`;
+  if (digits.length === 12 && digits.startsWith('91')) return digits;
+  return digits;
+}
+
 function processData() {
   const fromDate = document.getElementById('from-date').value;
   const toDate = document.getElementById('to-date').value;
   const searchVal = document.getElementById('product-search').value.toLowerCase();
+  
+  const storeSelectEl = document.getElementById('store-filter');
+  selectedStore = storeSelectEl ? storeSelectEl.value : 'All';
+
+  let storeTotals = {};
+  let accountTotals = {}; 
+
+  rawData.forEach(row => {
+    if (!row['Bill Date']) return;
+    const rDate = normalizeToDateString(row['Bill Date']);
+    let dateMatch = true;
+    if (fromDate) dateMatch = dateMatch && (rDate >= fromDate);
+    if (toDate) dateMatch = dateMatch && (rDate <= toDate);
+
+    if (dateMatch) {
+      const amount = parseFloat((row['Final Amount'] || row['FinalAmount'] || row['Total Value'] || row['TotalValue'] || row['BillAmount'] || row['Bill Amount'] || row['Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
+      const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Kailash Kalamkari').toString().trim();
+      storeTotals[storeName] = (storeTotals[storeName] || 0) + amount;
+    }
+  });
 
   const filtered = rawData.filter(row => {
     if (!row['Bill Date']) return false;
@@ -403,6 +654,8 @@ function processData() {
     let match = true;
     if (fromDate) match = match && (rDate >= fromDate);
     if (toDate) match = match && (rDate <= toDate);
+    const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Kailash Kalamkari').toString().trim();
+    if (selectedStore !== 'All' && storeName.toLowerCase() !== selectedStore.toLowerCase()) match = false;
     return match;
   });
 
@@ -420,37 +673,38 @@ function processData() {
   const dayWiseObj = {}; 
 
   filtered.forEach(row => {
-    const amount = parseFloat(row['BillAmount']) || parseFloat(row['Bill Amount']) || parseFloat(row['Amount']) || 0;
+    const amount = parseFloat((row['Final Amount'] || row['FinalAmount'] || row['Total Value'] || row['TotalValue'] || row['BillAmount'] || row['Bill Amount'] || row['Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
     const qty = parseInt(row['Qty']) || parseInt(row['QTY']) || 0;
     const item = (row['Item Name'] || row['ItemName'] || 'Unknown Item').toString().trim();
     const agent = (row['SM Name'] || row['SMName'] || row['Agent'] || 'No Agent').toString().trim();
-    const payMode = row['PayMode'] || row['Pay Mode'] || row['Paymode'] || '';
+    const payMode = row['PayMode'] || row['Pay Mode'] || row['Paymode'] || row['Sale type'] || row['Sale Type'] || row['Saletype'] || '';
+    
+    const bankAcc = getRowBank(row);
     const type = getSalesType(payMode);
     
     const rawPm = payMode.toString().toLowerCase();
     const cleanPm = rawPm.replace(/[^a-z0-9]/g, ' ').trim();
     
-    const billNo = row['Bill No'] || row['Bill No.'] || row['BillNo'] || row['Invoice No'] || 'N/A';
+    const billNo = getBillNo(row);
     const billDate = normalizeToDateString(row['Bill Date']);
 
     totalSales += amount;
     totalUnits += qty;
 
+    if (bankAcc && bankAcc !== 'Not Defined') {
+      accountTotals[bankAcc] = (accountTotals[bankAcc] || 0) + amount;
+    }
+
     if (type === 'Online') totalOnline += amount;
     else if (type === 'Wholesale') totalWholesale += amount;
     else totalOffline += amount;
 
-    if (cleanPm.includes('cash')) {
-      payCash += amount;
-    } else if (cleanPm.includes('card')) {
-      payCard += amount;
-    } else if (cleanPm.includes('hand') || cleanPm.includes('wholesale') || cleanPm.includes('takebyhand') || cleanPm.includes('credit')) {
-      payHand += amount;
-    } else if (cleanPm.includes('onl') || cleanPm.includes('online') || cleanPm.includes('web') || cleanPm.includes('site')) {
-      payUpiOnline += amount;
-    } else if (cleanPm.includes('store') || cleanPm.includes('qr') || cleanPm.includes('counter') || cleanPm.includes('shop') || cleanPm.includes('pos')) {
-      payUpiStore += amount;
-    } else if (cleanPm.includes('upi') || cleanPm.includes('gpay') || cleanPm.includes('phonepe') || cleanPm.includes('paytm') || cleanPm.includes('bhim') || cleanPm.includes('scan')) {
+    if (cleanPm.includes('cash')) payCash += amount;
+    else if (cleanPm.includes('card')) payCard += amount;
+    else if (cleanPm.includes('hand') || cleanPm.includes('wholesale') || cleanPm.includes('takebyhand')) payHand += amount;
+    else if (cleanPm.includes('onl') || cleanPm.includes('online')) payUpiOnline += amount;
+    else if (cleanPm.includes('store') || cleanPm.includes('counter') || cleanPm.includes('shop')) payUpiStore += amount;
+    else if (cleanPm.includes('upi') || cleanPm.includes('gpay') || cleanPm.includes('phonepe')) {
       if (type === 'Online') payUpiOnline += amount;
       else payUpiStore += amount;
     } else {
@@ -488,15 +742,14 @@ function processData() {
     agentsObj[agent].items[item].qty += qty;
     agentsObj[agent].items[item].revenue += amount;
 
-    if (!agentsObj[agent].bills[billKey]) agentsObj[agent].bills[billKey] = { billNo: billNo, date: billDate, amount: 0 };
+    if (!agentsObj[agent].bills[billKey]) agentsObj[agent].bills[billKey] = { billNo: billNo, date: billDate, amount: 0, bank: bankAcc };
     agentsObj[agent].bills[billKey].amount += amount;
   });
 
-  // UPDATED TICKET BUCKETS (< ₹10K, ₹10K - ₹1 Lakh, > ₹1 Lakh)
   Object.values(billTotalObj).forEach(val => {
-    if (val < 10000) bucketSmall++;           // Under ₹10,000 (Small)
-    else if (val <= 100000) bucketMedium++;   // ₹10,000 to ₹1 Lakh (Medium)
-    else bucketHigh++;                        // Above ₹1 Lakh (High)
+    if (val < 10000) bucketSmall++;
+    else if (val <= 100000) bucketMedium++;
+    else bucketHigh++;
   });
 
   let peakDate = "N/A", peakVal = 0;
@@ -507,38 +760,69 @@ function processData() {
   document.getElementById('metric-total').textContent = `₹${totalSales.toLocaleString('en-IN')}`;
   document.getElementById('metric-online').textContent = `₹${totalOnline.toLocaleString('en-IN')}`;
   document.getElementById('metric-offline').textContent = `₹${totalOffline.toLocaleString('en-IN')}`;
-  document.getElementById('metric-wholesale').textContent = `₹${totalWholesale.toLocaleString('en-IN')}`;
+  
+  const wsEl = document.getElementById('metric-wholesale');
+  if (wsEl) wsEl.textContent = `₹${totalWholesale.toLocaleString('en-IN')}`;
 
-  // Retail Apparel KPIs (ASP & Digital adoption)
+  const storeBreakdownContainer = document.getElementById('store-breakdown-container');
+  if (storeBreakdownContainer) {
+    const storeNames = Object.keys(storeTotals);
+    if (storeNames.length <= 1) {
+      storeBreakdownContainer.innerHTML = '';
+    } else {
+      const colors = [
+        { border: 'border-amber-400', badge: 'bg-amber-600 text-stone-800', text: 'text-stone-800' },
+        { border: 'border-indigo-400', badge: 'bg-indigo-600 text-[#5C0612]', text: 'text-[#5C0612]' }
+      ];
+      storeBreakdownContainer.innerHTML = storeNames.map((sName, idx) => {
+        const style = colors[idx % colors.length];
+        const isSelected = selectedStore === sName;
+        return `
+          <div onclick="selectStoreFilter('${sName}')" class="bg-[#FFFDF9] p-4 rounded-2xl border ${isSelected ? 'border-[#5C0612] ring-2 ring-[#5C0612]' : style.border} warm-shadow cursor-pointer transition-all hover:scale-[1.01]">
+            <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between font-traditional">
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full ${style.badge.split(' ')[0]} inline-block"></span> ${sName}</span>
+              <span class="text-[8px] text-[#5C0612] font-bold uppercase">${isSelected ? 'Active Filter' : 'Click to Filter →'}</span>
+            </p>
+            <p class="text-lg sm:text-2xl font-black ${style.text} mt-2 font-numeric">₹${storeTotals[sName].toLocaleString('en-IN')}</p>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  const accContainer = document.getElementById('account-split-container');
+  if (accContainer) {
+    const accEntries = Object.entries(accountTotals).filter(([name, amt]) => amt > 0);
+    accContainer.innerHTML = accEntries.length === 0 ? `
+      <div class="bg-stone-50 p-2 rounded-xl border border-stone-200 col-span-2 sm:col-span-3">
+        <span class="block text-[8px] font-bold text-stone-500 uppercase">General Credit</span>
+        <strong class="text-stone-800 text-xs font-numeric">₹${totalSales.toLocaleString('en-IN')}</strong>
+      </div>` : accEntries.map(([accName, val]) => `
+      <div class="bg-[#FAF6EE] p-2 rounded-xl border border-[#E5D5C6]">
+        <span class="block text-[8px] font-bold text-stone-600 uppercase font-traditional truncate">${accName}</span>
+        <strong class="text-[#5C0612] text-xs font-black font-numeric">₹${val.toLocaleString('en-IN')}</strong>
+      </div>
+    `).join('');
+  }
+
   const asp = totalUnits > 0 ? (totalSales / totalUnits) : 0;
   const digitalAmount = payUpiStore + payUpiOnline + payCard;
   const digitalPct = totalSales > 0 ? ((digitalAmount / totalSales) * 100).toFixed(0) : 0;
 
-  const aspEl = document.getElementById('metric-asp');
-  const digEl = document.getElementById('metric-digital-pct');
-  if (aspEl) aspEl.textContent = `₹${Math.round(asp).toLocaleString('en-IN')}`;
-  if (digEl) digEl.textContent = `${digitalPct}% Digital`;
+  document.getElementById('metric-asp').textContent = `₹${Math.round(asp).toLocaleString('en-IN')}`;
+  document.getElementById('metric-digital-pct').textContent = `${digitalPct}% Digital`;
 
   const targetPct = monthlyTarget > 0 ? Math.min(100, (totalSales / monthlyTarget) * 100) : 0;
-  const targetPctText = document.getElementById('target-percent-text');
-  const targetBar = document.getElementById('target-progress-bar');
-  const targetAchieved = document.getElementById('target-achieved-text');
-  const forecastEl = document.getElementById('target-forecast-text');
-  
-  if (targetPctText) targetPctText.textContent = `${targetPct.toFixed(1)}%`;
-  if (targetBar) targetBar.style.width = `${targetPct}%`;
-  if (targetAchieved) targetAchieved.textContent = `₹${totalSales.toLocaleString('en-IN')}`;
+  document.getElementById('target-percent-text').textContent = `${targetPct.toFixed(1)}%`;
+  document.getElementById('target-progress-bar').style.width = `${targetPct}%`;
+  document.getElementById('target-achieved-text').textContent = `₹${totalSales.toLocaleString('en-IN')}`;
 
   const daysCount = Object.keys(dailyTotalObj).length || 1;
   const avgDailySales = totalSales / daysCount;
   const projectedMonthSales = Math.round(avgDailySales * 30);
+  const forecastEl = document.getElementById('target-forecast-text');
   if (forecastEl) {
-    if (monthlyTarget > 0) {
-      const projPct = ((projectedMonthSales / monthlyTarget) * 100).toFixed(0);
-      forecastEl.innerHTML = `Pacing: <strong class="text-stone-800">₹${Math.round(avgDailySales).toLocaleString('en-IN')}/day</strong> • Projected: <strong class="text-[#5C0612]">₹${projectedMonthSales.toLocaleString('en-IN')}</strong> (${projPct}%)`;
-    } else {
-      forecastEl.innerHTML = `Daily Average: <strong>₹${Math.round(avgDailySales).toLocaleString('en-IN')}/day</strong>`;
-    }
+    forecastEl.innerHTML = monthlyTarget > 0 ? `Pacing: <strong class="text-stone-800">₹${Math.round(avgDailySales).toLocaleString('en-IN')}/day</strong> • Projected: <strong class="text-[#5C0612]">₹${projectedMonthSales.toLocaleString('en-IN')}</strong> (${((projectedMonthSales / monthlyTarget) * 100).toFixed(0)}%)` : `Daily Average: <strong>₹${Math.round(avgDailySales).toLocaleString('en-IN')}/day</strong>`;
   }
 
   document.getElementById('paymode-upi-store').textContent = `₹${payUpiStore.toLocaleString('en-IN')}`;
@@ -555,13 +839,9 @@ function processData() {
   document.getElementById('peak-sales-amount').textContent = `₹${peakVal.toLocaleString('en-IN')}`;
 
   const totalTransactions = uniqueBills.size;
-  const overallUPT = totalTransactions > 0 ? (totalUnits / totalTransactions) : 0;
-  const overallATV = totalTransactions > 0 ? (totalSales / totalTransactions) : 0;
-  const overallAUV = totalUnits > 0 ? (totalSales / totalUnits) : 0;
-
-  document.getElementById('metric-upt').textContent = overallUPT.toFixed(2);
-  document.getElementById('metric-atv').textContent = `₹${Math.round(overallATV).toLocaleString('en-IN')}`;
-  document.getElementById('metric-auv').textContent = `₹${Math.round(overallAUV).toLocaleString('en-IN')}`;
+  document.getElementById('metric-upt').textContent = (totalTransactions > 0 ? (totalUnits / totalTransactions) : 0).toFixed(2);
+  document.getElementById('metric-atv').textContent = `₹${Math.round(totalTransactions > 0 ? (totalSales / totalTransactions) : 0).toLocaleString('en-IN')}`;
+  document.getElementById('metric-auv').textContent = `₹${Math.round(totalUnits > 0 ? (totalSales / totalUnits) : 0).toLocaleString('en-IN')}`;
 
   productsList = Object.values(productsObj).map(p => {
     p.share = totalSales > 0 ? (p.revenue / totalSales) * 100 : 0;
@@ -578,41 +858,25 @@ function processData() {
   renderProductsTable();
   renderAgentsTable();
   renderDayWiseSales(dayWiseObj);
+  renderBankLedgerModule();
 
-  if (isAdmin) renderAttendanceSalaryModule();
-
+  if (isAdmin) renderAttendanceSalaryModule(totalSales);
   if (selectedAgentDetail) populateAgentDetailsDOM(selectedAgentDetail);
-  if (!document.getElementById('weekly-view').classList.contains('hidden')) renderWeeklyDistributionDOM();
-
-  const isAnalysisActive = !document.getElementById('agent-analysis-view').classList.contains('hidden');
-  if (isAnalysisActive && history.state && history.state.name) {
-    populateAgentAnalysisScreenDOM(history.state.name);
-  }
 }
 
 function filterCategory(cat) {
   selectedCategory = cat;
-  const categories = ['All', 'Sarees', 'Fabrics', 'Frames'];
-  categories.forEach(c => {
-    const btnId = `cat-btn-${c.toLowerCase().replace(/\s+/g, '')}`;
-    const btn = document.getElementById(btnId);
+  ['All', 'Sarees', 'Fabrics', 'Frames'].forEach(c => {
+    const btn = document.getElementById(`cat-btn-${c.toLowerCase()}`);
     if (btn) {
-      if (c === cat) {
-        btn.className = "px-3 py-1 rounded-full bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-bold shadow-sm transition-all";
-      } else {
-        btn.className = "px-3 py-1 rounded-full bg-[#FFFDF9] text-stone-600 border border-[#E5D5C6] hover:bg-stone-100 font-bold transition-all";
-      }
+      btn.className = c === cat ? "px-3 py-1 rounded-full bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-bold shadow-sm transition-all" : "px-3 py-1 rounded-full bg-[#FFFDF9] text-stone-600 border border-[#E5D5C6] hover:bg-stone-100 font-bold transition-all";
     }
   });
   renderProductsTable();
 }
 
 function renderProductsTable() {
-  let displayList = productsList.filter(p => {
-    if (selectedCategory === 'All') return true;
-    return p.category === selectedCategory;
-  });
-
+  let displayList = productsList.filter(p => selectedCategory === 'All' || p.category === selectedCategory);
   displayList.sort((a, b) => {
     let valA = a.revenue, valB = b.revenue;
     if (prodSortCol === 'item') {
@@ -626,38 +890,30 @@ function renderProductsTable() {
   if (!tbody) return;
 
   if (displayList.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3" class="p-6 text-center text-stone-400 font-traditional">No items found for this category</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="3" class="p-6 text-center text-stone-400 font-traditional">No items found</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = displayList.map(p => {
-    const escapedName = p.name.replace(/'/g, "\\'");
-    const isSlowMoving = p.qty <= 2;
-    const slowBadge = isSlowMoving 
-      ? `<span class="bg-rose-100 text-rose-800 text-[8px] font-extrabold px-1.5 py-0.5 rounded border border-rose-200 ml-1.5 uppercase">Slow Velocity</span>` 
-      : (p.qty >= 10 ? `<span class="bg-emerald-100 text-emerald-800 text-[8px] font-extrabold px-1.5 py-0.5 rounded border border-emerald-200 ml-1.5 uppercase">Bestseller</span>` : '');
-
-    return `
-      <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showProductDetails('${escapedName}')">
-        <td class="p-3.5">
-          <div class="font-bold text-stone-800 flex justify-between items-center font-sans text-xs">
-            <span class="flex items-center flex-wrap">${p.name} ${slowBadge}</span>
-            <i class="fa-solid fa-angle-right text-[10px] text-stone-400 mr-2"></i>
-          </div>
-          <div class="text-[10px] text-stone-500 font-bold mt-1 font-sans">
-            <span class="text-blue-600">Online: ${p.onlineQty}</span> • 
-            <span class="text-orange-600">Offline: ${p.offlineQty}</span> • 
-            <span class="text-purple-600">Takebyhand: ${p.wholesaleQty}</span>
-          </div>
-        </td>
-        <td class="p-3.5 text-center font-bold text-stone-700 font-sans">${p.qty}</td>
-        <td class="p-3.5 text-right font-sans">
-          <div class="font-bold text-[#5C0612] text-xs">₹${p.revenue.toLocaleString('en-IN')}</div>
-          <div class="text-[9px] text-[#DAA520] font-bold mt-1 uppercase tracking-tight">${p.share.toFixed(1)}% Share</div>
-        </td>
-      </tr>
-    `;
-  }).join('');
+  tbody.innerHTML = displayList.map(p => `
+    <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showProductDetails('${p.name.replace(/'/g, "\\'")}')">
+      <td class="p-3.5">
+        <div class="font-bold text-stone-800 flex justify-between items-center font-sans text-xs">
+          <span>${p.name}</span>
+          <i class="fa-solid fa-angle-right text-[10px] text-stone-400 mr-2"></i>
+        </div>
+        <div class="text-[10px] text-stone-500 font-bold mt-1 font-sans">
+          <span class="text-blue-600">Online: ${p.onlineQty}</span> • 
+          <span class="text-orange-600">Offline: ${p.offlineQty}</span> • 
+          <span class="text-purple-600">Takebyhand: ${p.wholesaleQty}</span>
+        </div>
+      </td>
+      <td class="p-3.5 text-center font-bold text-stone-700 font-sans">${p.qty}</td>
+      <td class="p-3.5 text-right font-sans">
+        <div class="font-bold text-[#5C0612] text-xs">₹${p.revenue.toLocaleString('en-IN')}</div>
+        <div class="text-[9px] text-[#DAA520] font-bold mt-1 uppercase">${p.share.toFixed(1)}% Share</div>
+      </td>
+    </tr>
+  `).join('');
 }
 
 function renderAgentsTable() {
@@ -670,244 +926,333 @@ function renderAgentsTable() {
     return agentSortAsc ? valA - valB : valB - valA;
   });
 
-  let maxUptAgent = null, maxUptVal = 0;
-  let maxAtvAgent = null, maxAtvVal = 0;
+  const tbody = document.getElementById('agents-table-body');
+  if (!tbody) return;
 
-  agentsList.forEach(a => {
-    const atv = a.billCount > 0 ? (a.revenue / a.billCount) : 0;
-    if (a.upt > maxUptVal && a.upt >= 1.5) { maxUptVal = a.upt; maxUptAgent = a.name; }
-    if (atv > maxAtvVal && atv >= 2000) { maxAtvVal = atv; maxAtvAgent = a.name; }
-  });
+  tbody.innerHTML = agentsList.map(a => `
+    <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showAgentDetails('${a.name.replace(/'/g, "\\'")}')">
+      <td class="p-3.5 font-bold text-stone-700 font-sans">
+        <div class="flex justify-between items-center">
+          <span>${a.name}</span>
+          <span class="text-[9px] text-[#DAA520] font-bold flex items-center gap-1 font-traditional">Ledger <i class="fa-solid fa-chevron-right text-[8px]"></i></span>
+        </div>
+        <div class="text-[9px] text-stone-500 font-bold mt-1 font-sans">
+          Basket (UPT): <strong>${a.upt.toFixed(1)}</strong> • Avg Ticket (ATV): <strong class="text-[#5C0612]">₹${Math.round(a.billCount > 0 ? (a.revenue / a.billCount) : 0).toLocaleString('en-IN')}</strong>
+        </div>
+      </td>
+      <td class="p-3.5 text-right font-extrabold text-[#5C0612] font-sans">₹${a.revenue.toLocaleString('en-IN')}</td>
+    </tr>
+  `).join('');
+}
 
-  document.getElementById('agents-table-body').innerHTML = agentsList.map((a, idx) => {
-    let badgesHTML = '';
-    if (idx === 0 && !agentSortAsc && agentSortCol === 'revenue' && a.revenue > 0) {
-      badgesHTML += `<span class="bg-amber-100 text-amber-900 border border-amber-300 text-[8px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ml-1.5">🥇 Top Champ</span>`;
-    }
-    if (a.name === maxUptAgent) {
-      badgesHTML += `<span class="bg-blue-100 text-blue-900 border border-blue-300 text-[8px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ml-1">📦 Cross-Sell Pro</span>`;
-    }
-    if (a.name === maxAtvAgent) {
-      badgesHTML += `<span class="bg-purple-100 text-purple-900 border border-purple-300 text-[8px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ml-1">💎 High Ticket</span>`;
-    }
+function renderDayWiseSales(dayWiseObj) {
+  const container = document.getElementById('daywise-sales-container');
+  if (!container) return;
+  const sortedDates = Object.keys(dayWiseObj).sort((a, b) => b.localeCompare(a));
 
-    const atv = a.billCount > 0 ? (a.revenue / a.billCount) : 0;
-    const kpiHTML = `
-      <div class="text-[9px] text-stone-500 font-bold mt-1 font-sans flex items-center gap-1.5">
-        <span>Cross-Sell Basket (UPT): <strong class="text-stone-800">${a.upt.toFixed(1)}</strong></span>
-        <span>•</span>
-        <span>Avg Ticket (ATV): <strong class="text-[#5C0612]">₹${Math.round(atv).toLocaleString('en-IN')}</strong></span>
+  if (sortedDates.length === 0) {
+    container.innerHTML = `<p class="p-8 text-center text-stone-400 font-semibold font-traditional">No daily sales tracked in this range</p>`;
+    return;
+  }
+
+  container.innerHTML = sortedDates.map(dateStr => {
+    const dayData = dayWiseObj[dateStr];
+    const sortedAgents = Object.entries(dayData.agents).sort((a, b) => b[1] - a[1]);
+    const agentsListHTML = sortedAgents.map(([agentName, rev]) => `
+      <div class="flex justify-between items-center py-1.5 text-[11px] text-stone-600">
+        <span class="font-sans font-medium text-stone-700">${agentName}</span>
+        <span class="font-numeric font-bold text-stone-800">₹${rev.toLocaleString('en-IN')}</span>
       </div>
-    `;
+    `).join('');
 
     return `
-      <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showAgentDetails('${a.name}')">
-        <td class="p-3.5 font-bold text-stone-700 font-sans">
-          <div class="flex justify-between items-center">
-            <span class="flex items-center flex-wrap">${a.name} ${badgesHTML}</span>
-            <span class="text-[9px] text-[#DAA520] font-bold flex items-center gap-1 font-traditional">Ledger <i class="fa-solid fa-chevron-right text-[8px]"></i></span>
-          </div>
-          ${kpiHTML}
-        </td>
-        <td class="p-3.5 text-right font-extrabold text-[#5C0612] font-sans">₹${a.revenue.toLocaleString('en-IN')}</td>
-      </tr>
+      <div class="border border-[#E5D5C6] rounded-xl bg-[#FFFDF9] overflow-hidden warm-shadow mb-3">
+        <div class="bg-[#F3EFE9] px-4 py-2.5 border-b border-[#E5D5C6] flex justify-between items-center">
+          <span class="font-traditional font-bold text-stone-800 text-xs">${dateStr}</span>
+          <span class="font-numeric font-black text-[#5C0612] text-xs">Total: ₹${dayData.total.toLocaleString('en-IN')}</span>
+        </div>
+        <div class="p-3 divide-y divide-[#E5D5C6]/10">${agentsListHTML}</div>
+      </div>
     `;
   }).join('');
 }
 
-// ATTENDANCE & PAYROLL MODULE (STRICT ADMIN ONLY)
-function renderAttendanceSalaryModule() {
-  if (!isAdmin) return; 
+function renderBankLedgerModule() {
+  const selectEl = document.getElementById('bank-filter-select');
+  const selectedBank = selectEl ? selectEl.value : 'All';
+  const fromVal = document.getElementById('from-date').value;
+  const toVal = document.getElementById('to-date').value;
 
+  const tbody = document.getElementById('bank-ledger-tbody');
+  const totalEl = document.getElementById('bank-selected-total');
+  const countEl = document.getElementById('bank-bills-count');
+  if (!tbody) return;
+
+  const filteredBills = rawData.filter(row => {
+    if (!row['Bill Date']) return false;
+    const rDate = normalizeToDateString(row['Bill Date']);
+    if (fromVal && rDate < fromVal) return false;
+    if (toVal && rDate > toVal) return false;
+    
+    const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Kailash Kalamkari').toString().trim();
+    if (selectedStore !== 'All' && storeName.toLowerCase() !== selectedStore.toLowerCase()) return false;
+
+    const bAcc = getRowBank(row).trim();
+    if (selectedBank !== 'All') {
+      const sBank = selectedBank.trim().toLowerCase();
+      const rowB = bAcc.toLowerCase();
+      if (rowB !== sBank && !rowB.includes(sBank) && !sBank.includes(rowB)) return false;
+    }
+    return true;
+  });
+
+  let totalBankAmount = 0;
+  const uniqueBillMap = {};
+
+  filteredBills.forEach(r => {
+    const amt = parseFloat((r['Final Amount'] || r['FinalAmount'] || r['Total Value'] || r['TotalValue'] || r['BillAmount'] || r['Bill Amount'] || r['Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
+    const bNo = getBillNo(r);
+    const bDate = normalizeToDateString(r['Bill Date']);
+    const store = r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Shop 1';
+    const agent = r['SM Name'] || r['Agent'] || 'No Agent';
+    const bankName = getRowBank(r);
+
+    const key = `${bNo}-${bDate}-${amt}`;
+    if (!uniqueBillMap[key]) {
+      uniqueBillMap[key] = { date: bDate, billNo: bNo, store: store, agent: agent, bank: bankName, amount: amt };
+      totalBankAmount += amt;
+    }
+  });
+
+  const billList = Object.values(uniqueBillMap).sort((a, b) => b.date.localeCompare(a.date));
+
+  if (totalEl) totalEl.textContent = `₹${totalBankAmount.toLocaleString('en-IN')}`;
+  if (countEl) countEl.textContent = `${billList.length} Bills`;
+
+  tbody.innerHTML = billList.length === 0 ? `
+    <tr><td colspan="6" class="p-6 text-center text-stone-400 font-traditional">No bank credit records found for this selection</td></tr>
+  ` : billList.map(b => `
+    <tr class="hover:bg-amber-50/20 transition-colors">
+      <td class="p-3 text-stone-700 font-numeric">${b.date}</td>
+      <td class="p-3 font-bold text-stone-800 font-numeric">${b.billNo}</td>
+      <td class="p-3 text-stone-600">${b.store}</td>
+      <td class="p-3 text-stone-600">${b.agent}</td>
+      <td class="p-3"><span class="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-bold px-2 py-0.5 rounded font-numeric">${b.bank}</span></td>
+      <td class="p-3 text-right font-black text-[#5C0612] font-numeric">₹${b.amount.toLocaleString('en-IN')}</td>
+    </tr>
+  `).join('');
+}
+
+function filterAttendanceMonth(mSheet) {
+  selectedAttendanceMonth = mSheet;
+  renderAttendanceSalaryModule(parseFloat((document.getElementById('metric-total').textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
+}
+
+function getDayValue(emp, d) {
+  if (!emp || typeof emp !== 'object') return '';
+  const dStr = d.toString();
+  const dPad = d < 10 ? '0' + d : dStr;
+  
+  const possibleKeys = [dStr, dPad, 'D' + dStr, 'D' + dPad, 'Day ' + dStr, 'Day' + dStr, 'Day ' + dPad];
+
+  for (let key of possibleKeys) {
+    if (emp[key] !== undefined && emp[key] !== null && emp[key] !== '') {
+      return emp[key].toString().trim();
+    }
+  }
+
+  for (let key in emp) {
+    const cleanK = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (cleanK === dStr || cleanK === dPad || cleanK === 'd' + dStr || cleanK === 'day' + dStr) {
+      const val = (emp[key] || '').toString().trim();
+      if (val) return val;
+    }
+  }
+  return '';
+}
+
+function getDayNote(emp, d) {
+  const notesMap = emp['_notes'] || {};
+  const dStr = d.toString();
+  const dPad = d < 10 ? '0' + d : dStr;
+
+  const possibleKeys = [dStr, dPad, 'D' + dStr, 'D' + dPad, 'Day ' + dStr, 'Day ' + dPad];
+
+  for (let key of possibleKeys) {
+    if (notesMap[key]) return notesMap[key].toString().trim();
+  }
+  return '';
+}
+
+function renderAttendanceSalaryModule(storeRevenue = 0) {
+  if (!isAdmin) return; 
   const container = document.getElementById('staff-salary-list');
   if (!container) return;
   container.innerHTML = '';
 
-  let staffData = [];
-  if (Array.isArray(rawAttendanceData)) {
-    staffData = rawAttendanceData.filter(emp => {
-      const name = getEmpProp(emp, ['Employee Name', 'Name', 'Staff Name', 'Emp Name']);
-      return name && name.toString().trim().length > 0;
-    });
-  }
+  let staffData = Array.isArray(rawAttendanceData) ? rawAttendanceData.filter(emp => {
+    const hasName = getEmpProp(emp, ['Employee Name', 'Name', 'Staff Name']);
+    if (!hasName) return false;
+    if (selectedAttendanceMonth !== 'All') {
+      const empMonth = (emp['Month_Sheet'] || emp['Month'] || '').toString().trim().toLowerCase();
+      const selMonth = selectedAttendanceMonth.toString().trim().toLowerCase();
+      if (empMonth !== selMonth) return false;
+    }
+    return true;
+  }) : [];
 
-  if (staffData.length === 0) {
-    staffData = [
-      { "Emp ID": "KS-101", "Employee Name": "Chenna Kesava", "Designation": "Store Manager", "Monthly Salary": "18000", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-102", "Employee Name": "keerthi", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-103", "Employee Name": "mouni", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-104", "Employee Name": "latha", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-105", "Employee Name": "vara lakshmi", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-106", "Employee Name": "sanjana", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-107", "Employee Name": "sandhya", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-108", "Employee Name": "geethika", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" },
-      { "Emp ID": "KS-109", "Employee Name": "pushpa", "Designation": "Sales (Fabrics)", "Monthly Salary": "12000", "Commission Pct": "0", "Advance Taken": "0" }
-    ];
-    rawAttendanceData = staffData;
-  }
-
-  const staffCountEl = document.getElementById('payroll-staff-count');
-  if (staffCountEl) staffCountEl.textContent = staffData.length;
-  
   let totalStorePayroll = 0;
 
-  staffData.forEach((emp, index) => {
-    const empId = getEmpProp(emp, ['Emp ID', 'ID', 'Employee ID']) || `KS-${101 + index}`;
-    const name = getEmpProp(emp, ['Employee Name', 'Name', 'Staff Name', 'Emp Name']) || `Staff ${index + 1}`;
-    const role = getEmpProp(emp, ['Designation', 'Role']) || 'Sales Staff';
-    
-    let fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Full Salary', 'Basic Salary', 'Salary']));
-    if (isNaN(fullSalary) || fullSalary <= 0) {
-      fullSalary = role.toLowerCase().includes('manager') ? 18000 : 12000;
-    }
+  document.getElementById('payroll-staff-count').textContent = staffData.length;
+  document.getElementById('profit-store-sales').textContent = `₹${storeRevenue.toLocaleString('en-IN')}`;
 
-    let commPct = parseFloat(getEmpProp(emp, ['Commission Pct', 'Commission %', 'Comm %', 'Commission']));
-    if (isNaN(commPct)) commPct = 0;
+  staffData.forEach((emp, index) => {
+    const empId = getEmpProp(emp, ['Emp ID', 'ID']) || `KS-${101 + index}`;
+    const name = getEmpProp(emp, ['Employee Name', 'Name']) || `Staff ${index + 1}`;
+    const role = getEmpProp(emp, ['Designation', 'Role']) || 'Sales Staff';
+    const phone = getEmpProp(emp, ['Phone Number', 'Phone', 'Mobile']) || '';
+    const mSheetName = emp['Month_Sheet'] || 'attendance';
     
-    let advance = parseFloat(getEmpProp(emp, ['Advance Taken', 'Advance', 'Adv'])) || 0;
+    let fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Salary'])) || 12000;
+    let commPct = parseFloat(getEmpProp(emp, ['Commission Pct', 'Commission %'])) || 0;
+    let advance = parseFloat(getEmpProp(emp, ['Advance Taken', 'Advance'])) || 0;
 
     const totalSold = getStaffSalesAmount(name);
     const calculatedIncentive = (commPct > 0) ? Math.round(totalSold * (commPct / 100)) : 0;
 
-    let countP = 0, countHD = 0, countWO = 0, countPL = 0, countA = 0;
+    let countP = 0, countHD = 0, countA = 0, countPL = 0;
+    const gridDayBadges = [];
+    const leaveReasonsList = [];
+
+    // ALWAYS loop through ALL 31 DAYS so full 31-day month grid displays!
     for (let d = 1; d <= 31; d++) {
-      const val = (emp[d.toString()] || '').toString().toUpperCase().trim();
-      if (val === 'P') countP++;
-      else if (val === 'HD') countHD++;
-      else if (val === 'WO') countWO++;
-      else if (val === 'PL') countPL++;
-      else if (val === 'A') countA++;
+      const rawVal = getDayValue(emp, d);
+      const note = getDayNote(emp, d);
+      const upperVal = rawVal.toUpperCase().trim();
+
+      let badgeBg = 'bg-stone-50 text-stone-300 border-stone-200';
+      let displayText = '-';
+      let statusCode = upperVal;
+
+      if (upperVal === 'P' || upperVal === 'WO' || upperVal === 'PRESENT') {
+        countP++;
+        badgeBg = 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+        displayText = upperVal === 'WO' ? 'WO' : 'P';
+        statusCode = 'P';
+      } else if (upperVal === 'HD' || upperVal === 'HALF DAY' || upperVal === 'HALF') {
+        countHD++;
+        badgeBg = 'bg-amber-100 text-amber-800 border-amber-300 font-bold';
+        displayText = 'HD';
+        statusCode = 'HD';
+      } else if (upperVal === 'A' || upperVal === 'ABSENT' || upperVal.startsWith('A ')) {
+        countA++;
+        badgeBg = 'bg-rose-100 text-rose-800 border-rose-300 font-bold';
+        displayText = 'A';
+        statusCode = 'A';
+      } else if (upperVal === 'PL' || upperVal === 'SL' || upperVal === 'LEAVE' || upperVal === 'CL') {
+        countPL++;
+        badgeBg = 'bg-blue-100 text-blue-800 border-blue-300 font-bold';
+        displayText = upperVal;
+        statusCode = upperVal;
+      } else if (upperVal) {
+        badgeBg = 'bg-indigo-100 text-indigo-800 border-indigo-300 font-bold';
+        displayText = upperVal;
+      }
+
+      let displayNote = note;
+      if (!displayNote && rawVal.length > 3) {
+        displayNote = rawVal;
+      }
+
+      gridDayBadges.push(`
+        <div class="flex flex-col items-center justify-center border rounded-lg ${badgeBg} text-[8px] py-1 relative transition-all hover:scale-105 cursor-pointer" title="Day ${d}: ${statusCode || 'Unrecorded'}${displayNote ? ` | Reason: ${displayNote}` : ''}">
+          <span class="text-[7px] text-stone-400 font-normal">D${d}</span>
+          <span class="text-[9px] font-extrabold leading-none mt-0.5">${displayText}</span>
+          ${displayNote ? `<span class="absolute -top-1 -right-1 text-[8px]" title="Reason: ${displayNote}">📝</span>` : ''}
+        </div>
+      `);
+
+      if (displayNote) {
+        leaveReasonsList.push(`
+          <div class="text-[10px] bg-amber-50 text-amber-900 border border-amber-200 p-1.5 rounded-lg flex justify-between items-center font-numeric">
+            <span><strong>Day ${d} (${statusCode || 'Leave'}):</strong> ${displayNote}</span>
+          </div>
+        `);
+      }
     }
 
-    const payableDays = (countP > 0 || countHD > 0 || countWO > 0 || countPL > 0 || countA > 0)
-      ? (countP + (countHD * 0.5) + countWO + countPL)
-      : 31;
-
-    const totalDaysInMonth = 31;
-    const perDayRate = fullSalary > 0 ? (fullSalary / totalDaysInMonth) : 0;
-    const baseEarned = Math.round(payableDays * perDayRate);
-    const lopDeduction = Math.round(fullSalary - baseEarned);
+    const payableDays = countP + (countHD * 0.5) + countPL;
+    const baseEarned = Math.round(payableDays * (fullSalary / 31));
     const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
-    const attendancePct = ((payableDays / totalDaysInMonth) * 100).toFixed(0);
-
     totalStorePayroll += netSalary;
 
-    const commissionStatusHTML = commPct > 0 
-      ? `<span class="text-emerald-700 font-bold">+ Incentive (${commPct}%): +₹${calculatedIncentive.toLocaleString('en-IN')}</span>`
-      : `<span class="text-stone-400 font-medium">No Commission (0%)</span>`;
-
-    let dayGridHTML = '';
-    for (let d = 1; d <= 31; d++) {
-      const currentSt = (emp[d.toString()] || '').toString().toUpperCase().trim() || 'P';
-      const bgCol = currentSt === 'P' ? 'bg-emerald-100 text-emerald-900 border-emerald-300' :
-                    currentSt === 'HD' ? 'bg-amber-100 text-amber-900 border-amber-300' :
-                    currentSt === 'WO' ? 'bg-blue-100 text-blue-900 border-blue-300' :
-                    currentSt === 'PL' ? 'bg-purple-100 text-purple-900 border-purple-300' :
-                    'bg-rose-100 text-rose-900 border-rose-300';
-
-      dayGridHTML += `
-        <div class="text-center font-numeric">
-          <span class="block text-[7px] text-stone-400 font-bold">${d}</span>
-          <select onchange="updateDayAttendance(${index}, ${d}, this.value)" class="text-[8px] font-black p-0.5 rounded border ${bgCol} focus:outline-none cursor-pointer">
-            <option value="P" ${currentSt === 'P' ? 'selected' : ''}>P</option>
-            <option value="HD" ${currentSt === 'HD' ? 'selected' : ''}>HD</option>
-            <option value="WO" ${currentSt === 'WO' ? 'selected' : ''}>WO</option>
-            <option value="PL" ${currentSt === 'PL' ? 'selected' : ''}>PL</option>
-            <option value="A" ${currentSt === 'A' ? 'selected' : ''}>A</option>
-          </select>
-        </div>
-      `;
-    }
-
     const card = document.createElement('div');
-    card.className = "bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] warm-shadow p-4 space-y-3 relative overflow-hidden";
+    card.className = "bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] warm-shadow p-4 space-y-3";
     card.innerHTML = `
       <div class="flex justify-between items-start border-b border-[#E5D5C6]/60 pb-2">
         <div>
           <div class="flex items-center gap-1.5">
             <span class="text-[9px] font-bold text-[#5C0612] bg-[#EFE5C9] px-2 py-0.5 rounded font-numeric">${empId}</span>
-            <span class="text-[8px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded font-bold font-numeric">${attendancePct}% Attendance</span>
+            <span class="text-[8px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded uppercase font-traditional">${mSheetName}</span>
           </div>
           <h4 class="font-bold text-stone-800 text-sm font-sans mt-1">${name}</h4>
-          <p class="text-[10px] text-stone-500 font-traditional">${role}</p>
+          <p class="text-[10px] text-stone-500 font-traditional">${role} ${phone ? `• 📞 ${phone}` : ''}</p>
         </div>
         <div class="text-right font-numeric">
-          <p class="text-[9px] text-stone-500 font-traditional">Final Net Salary</p>
-          <p class="text-base font-black text-[#5C0612]" id="net-sal-${index}">₹${netSalary.toLocaleString('en-IN')}</p>
-          <button onclick="shareStaffPayslipWhatsApp(${index})" class="mt-1 text-[8px] bg-[#25D366] text-white px-2 py-0.5 rounded font-bold uppercase flex items-center gap-1 ml-auto export-ignore">
-            <i class="fa-brands fa-whatsapp"></i> Payslip
-          </button>
+          <p class="text-[9px] text-stone-500">Net Salary</p>
+          <p class="text-base font-black text-[#5C0612]">₹${netSalary.toLocaleString('en-IN')}</p>
+          <div class="flex gap-1.5 mt-1 justify-end export-ignore">
+            <button onclick="shareStaffPayslipWhatsApp(${index})" class="text-[8px] bg-[#25D366] hover:bg-[#128C7E] text-white px-2 py-1 rounded-lg font-bold uppercase flex items-center gap-1 shadow-sm active:scale-95 transition-all">
+              <i class="fa-brands fa-whatsapp"></i> WhatsApp
+            </button>
+            <button onclick="exportSingleStaffPayslipPDF(${index})" class="text-[8px] bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] px-2 py-1 rounded-lg font-bold uppercase flex items-center gap-1 border border-[#DAA520] shadow-sm active:scale-95 transition-all">
+              <i class="fa-solid fa-file-pdf text-[#DAA520]"></i> PDF Payslip
+            </button>
+          </div>
         </div>
       </div>
 
-      <div class="grid grid-cols-3 gap-2 bg-[#FAF6EE] p-2.5 rounded-xl border border-[#E5D5C6]/60 font-numeric text-xs">
-        <div>
-          <label class="block text-[8px] font-bold uppercase text-stone-500 font-traditional">Full Salary (₹)</label>
-          <input type="number" value="${fullSalary || ''}" placeholder="Base Sal" 
-            oninput="updateStaffPayroll(${index}, 'salary', this.value)" 
-            class="w-full text-xs font-bold text-stone-800 bg-white border border-[#E5D5C6] rounded-lg p-1 focus:outline-none">
+      <!-- 31-Day Complete Visual Attendance Grid -->
+      <div class="space-y-1">
+        <div class="flex justify-between items-center">
+          <span class="text-[9px] font-bold uppercase text-stone-500 font-traditional">31-Day Attendance Grid (${payableDays} Days Payable)</span>
+          <span class="text-[8px] font-bold text-stone-600 font-numeric">P:${countP} | HD:${countHD} | A:${countA} | PL:${countPL}</span>
         </div>
-        <div>
-          <label class="block text-[8px] font-bold uppercase text-stone-500 font-traditional">Comm % (Sold ₹${totalSold.toLocaleString('en-IN')})</label>
-          <input type="number" value="${commPct}" step="0.1" placeholder="0%" 
-            oninput="updateStaffPayroll(${index}, 'commission', this.value)" 
-            class="w-full text-xs font-bold ${commPct > 0 ? 'text-emerald-800 border-emerald-300' : 'text-stone-400'} bg-white border rounded-lg p-1 focus:outline-none">
-        </div>
-        <div>
-          <label class="block text-[8px] font-bold uppercase text-stone-500 font-traditional">Advance Taken (₹)</label>
-          <input type="number" value="${advance || ''}" placeholder="Advance" 
-            oninput="updateStaffPayroll(${index}, 'advance', this.value)" 
-            class="w-full text-xs font-bold text-rose-800 bg-white border border-[#E5D5C6] rounded-lg p-1 focus:outline-none">
+        <div class="grid grid-cols-7 sm:grid-cols-11 gap-1 pt-1">
+          ${gridDayBadges.join('')}
         </div>
       </div>
 
-      <div class="flex justify-between items-center text-[9px] font-numeric bg-[#F3EFE9] px-2.5 py-1.5 rounded-lg border border-[#E5D5C6]/40">
-        <span>Base Earned: <strong class="text-stone-800">₹${baseEarned.toLocaleString('en-IN')}</strong> (LOP: <span class="text-rose-600">-₹${lopDeduction}</span>)</span>
-        <span>${commissionStatusHTML}</span>
-      </div>
-
-      <details class="group">
-        <summary class="text-[9px] font-bold uppercase tracking-wider text-[#5C0612] cursor-pointer font-traditional flex justify-between items-center py-1">
-          <span>Edit 31-Day Attendance Grid</span>
-          <i class="fa-solid fa-chevron-down text-[8px] transition-transform group-open:rotate-180"></i>
-        </summary>
-        <div class="grid grid-cols-7 gap-1 pt-2 border-t border-[#E5D5C6]/40">
-          ${dayGridHTML}
+      <!-- Recorded Leave Reasons Section -->
+      ${leaveReasonsList.length > 0 ? `
+        <div class="space-y-1 border-t border-[#E5D5C6]/40 pt-2">
+          <p class="text-[9px] font-bold text-amber-900 uppercase font-traditional flex items-center gap-1">
+            <span>📝 Recorded Leave Reasons</span>
+          </p>
+          <div class="space-y-1">
+            ${leaveReasonsList.join('')}
+          </div>
         </div>
-      </details>
+      ` : ''}
+
+      <div class="grid grid-cols-3 gap-2 bg-[#FAF6EE] p-2 rounded-xl text-xs font-numeric">
+        <div><label class="block text-[8px] text-stone-500 uppercase">Base Salary (₹)</label><input type="number" value="${fullSalary}" oninput="updateStaffPayroll(${index}, 'salary', this.value)" class="w-full text-xs font-bold border rounded p-1"></div>
+        <div><label class="block text-[8px] text-stone-500 uppercase">Incentive %</label><input type="number" value="${commPct}" step="0.1" oninput="updateStaffPayroll(${index}, 'commission', this.value)" class="w-full text-xs font-bold border rounded p-1"></div>
+        <div><label class="block text-[8px] text-stone-500 uppercase">Advance (₹)</label><input type="number" value="${advance}" oninput="updateStaffPayroll(${index}, 'advance', this.value)" class="w-full text-xs font-bold border rounded p-1"></div>
+      </div>
     `;
-
     container.appendChild(card);
   });
 
-  let overallStoreRevenue = 0;
-  rawData.forEach(r => {
-    const amt = parseFloat(r['BillAmount']) || parseFloat(r['Bill Amount']) || parseFloat(r['Amount']) || 0;
-    overallStoreRevenue += amt;
-  });
-
-  const grossProfit = Math.max(0, overallStoreRevenue - totalStorePayroll);
-
   const payTotalEl = document.getElementById('payroll-total-amount');
-  const storeSalesEl = document.getElementById('profit-store-sales');
-  const grossAmtEl = document.getElementById('profit-gross-amount');
-
   if (payTotalEl) payTotalEl.textContent = `₹${totalStorePayroll.toLocaleString('en-IN')}`;
-  if (storeSalesEl) storeSalesEl.textContent = `₹${overallStoreRevenue.toLocaleString('en-IN')}`;
-  if (grossAmtEl) grossAmtEl.textContent = `₹${grossProfit.toLocaleString('en-IN')}`;
-}
 
-function updateDayAttendance(empIndex, day, newStatus) {
-  if (!isAdmin) return;
-  rawAttendanceData[empIndex][day.toString()] = newStatus;
-  renderAttendanceSalaryModule();
-}
-
-function updateGlobalCommission(val) {
-  if (!isAdmin) return;
-  defaultCommissionPct = parseFloat(val) || 0;
-  rawAttendanceData.forEach(emp => { emp['Commission Pct'] = defaultCommissionPct; });
-  renderAttendanceSalaryModule();
+  const grossProfitEl = document.getElementById('profit-gross-amount');
+  if (grossProfitEl) {
+    const grossVal = storeRevenue - totalStorePayroll;
+    grossProfitEl.textContent = `₹${grossVal.toLocaleString('en-IN')}`;
+    grossProfitEl.className = grossVal >= 0 ? "text-base font-black text-emerald-700 font-numeric" : "text-base font-black text-rose-700 font-numeric";
+  }
 }
 
 function updateStaffPayroll(index, field, val) {
@@ -916,49 +1261,211 @@ function updateStaffPayroll(index, field, val) {
   if (field === 'salary') emp['Monthly Salary'] = parseFloat(val) || 0;
   else if (field === 'commission') emp['Commission Pct'] = parseFloat(val) || 0;
   else if (field === 'advance') emp['Advance Taken'] = parseFloat(val) || 0;
+  renderAttendanceSalaryModule(parseFloat((document.getElementById('metric-total').textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
+}
 
-  renderAttendanceSalaryModule();
+function updateGlobalCommission(val) {
+  if (!isAdmin) return;
+  defaultCommissionPct = parseFloat(val) || 0;
+  rawAttendanceData.forEach(emp => { emp['Commission Pct'] = defaultCommissionPct; });
+  renderAttendanceSalaryModule(parseFloat((document.getElementById('metric-total').textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
 }
 
 function shareStaffPayslipWhatsApp(index) {
   if (!isAdmin) return;
   const emp = rawAttendanceData[index];
+  if (!emp) return;
+
   const name = getEmpProp(emp, ['Employee Name', 'Name']) || 'Staff';
-  const fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Full Salary', 'Salary'])) || 0;
-  const commPct = parseFloat(getEmpProp(emp, ['Commission Pct', 'Commission %', 'Comm %'])) || 0;
-  const advance = parseFloat(getEmpProp(emp, ['Advance Taken', 'Advance', 'Adv'])) || 0;
+  const empId = getEmpProp(emp, ['Emp ID', 'ID']) || `KS-${101 + index}`;
+  const fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Salary'])) || 0;
+  const commPct = parseFloat(getEmpProp(emp, ['Commission Pct'])) || 0;
+  const advance = parseFloat(getEmpProp(emp, ['Advance Taken'])) || 0;
 
   const totalSold = getStaffSalesAmount(name);
   const calculatedIncentive = commPct > 0 ? Math.round(totalSold * (commPct / 100)) : 0;
 
   let countP = 0, countHD = 0;
   for (let d = 1; d <= 31; d++) {
-    const val = (emp[d.toString()] || '').toString().toUpperCase().trim();
-    if (val === 'P' || val === 'WO' || val === 'PL') countP++;
-    else if (val === 'HD') countHD++;
+    const val = getDayValue(emp, d).toUpperCase();
+    if (val === 'P' || val === 'WO' || val === 'PL' || val === 'PRESENT') countP++;
+    else if (val === 'HD' || val === 'HALF DAY' || val === 'HALF') countHD++;
   }
 
   const payableDays = countP + (countHD * 0.5);
   const baseEarned = Math.round(payableDays * (fullSalary / 31));
-  const lopDeduction = Math.round(fullSalary - baseEarned);
   const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
 
   let msg = `🌸 *KAILASH KALAMKARI - MONTHLY PAYSLIP* 🌸\n\n`;
+  msg += `🆔 *Staff ID:* ${empId}\n`;
   msg += `👤 *Staff Name:* ${name}\n`;
   msg += `🗓️ *Payable Days:* ${payableDays} / 31 Days\n`;
   msg += `💵 *Base Monthly Salary:* ₹${fullSalary.toLocaleString('en-IN')}\n`;
-  if (lopDeduction > 0) msg += `🔻 *LOP Deduction:* -₹${lopDeduction.toLocaleString('en-IN')}\n`;
-  msg += `🛍️ *Total Sales Done:* ₹${totalSold.toLocaleString('en-IN')}\n`;
+  msg += `🛍️ *Total Sales Achieved:* ₹${totalSold.toLocaleString('en-IN')}\n`;
   
   if (calculatedIncentive > 0) {
-    msg += `🎁 *Sales Commission (${commPct}%):* +₹${calculatedIncentive.toLocaleString('en-IN')}\n`;
+    msg += `🎁 *SALES INCENTIVE (${commPct}%):* +₹${calculatedIncentive.toLocaleString('en-IN')}\n`;
   }
   
   if (advance > 0) msg += `📉 *Advance Deducted:* -₹${advance.toLocaleString('en-IN')}\n`;
-  msg += `\n💰 *FINAL NET SALARY:* ₹${netSalary.toLocaleString('en-IN')}\n\n`;
+  msg += `\n💰 *FINAL NET PAYABLE SALARY:* ₹${netSalary.toLocaleString('en-IN')}\n\n`;
   msg += `_Thank you for your dedicated service at Kailash Kalamkari!_`;
 
-  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+  const phone = formatPhoneForWhatsApp(getEmpProp(emp, ['Phone Number', 'Phone', 'Mobile']));
+  if (phone) window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`, '_blank');
+  else window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function exportSingleStaffPayslipPDF(index) {
+  if (!isAdmin) return;
+  const emp = rawAttendanceData[index];
+  if (!emp) return;
+
+  const name = getEmpProp(emp, ['Employee Name', 'Name']) || 'Staff Member';
+  const empId = getEmpProp(emp, ['Emp ID', 'ID']) || `KS-${101 + index}`;
+  const role = getEmpProp(emp, ['Designation', 'Role']) || 'Sales Executive';
+  const fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Salary'])) || 0;
+  const commPct = parseFloat(getEmpProp(emp, ['Commission Pct'])) || 0;
+  const advance = parseFloat(getEmpProp(emp, ['Advance Taken'])) || 0;
+
+  const totalSold = getStaffSalesAmount(name);
+  const calculatedIncentive = commPct > 0 ? Math.round(totalSold * (commPct / 100)) : 0;
+
+  let countP = 0, countHD = 0;
+  for (let d = 1; d <= 31; d++) {
+    const val = getDayValue(emp, d).toUpperCase();
+    if (val === 'P' || val === 'WO' || val === 'PL' || val === 'PRESENT') countP++;
+    else if (val === 'HD' || val === 'HALF DAY' || val === 'HALF') countHD++;
+  }
+
+  const payableDays = countP + (countHD * 0.5);
+  const baseEarned = Math.round(payableDays * (fullSalary / 31));
+  const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
+
+  const payslipContainer = document.createElement('div');
+  payslipContainer.className = "p-8 bg-[#FFFDF9] border-2 border-[#5C0612] max-w-xl mx-auto rounded-3xl font-numeric text-stone-800 space-y-4";
+  payslipContainer.id = "temp-payslip-pdf";
+
+  payslipContainer.innerHTML = `
+    <div class="text-center border-b-2 border-[#DAA520] pb-4">
+      <h2 class="text-2xl font-bold font-traditional text-[#5C0612]">KAILASH KALAMKARI</h2>
+      <p class="text-[10px] text-stone-600 uppercase font-semibold">Official Staff Salary Slip & Performance Voucher</p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 text-xs border-b border-[#E5D5C6] pb-3">
+      <div>
+        <p class="text-stone-500 text-[10px] uppercase">Employee ID</p>
+        <p class="font-black text-[#5C0612]">${empId}</p>
+        <p class="text-stone-500 text-[10px] uppercase mt-2">Employee Name</p>
+        <p class="font-bold text-stone-800">${name}</p>
+      </div>
+      <div class="text-right">
+        <p class="text-stone-500 text-[10px] uppercase">Designation</p>
+        <p class="font-bold text-stone-800">${role}</p>
+        <p class="text-stone-500 text-[10px] uppercase mt-2">Payable Days</p>
+        <p class="font-bold text-stone-800">${payableDays} / 31 Days</p>
+      </div>
+    </div>
+
+    <div class="space-y-2 text-xs">
+      <div class="flex justify-between py-1 border-b border-stone-200">
+        <span class="text-stone-600 font-medium">Base Monthly Salary</span>
+        <span class="font-bold text-stone-800">₹${fullSalary.toLocaleString('en-IN')}</span>
+      </div>
+      <div class="flex justify-between py-1 border-b border-stone-200">
+        <span class="text-stone-600 font-medium">Earned Base (Attended Days)</span>
+        <span class="font-bold text-stone-800">₹${baseEarned.toLocaleString('en-IN')}</span>
+      </div>
+      <div class="flex justify-between py-1 border-b border-stone-200">
+        <span class="text-stone-600 font-medium">Total Store Sales Generated</span>
+        <span class="font-bold text-stone-800">₹${totalSold.toLocaleString('en-IN')}</span>
+      </div>
+      ${commPct > 0 ? `
+      <div class="flex justify-between py-1 border-b border-stone-200 text-emerald-800">
+        <span class="font-medium">Sales Incentive (${commPct}%)</span>
+        <span class="font-bold">+₹${calculatedIncentive.toLocaleString('en-IN')}</span>
+      </div>` : ''}
+      ${advance > 0 ? `
+      <div class="flex justify-between py-1 border-b border-stone-200 text-rose-800">
+        <span class="font-medium">Advance Deducted</span>
+        <span class="font-bold">-₹${advance.toLocaleString('en-IN')}</span>
+      </div>` : ''}
+    </div>
+
+    <div class="bg-[#5C0612] text-[#EFE5C9] p-4 rounded-2xl flex justify-between items-center border border-[#DAA520]">
+      <span class="font-traditional uppercase font-bold text-xs">Net Salary Payable</span>
+      <span class="text-xl font-black">₹${netSalary.toLocaleString('en-IN')}</span>
+    </div>
+
+    <div class="flex justify-between items-end pt-8 text-[9px] text-stone-500 font-traditional">
+      <div>
+        <p>Employee Signature: __________________</p>
+      </div>
+      <div class="text-right">
+        <p>Authorized Signature: __________________</p>
+        <p class="mt-1 font-bold text-[#5C0612]">Kailash Kalamkari Management</p>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(payslipContainer);
+
+  const opt = {
+    margin: 0.3,
+    filename: `Payslip_${name.replace(/[^a-zA-Z0-9]/gi, '_')}_${empId}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+  };
+
+  html2pdf().set(opt).from(payslipContainer).save().then(() => {
+    document.body.removeChild(payslipContainer);
+  }).catch(err => {
+    console.error(err);
+    if (document.getElementById('temp-payslip-pdf')) {
+      document.body.removeChild(payslipContainer);
+    }
+  });
+}
+
+function shareAllPayslipsWhatsApp() {
+  if (!isAdmin) return;
+  const modal = document.getElementById('whatsapp-bulk-modal');
+  const container = document.getElementById('whatsapp-bulk-list');
+  if (!modal || !container) return;
+
+  let staffData = Array.isArray(rawAttendanceData) ? rawAttendanceData.filter(emp => getEmpProp(emp, ['Employee Name', 'Name', 'Staff Name'])) : [];
+  
+  if (staffData.length === 0) {
+    alert("No employee payroll records found.");
+    return;
+  }
+
+  container.innerHTML = staffData.map((emp, index) => {
+    const name = getEmpProp(emp, ['Employee Name', 'Name']) || `Staff ${index + 1}`;
+    const empId = getEmpProp(emp, ['Emp ID', 'ID']) || `KS-${101 + index}`;
+    const phone = getEmpProp(emp, ['Phone Number', 'Phone', 'Mobile']) || '';
+    
+    return `
+      <div class="flex justify-between items-center bg-[#FAF6EE] p-3 rounded-2xl border border-[#E5D5C6]">
+        <div>
+          <span class="text-[9px] font-bold text-[#5C0612] bg-[#EFE5C9] px-2 py-0.5 rounded font-numeric">${empId}</span>
+          <p class="font-bold text-xs text-stone-800 font-sans mt-0.5">${name}</p>
+          <p class="text-[10px] text-stone-500 font-numeric">${phone ? `📞 ${phone}` : 'No phone listed'}</p>
+        </div>
+        <button onclick="shareStaffPayslipWhatsApp(${index})" class="bg-[#25D366] hover:bg-[#128C7E] text-white text-xs px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
+          <i class="fa-brands fa-whatsapp text-sm"></i> Send Payslip
+        </button>
+      </div>
+    `;
+  }).join('');
+
+  modal.classList.remove('hidden');
+}
+
+function closeWhatsAppBulkModal() {
+  const modal = document.getElementById('whatsapp-bulk-modal');
+  if (modal) modal.classList.add('hidden');
 }
 
 function shareOwnerDailySummaryWhatsApp() {
@@ -970,52 +1477,15 @@ function shareOwnerDailySummaryWhatsApp() {
   const offlineSalesText = document.getElementById('metric-offline').textContent || '₹0';
   const wholesaleSalesText = document.getElementById('metric-wholesale').textContent || '₹0';
 
-  const upiStore = document.getElementById('paymode-upi-store').textContent || '₹0';
-  const upiOnl = document.getElementById('paymode-upi-onl').textContent || '₹0';
-  const cash = document.getElementById('paymode-cash').textContent || '₹0';
-  const card = document.getElementById('paymode-card').textContent || '₹0';
-  const hand = document.getElementById('paymode-hand').textContent || '₹0';
-
-  const bSmall = document.getElementById('bucket-small').textContent || '0 Bills';
-  const bMedium = document.getElementById('bucket-medium').textContent || '0 Bills';
-  const bHigh = document.getElementById('bucket-high').textContent || '0 Bills';
-
-  let topAgent = "N/A", topAgentRev = 0;
-  agentsList.forEach(a => {
-    if (a.revenue > topAgentRev) {
-      topAgentRev = a.revenue;
-      topAgent = a.name;
-    }
-  });
-
-  let topProduct = "N/A", topProdQty = 0;
-  productsList.forEach(p => {
-    if (p.qty > topProdQty) {
-      topProdQty = p.qty;
-      topProduct = p.name;
-    }
-  });
-
-  let msg = `🌸 *KAILASH KALAMKARI - EXECUTIVE DAILY SUMMARY* 🌸\n\n`;
+  let msg = `🌸 *KAILASH KALAMKARI - EXECUTIVE SUMMARY* 🌸\n\n`;
+  msg += `📍 *Selected Store:* ${selectedStore}\n`;
   msg += `🗓️ *Period:* ${fromVal} to ${toVal}\n`;
-  msg += `💰 *TOTAL STORE REVENUE:* ${totalSalesText}\n\n`;
-  msg += `📊 *CHANNEL SPLIT:*\n`;
+  msg += `💰 *TOTAL REVENUE:* ${totalSalesText}\n\n`;
+  msg += `📊 *CHANNEL BREAKDOWN:*\n`;
   msg += `• Online: ${onlineSalesText}\n`;
-  msg += `• Offline: ${offlineSalesText}\n`;
+  msg += `• Offline Store: ${offlineSalesText}\n`;
   msg += `• Takebyhand: ${wholesaleSalesText}\n\n`;
-  msg += `🎫 *TICKET BUCKET SPLIT:*\n`;
-  msg += `• Small (< ₹10K): ${bSmall}\n`;
-  msg += `• Medium (₹10K – ₹1 Lakh): ${bMedium}\n`;
-  msg += `• High (> ₹1 Lakh): ${bHigh}\n\n`;
-  msg += `💳 *PAYMENT MODE BREAKDOWN:*\n`;
-  msg += `• UPI Store: ${upiStore}\n`;
-  msg += `• UPI Online: ${upiOnl}\n`;
-  msg += `• Cash: ${cash}\n`;
-  msg += `• Card: ${card}\n`;
-  msg += `• Takebyhand Credit: ${hand}\n\n`;
-  msg += `🏆 *TOP STAFF:* ${topAgent} (₹${topAgentRev.toLocaleString('en-IN')})\n`;
-  msg += `🛍️ *TOP PRODUCT:* ${topProduct} (${topProdQty} units)\n\n`;
-  msg += `_Generated live from Kailash Kalamkari Store Dashboard_`;
+  msg += `_Generated live from Kailash Kalamkari Executive Portal_`;
 
   window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
 }
@@ -1026,68 +1496,48 @@ function backupFullDatabaseExcel() {
     alert("Excel library loading or unavailable.");
     return;
   }
-
   const workbook = XLSX.utils.book_new();
+  const salesSheetData = rawData.map(r => ({
+    "Date": normalizeToDateString(r['Bill Date']),
+    "Store/Shop": r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Shop 1',
+    "Bill No": getBillNo(r),
+    "Staff Name": r['SM Name'] || 'No Agent',
+    "Item Name": r['Item Name'] || '',
+    "Category": getItemCategory(r['Item Name']),
+    "Qty": parseInt(r['Qty']) || 0,
+    "Amount": parseFloat((r['Final Amount'] || r['FinalAmount'] || r['Total Value'] || r['TotalValue'] || r['BillAmount'] || r['Bill Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0,
+    "PayMode": r['PayMode'] || r['Pay Mode'] || r['Sale type'] || r['Sale Type'] || '',
+    "Credited Bank Account": getRowBank(r),
+    "Channel": getSalesType(r['PayMode'] || r['Pay Mode'] || r['Sale type'] || r['Sale Type'])
+  }));
 
-  const salesSheetData = rawData.map(r => {
-    const amt = parseFloat(r['BillAmount']) || parseFloat(r['Bill Amount']) || 0;
-    let ticketCategory = 'Small (< ₹10K)';
-    if (amt > 100000) ticketCategory = 'High (> ₹1 Lakh)';
-    else if (amt >= 10000) ticketCategory = 'Medium (₹10K-₹1Lakh)';
-
-    return {
-      "Date": normalizeToDateString(r['Bill Date']),
-      "Bill No": r['Bill No'] || r['Bill No.'] || 'N/A',
-      "Staff Name": r['SM Name'] || r['SMName'] || 'No Agent',
-      "Item Name": r['Item Name'] || r['ItemName'] || '',
-      "Category": getItemCategory(r['Item Name'] || r['ItemName']),
-      "Qty": parseInt(r['Qty']) || parseInt(r['QTY']) || 0,
-      "Amount": amt,
-      "Ticket Category": ticketCategory,
-      "PayMode": r['PayMode'] || r['Pay Mode'] || '',
-      "Channel": getSalesType(r['PayMode'] || r['Pay Mode'])
-    };
-  });
-
-  const salesWorksheet = XLSX.utils.json_to_sheet(salesSheetData);
-  XLSX.utils.book_append_sheet(workbook, salesWorksheet, "Sales Data");
-
-  if (rawAttendanceData && rawAttendanceData.length > 0) {
-    const attendanceWorksheet = XLSX.utils.json_to_sheet(rawAttendanceData);
-    XLSX.utils.book_append_sheet(workbook, attendanceWorksheet, "Attendance & Payroll");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(salesSheetData), "Sales Data");
+  if (rawAttendanceData.length > 0) {
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rawAttendanceData), "Attendance & Payroll");
   }
-
-  const dateStr = new Date().toISOString().split('T')[0];
-  XLSX.writeFile(workbook, `Kailash_Kalamkari_Full_Backup_${dateStr}.xlsx`);
+  XLSX.writeFile(workbook, `Kailash_Kalamkari_Backup_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
 async function saveAttendanceData() {
   if (!isAdmin) return;
   const user = localStorage.getItem('kk_user');
   const pass = localStorage.getItem('kk_pass');
-
-  if (!user || !pass) {
-    alert("Session expired. Please re-login.");
-    return;
-  }
+  if (!user || !pass) return;
 
   try {
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
-        username: user,
-        password: pass,
-        records: rawAttendanceData
+      body: JSON.stringify({ 
+        username: user, 
+        password: pass, 
+        records: rawAttendanceData, 
+        monthSheet: selectedAttendanceMonth 
       })
     });
-
     const res = await response.json();
-    if (res.status === 'success') {
-      alert("✅ Monthly Salaries & Attendance saved to Google Sheets!");
-    } else {
-      alert("Error saving: " + (res.error || "Unknown error"));
-    }
+    if (res.status === 'success') alert("✅ Saved to Google Sheets!");
+    else alert("Error saving: " + (res.error || "Unknown error"));
   } catch (err) {
     alert("Saved locally in session!");
   }
@@ -1105,54 +1555,41 @@ function sortAgents(column) {
   renderAgentsTable();
 }
 
-function showAgentDetails(agentName) {
-  applyState({ view: 'agent-analysis', name: agentName });
-}
-
-function showProductDetails(productName) {
-  applyState({ view: 'home', detail: 'product', name: productName });
-}
+function showAgentDetails(agentName) { applyState({ view: 'agent-analysis', name: agentName }); }
+function showProductDetails(productName) { applyState({ view: 'home', detail: 'product', name: productName }); }
 
 function populateProductDetailsDOM(productName, isChannel = false) {
   const titleEl = document.getElementById('detail-product-name');
   if (titleEl) titleEl.textContent = productName;
-
   const fromVal = document.getElementById('from-date').value;
   const toVal = document.getElementById('to-date').value;
 
   const agentStats = {};
-
   rawData.forEach(row => {
     if (!row['Bill Date']) return;
     const rDate = normalizeToDateString(row['Bill Date']);
     if (fromVal && rDate < fromVal) return;
     if (toVal && rDate > toVal) return;
+    const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Kailash Kalamkari').toString().trim();
+    if (selectedStore !== 'All' && storeName.toLowerCase() !== selectedStore.toLowerCase()) return;
 
-    const item = row['Item Name'] || row['ItemName'] || 'Unknown Item';
-    if (item !== productName) return;
+    if ((row['Item Name'] || row['ItemName']) !== productName) return;
 
     const agent = row['SM Name'] || row['SMName'] || 'No Agent';
-    const amount = parseFloat(row['BillAmount']) || parseFloat(row['Bill Amount']) || 0;
-    const payMode = row['PayMode'] || row['Pay Mode'] || '';
-    const type = getSalesType(payMode);
+    const amount = parseFloat((row['Final Amount'] || row['FinalAmount'] || row['Total Value'] || row['TotalValue'] || row['BillAmount'] || row['Bill Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
+    const type = getSalesType(row['PayMode'] || row['Pay Mode'] || row['Sale type'] || row['Sale Type']);
 
-    if (!agentStats[agent]) {
-      agentStats[agent] = { online: 0, offline: 0, wholesale: 0, total: 0 };
-    }
-
+    if (!agentStats[agent]) agentStats[agent] = { online: 0, offline: 0, wholesale: 0, total: 0 };
     if (type === 'Online') agentStats[agent].online += amount;
     else if (type === 'Wholesale') agentStats[agent].wholesale += amount;
     else agentStats[agent].offline += amount;
-
     agentStats[agent].total += amount;
   });
 
   const sortedAgents = Object.entries(agentStats).sort((a, b) => b[1].total - a[1].total);
   const tbody = document.getElementById('product-detail-table-body');
   if (tbody) {
-    tbody.innerHTML = sortedAgents.length === 0 ? `
-      <tr><td colspan="5" class="p-3 text-center text-stone-400">No staff sales recorded for this product</td></tr>
-    ` : sortedAgents.map(([agentName, stats]) => `
+    tbody.innerHTML = sortedAgents.length === 0 ? `<tr><td colspan="5" class="p-3 text-center text-stone-400">No sales recorded</td></tr>` : sortedAgents.map(([agentName, stats]) => `
       <tr class="hover:bg-amber-50/20 transition-colors">
         <td class="p-1.5 font-bold text-stone-700 font-sans">${agentName}</td>
         <td class="p-1.5 text-right text-blue-600 font-bold font-numeric">₹${stats.online.toLocaleString('en-IN')}</td>
@@ -1167,19 +1604,12 @@ function populateProductDetailsDOM(productName, isChannel = false) {
 function toggleAgentDetailView(view) {
   const prodView = document.getElementById('agent-detail-product-view');
   const billView = document.getElementById('agent-detail-bill-view');
-  const btnProd = document.getElementById('btn-agent-detail-product');
-  const btnBill = document.getElementById('btn-agent-detail-bill');
-
   if (view === 'product') {
     if (prodView) prodView.classList.remove('hidden');
     if (billView) billView.classList.add('hidden');
-    if (btnProd) btnProd.className = "flex-1 text-center py-2 text-[10px] font-extrabold rounded-lg bg-white text-[#5C0612] shadow-sm font-traditional";
-    if (btnBill) btnBill.className = "flex-1 text-center py-2 text-[10px] font-extrabold rounded-lg text-stone-500 hover:text-stone-700 font-traditional";
   } else {
     if (prodView) prodView.classList.add('hidden');
     if (billView) billView.classList.remove('hidden');
-    if (btnProd) btnProd.className = "flex-1 text-center py-2 text-[10px] font-extrabold rounded-lg text-stone-500 hover:text-stone-700 font-traditional";
-    if (btnBill) btnBill.className = "flex-1 text-center py-2 text-[10px] font-extrabold rounded-lg bg-white text-[#5C0612] shadow-sm font-traditional";
   }
 }
 
@@ -1198,9 +1628,7 @@ function populateAgentDetailsDOM(agentName) {
   `).join('');
 
   const sortedBills = Object.values(agentObj.bills).sort((a, b) => b.amount - a.amount);
-  document.getElementById('agent-detail-bill-table-body').innerHTML = sortedBills.length === 0 ? `
-    <tr><td colspan="3" class="p-4 text-center text-stone-400 font-sans">No bill records</td></tr>
-  ` : sortedBills.map(b => `
+  document.getElementById('agent-detail-bill-table-body').innerHTML = sortedBills.map(b => `
     <tr class="hover:bg-amber-50/20 transition-colors">
       <td class="p-2.5 font-semibold text-stone-700">${b.date || 'N/A'}</td>
       <td class="p-2.5 text-center font-bold text-stone-500">${b.billNo || 'N/A'}</td>
@@ -1215,94 +1643,65 @@ function populateAgentDetailsDOM(agentName) {
 function populateChannelScreenDOM(channel) {
   const fromVal = document.getElementById('from-date').value;
   const toVal = document.getElementById('to-date').value;
-  
-  const headerEl = document.getElementById('channel-header');
-  if (headerEl) {
-    if (channel === 'Online') headerEl.className = "bg-blue-900 text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md";
-    else if (channel === 'Offline') headerEl.className = "bg-orange-800 text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md";
-    else if (channel === 'Wholesale') headerEl.className = "bg-purple-900 text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md";
-    else headerEl.className = "bg-[#5C0612] text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md";
-  }
-
-  const titleEl = document.getElementById('channel-view-title');
-  const subEl = document.getElementById('channel-view-subtitle');
-  const labelEl = document.getElementById('channel-revenue-label');
-  if (titleEl) titleEl.textContent = `${channel} Sales Performance`;
-  if (subEl) subEl.textContent = `Date Range: ${fromVal || 'Start'} to ${toVal || 'End'}`;
-  if (labelEl) labelEl.textContent = `${channel} Total Revenue`;
-
   const filtered = rawData.filter(row => {
     if (!row['Bill Date']) return false;
     const rDate = normalizeToDateString(row['Bill Date']);
     let match = true;
     if (fromVal) match = match && (rDate >= fromVal);
     if (toVal) match = match && (rDate <= toVal);
-    const payMode = row['PayMode'] || row['Pay Mode'] || '';
-    const type = getSalesType(payMode);
-    return match && (type === channel);
+    const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Kailash Kalamkari').toString().trim();
+    if (selectedStore !== 'All' && storeName.toLowerCase() !== selectedStore.toLowerCase()) match = false;
+
+    return match && (getSalesType(row['PayMode'] || row['Pay Mode'] || row['Sale type'] || row['Sale Type']) === channel);
   });
 
   let totalChannelRevenue = 0;
-  const agentsObj = {};
-  const productsObj = {};
+  const agentsObj = {}, productsObj = {};
 
   filtered.forEach(row => {
-    const amount = parseFloat(row['BillAmount']) || parseFloat(row['Bill Amount']) || 0;
+    const amount = parseFloat((row['Final Amount'] || row['FinalAmount'] || row['Total Value'] || row['TotalValue'] || row['BillAmount'] || row['Bill Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
     const qty = parseInt(row['Qty']) || parseInt(row['QTY']) || 0;
-    const item = row['Item Name'] || row['ItemName'] || 'Unknown Item';
-    const agent = row['SM Name'] || row['SMName'] || 'No Agent';
+    const item = row['Item Name'] || 'Unknown Item';
+    const agent = row['SM Name'] || 'No Agent';
 
     totalChannelRevenue += amount;
     agentsObj[agent] = (agentsObj[agent] || 0) + amount;
-
     if (!productsObj[item]) productsObj[item] = { qty: 0, revenue: 0 };
     productsObj[item].qty += qty;
     productsObj[item].revenue += amount;
   });
 
-  const totalEl = document.getElementById('channel-view-total');
-  if (totalEl) totalEl.textContent = `₹${totalChannelRevenue.toLocaleString('en-IN')}`;
+  document.getElementById('channel-view-total').textContent = `₹${totalChannelRevenue.toLocaleString('en-IN')}`;
 
-  const agentsList = Object.entries(agentsObj).sort((a, b) => b[1] - a[1]);
-  const agentTableBody = document.getElementById('channel-agents-table');
-  if (agentTableBody) {
-    agentTableBody.innerHTML = agentsList.length === 0 ? `
-      <tr><td colspan="2" class="p-4 text-center text-stone-400 font-sans">No channel sales found</td></tr>
-    ` : agentsList.map(([name, rev]) => `
-      <tr class="hover:bg-amber-50/20 transition-colors">
-        <td class="p-3.5 font-bold text-stone-700 font-sans">${name}</td>
-        <td class="p-3.5 text-right font-extrabold text-[#5C0612] font-sans">₹${rev.toLocaleString('en-IN')}</td>
+  const agentTable = document.getElementById('channel-agents-table');
+  if (agentTable) {
+    const sortedA = Object.entries(agentsObj).sort((a, b) => b[1] - a[1]);
+    agentTable.innerHTML = sortedA.length === 0 ? `<tr><td colspan="2" class="p-4 text-center text-stone-400">No record</td></tr>` : sortedA.map(([aName, amt]) => `
+      <tr class="hover:bg-amber-50/20">
+        <td class="p-3 font-bold text-stone-700">${aName}</td>
+        <td class="p-3 text-right font-black text-[#5C0612] font-numeric">₹${amt.toLocaleString('en-IN')}</td>
       </tr>
     `).join('');
   }
 
-  const productsList = Object.entries(productsObj).map(([name, val]) => ({ name, ...val })).sort((a, b) => b.revenue - a.revenue);
-  const prodTableBody = document.getElementById('channel-products-table');
-  if (prodTableBody) {
-    prodTableBody.innerHTML = productsList.length === 0 ? `
-      <tr><td colspan="3" class="p-4 text-center text-stone-400 font-sans">No products found</td></tr>
-    ` : productsList.map(p => `
-      <tr class="hover:bg-amber-50/20 transition-colors">
-        <td class="p-3.5 font-bold text-stone-800 font-sans text-xs">${p.name}</td>
-        <td class="p-3.5 text-center font-bold text-stone-700 font-sans">${p.qty}</td>
-        <td class="p-3.5 text-right font-extrabold text-[#5C0612] font-sans">₹${p.revenue.toLocaleString('en-IN')}</td>
+  const prodTable = document.getElementById('channel-products-table');
+  if (prodTable) {
+    const sortedP = Object.entries(productsObj).sort((a, b) => b[1].revenue - a[1].revenue);
+    prodTable.innerHTML = sortedP.length === 0 ? `<tr><td colspan="3" class="p-4 text-center text-stone-400">No record</td></tr>` : sortedP.map(([pName, pObj]) => `
+      <tr class="hover:bg-amber-50/20">
+        <td class="p-3 font-bold text-stone-700">${pName}</td>
+        <td class="p-3 text-center font-bold text-stone-600 font-numeric">${pObj.qty}</td>
+        <td class="p-3 text-right font-black text-[#5C0612] font-numeric">₹${pObj.revenue.toLocaleString('en-IN')}</td>
       </tr>
     `).join('');
   }
 }
 
-function populateWeeklyScreenDOM() {
-  const fromVal = document.getElementById('from-date').value;
-  const toVal = document.getElementById('to-date').value;
-  const subEl = document.getElementById('weekly-view-subtitle');
-  if (subEl) subEl.textContent = `Date Range: ${fromVal || 'Start'} to ${toVal || 'End'}`;
-  renderWeeklyDistributionDOM();
-}
+function populateWeeklyScreenDOM() { renderWeeklyDistributionDOM(); }
 
 function renderWeeklyDistributionDOM() {
   const container = document.getElementById('weekly-distribution-bars');
   if (!container) return;
-
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const totalWeeklySales = currentDaySales.reduce((a, b) => a + b, 0);
 
@@ -1312,11 +1711,11 @@ function renderWeeklyDistributionDOM() {
     return `
       <div class="space-y-1">
         <div class="flex justify-between items-center text-xs font-semibold text-stone-700">
-          <span class="font-traditional font-bold">${day}</span>
+          <span>${day}</span>
           <span class="font-numeric text-[#5C0612] font-black">₹${amount.toLocaleString('en-IN')} (${pct.toFixed(1)}%)</span>
         </div>
         <div class="w-full bg-[#E5D5C6]/40 h-2.5 rounded-full overflow-hidden">
-          <div class="bg-[#5C0612] h-full rounded-full transition-all duration-300" style="width: ${pct}%"></div>
+          <div class="bg-[#5C0612] h-full rounded-full" style="width: ${pct}%"></div>
         </div>
       </div>
     `;
@@ -1339,12 +1738,16 @@ function populateAgentAnalysisScreenDOM(agentName) {
     let match = true;
     if (fromVal) match = match && (rDate >= fromVal);
     if (toVal) match = match && (rDate <= toVal);
+    
+    const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Kailash Kalamkari').toString().trim();
+    if (selectedStore !== 'All' && storeName.toLowerCase() !== selectedStore.toLowerCase()) match = false;
     return match;
   });
 
+  const cleanTargetAgent = agentName.toString().trim().toLowerCase();
   const agentRows = filtered.filter(row => {
-    const smName = row['SM Name'] || row['SMName'] || row['Agent'] || row['Staff'] || 'No Agent';
-    return smName.toString().trim().toLowerCase() === agentName.toString().trim().toLowerCase();
+    const smName = (row['SM Name'] || row['SMName'] || row['Agent'] || row['Staff'] || 'No Agent').toString().trim().toLowerCase();
+    return smName === cleanTargetAgent || smName.includes(cleanTargetAgent) || cleanTargetAgent.includes(smName);
   });
 
   let totalAgentRevenue = 0, totalAgentUnits = 0;
@@ -1354,12 +1757,13 @@ function populateAgentAnalysisScreenDOM(agentName) {
 
   agentRows.forEach(row => {
     const date = normalizeToDateString(row['Bill Date']);
-    const amount = parseFloat(row['BillAmount']) || parseFloat(row['Bill Amount']) || parseFloat(row['Amount']) || 0;
+    const amount = parseFloat((row['Final Amount'] || row['FinalAmount'] || row['Total Value'] || row['TotalValue'] || row['BillAmount'] || row['Bill Amount'] || row['Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
     const qty = parseInt(row['Qty']) || parseInt(row['QTY']) || 0;
     const item = row['Item Name'] || row['ItemName'] || 'Unknown Item';
-    const payMode = row['PayMode'] || row['Pay Mode'] || row['Paymode'] || '';
+    const payMode = row['PayMode'] || row['Pay Mode'] || row['Paymode'] || row['Sale type'] || row['Sale Type'] || '';
+    const bankAcc = getRowBank(row);
     const channel = getSalesType(payMode);
-    const billNo = row['Bill No'] || row['Bill No.'] || row['BillNo'] || row['Invoice No'] || 'N/A';
+    const billNo = getBillNo(row);
 
     totalAgentRevenue += amount;
     totalAgentUnits += qty;
@@ -1371,7 +1775,7 @@ function populateAgentAnalysisScreenDOM(agentName) {
     if (!dailyGroup[date]) dailyGroup[date] = { total: 0, bills: {} };
     dailyGroup[date].total += amount;
 
-    if (!dailyGroup[date].bills[billNo]) dailyGroup[date].bills[billNo] = { total: 0, items: [] };
+    if (!dailyGroup[date].bills[billNo]) dailyGroup[date].bills[billNo] = { total: 0, bank: bankAcc, items: [] };
     dailyGroup[date].bills[billNo].total += amount;
     dailyGroup[date].bills[billNo].items.push({ name: item, qty: qty, amount: amount, channel: channel });
 
@@ -1444,7 +1848,7 @@ function populateAgentAnalysisScreenDOM(agentName) {
         return `
           <div class="bg-stone-50/60 rounded-xl p-3 border border-[#E5D5C6]/40 space-y-1.5">
             <div class="flex justify-between items-center border-b border-[#E5D5C6]/30 pb-1">
-              <span class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Bill No: ${billNo}</span>
+              <span class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Bill No: ${billNo} <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded ml-1 font-numeric">🏦 ${billData.bank}</span></span>
               <span class="text-xs font-black text-[#5C0612] font-numeric">₹${billData.total.toLocaleString('en-IN')}</span>
             </div>
             <div class="divide-y divide-[#E5D5C6]/15">${itemsHTML}</div>
@@ -1465,73 +1869,35 @@ function populateAgentAnalysisScreenDOM(agentName) {
   }
 }
 
-function renderDayWiseSales(dayWiseObj) {
-  const container = document.getElementById('daywise-sales-container');
-  if (!container) return;
-  const sortedDates = Object.keys(dayWiseObj).sort((a, b) => b.localeCompare(a));
-
-  if (sortedDates.length === 0) {
-    container.innerHTML = `<p class="p-8 text-center text-stone-400 font-semibold font-traditional">No daily sales tracked in this range</p>`;
-    return;
-  }
-
-  container.innerHTML = sortedDates.map(dateStr => {
-    const dayData = dayWiseObj[dateStr];
-    const sortedAgents = Object.entries(dayData.agents).sort((a, b) => b[1] - a[1]);
-    const agentsListHTML = sortedAgents.map(([agentName, rev]) => `
-      <div class="flex justify-between items-center py-1.5 text-[11px] text-stone-600">
-        <span class="font-sans font-medium text-stone-700">${agentName}</span>
-        <span class="font-numeric font-bold text-stone-800">₹${rev.toLocaleString('en-IN')}</span>
-      </div>
-    `).join('');
-
-    return `
-      <div class="border border-[#E5D5C6] rounded-xl bg-[#FFFDF9] overflow-hidden warm-shadow mb-3">
-        <div class="bg-[#F3EFE9] px-4 py-2.5 border-b border-[#E5D5C6] flex justify-between items-center">
-          <span class="font-traditional font-bold text-stone-800 text-xs">${dateStr}</span>
-          <span class="font-numeric font-black text-[#5C0612] text-xs">Total: ₹${dayData.total.toLocaleString('en-IN')}</span>
-        </div>
-        <div class="p-3 divide-y divide-[#E5D5C6]/10">${agentsListHTML}</div>
-      </div>
-    `;
-  }).join('');
-}
-
 function shareAgentSalesReportWhatsApp() {
   const revEl = document.getElementById('agent-analysis-total-revenue');
-  const revText = revEl ? revEl.textContent : '₹0';
-  const fromVal = document.getElementById('from-date').value;
-  const toVal = document.getElementById('to-date').value;
-
-  let msg = `🌸 *KAILASH KALAMKARI - STAFF PERFORMANCE* 🌸\n\n`;
-  msg += `👤 *Staff Member:* ${activeAnalysisAgent}\n`;
-  msg += `📅 *Date Period:* ${fromVal || 'Start'} to ${toVal || 'End'}\n`;
-  msg += `💰 *Total Sales Revenue:* ${revText}\n\n`;
-  msg += `_Generated from Kailash Kalamkari Executive Portal_`;
-
+  let msg = `🌸 *KAILASH KALAMKARI - STAFF PERFORMANCE* 🌸\n\n👤 *Staff Member:* ${activeAnalysisAgent}\n💰 *Total Sales Revenue:* ${revEl ? revEl.textContent : '₹0'}\n`;
   window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 function switchTab(tabId) {
-  if (tabId === 'attendance-tab' && !isAdmin) {
-    switchTab('products-tab');
-    return;
-  }
-
   document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-  document.getElementById(tabId).classList.remove('hidden');
+  const targetTab = document.getElementById(tabId);
+  if (targetTab) targetTab.classList.remove('hidden');
 
   document.getElementById('btn-products-tab').className = tabId === 'products-tab' 
     ? "flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-white text-[#5C0612] shadow-sm font-traditional"
     : "flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional";
-    
+
   document.getElementById('btn-agents-tab').className = tabId === 'agents-tab' 
-    ? "flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-white text-[#5C0612] shadow-sm font-traditional"
+    ? "flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-[#5C0612] text-[#EFE5C9] shadow-sm font-traditional"
     : "flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional";
 
   document.getElementById('btn-daywise-tab').className = tabId === 'daywise-tab' 
     ? "flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-white text-[#5C0612] shadow-sm font-traditional"
     : "flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional";
+
+  const bankBtn = document.getElementById('btn-banks-tab');
+  if (bankBtn) {
+    bankBtn.className = tabId === 'banks-tab' 
+      ? "flex-1 min-w-[110px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-white text-[#5C0612] shadow-sm font-traditional flex items-center justify-center gap-1"
+      : "flex-1 min-w-[110px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional flex items-center justify-center gap-1";
+  }
 
   const attBtn = document.getElementById('btn-attendance-tab');
   if (attBtn) {
@@ -1551,24 +1917,15 @@ function closeWeeklyScreen() { applyState({ view: 'home' }); }
 document.getElementById('from-date').addEventListener('change', processData);
 document.getElementById('to-date').addEventListener('change', processData);
 document.getElementById('product-search').addEventListener('input', processData);
+
+const storeFilter = document.getElementById('store-filter');
+if (storeFilter) storeFilter.addEventListener('change', processData);
+
 document.getElementById('refresh-btn').addEventListener('click', () => {
   const session = checkSession();
   if (session.valid) fetchData(session.user, session.pass);
 });
-document.getElementById('clear-dates-btn').addEventListener('click', () => {
-  selectedChannel = "All";
-  filterCategory('All');
-  closeProductDetail();
-  closeAgentDetail();
-  closeAgentAnalysisScreen();
-  detectDateRanges();
-  processData();
-});
 
 const session = checkSession();
-if (session.valid) {
-  fetchData(session.user, session.pass);
-} else {
-  document.getElementById('loader').classList.add('hidden');
-  document.getElementById('login-screen').classList.remove('hidden');
-}
+if (session.valid) fetchData(session.user, session.pass);
+else document.getElementById('login-screen').classList.remove('hidden');

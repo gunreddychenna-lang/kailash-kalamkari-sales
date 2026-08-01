@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kailash Kalamkari - Live Executive Analytics</title>
+  <title>Kailash Kalamkari - Live Multi-Store Analytics</title>
   
   <link rel="icon" href="data:;base64,iVBORw0KGgo=">
 
@@ -38,7 +38,7 @@
       
       <div class="p-6 bg-[#5C0612] text-center border-b border-[#DAA520]">
         <h2 class="text-2xl font-bold font-traditional text-[#EFE5C9]">Kailash Kalamkari</h2>
-        <p class="text-[10px] text-stone-300 font-medium tracking-wider uppercase mt-1">Live Sales & Executive Analytics Portal</p>
+        <p class="text-[10px] text-stone-300 font-medium tracking-wider uppercase mt-1">Multi-Store Executive Analytics Portal</p>
       </div>
 
       <form id="login-form" class="p-6 space-y-4">
@@ -67,15 +67,13 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
       <div>
         <h1 class="text-xl sm:text-2xl font-bold tracking-wide font-traditional text-[#EFE5C9]">Kailash Kalamkari</h1>
-        <p class="text-[9px] sm:text-xs text-stone-300 font-medium tracking-wider uppercase">Executive Store Analytics</p>
+        <p class="text-[9px] sm:text-xs text-stone-300 font-medium tracking-wider uppercase">Multi-Store Executive Analytics</p>
       </div>
       <div class="flex items-center gap-2">
-        <!-- GLOBAL DASHBOARD PDF EXPORT -->
         <button onclick="exportSectionToPDF('standard-main', 'Kailash_Kalamkari_Full_Dashboard')" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md border border-rose-700 active:scale-95 duration-100" title="Export Full Dashboard PDF">
           <i class="fa-solid fa-file-pdf text-xs text-[#DAA520]"></i> <span class="hidden md:inline">Export PDF</span>
         </button>
 
-        <!-- ADMIN EXCLUSIVE ACTIONS -->
         <button onclick="shareOwnerDailySummaryWhatsApp()" class="admin-only hidden bg-[#25D366] hover:bg-[#128C7E] text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md active:scale-95 duration-100" title="Send Daily WhatsApp Summary">
           <i class="fa-brands fa-whatsapp text-sm"></i> <span class="hidden md:inline">Owner Summary</span>
         </button>
@@ -97,53 +95,62 @@
   <!-- LOADING SPINNER -->
   <div id="loader" class="text-center py-24">
     <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-[#5C0612] mx-auto"></div>
-    <p class="mt-4 text-xs text-stone-600 font-semibold tracking-wide font-traditional">Synchronizing live store analytics & database...</p>
+    <p class="mt-4 text-xs text-stone-600 font-semibold tracking-wide font-traditional">Synchronizing live multi-store analytics & database...</p>
   </div>
 
   <!-- MAIN CONTAINER -->
   <main id="standard-main" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
     
-    <!-- Top Filter & Target Controls Bar -->
+    <!-- Top Filter Bar: Store Selector + Date Filter Card -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       
-      <!-- Date Filter Card with Quick Presets -->
+      <!-- Date & Store Filter Card -->
       <div class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow space-y-3 relative overflow-hidden lg:col-span-2">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
         <div class="flex justify-between items-center border-b border-[#E5D5C6]/60 pb-1.5">
           <h2 class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional flex items-center gap-1.5">
-            <i class="fa-solid fa-filter text-[#5C0612]"></i> Date Range Filter
+            <i class="fa-solid fa-store text-[#5C0612]"></i> Multi-Store & Date Filter
           </h2>
-          <button id="clear-dates-btn" class="text-[10px] font-bold text-[#5C0612] hover:underline uppercase tracking-wider font-traditional">Reset Range</button>
+          <button onclick="selectStoreFilter('All')" class="text-[10px] font-bold text-[#5C0612] hover:underline uppercase tracking-wider font-traditional">Reset to All Stores</button>
         </div>
 
-        <!-- QUICK DATE PRESETS -->
-        <div class="flex flex-wrap gap-1.5 font-numeric text-[10px]">
-          <button onclick="setQuickDateRange('today')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">Today</button>
-          <button onclick="setQuickDateRange('yesterday')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">Yesterday</button>
-          <button onclick="setQuickDateRange('week')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">This Week</button>
-          <button onclick="setQuickDateRange('month')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">This Month</button>
-          <button onclick="setQuickDateRange('lastmonth')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">Last Month</button>
-        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <!-- DYNAMIC STORE SELECTOR DROPDOWN -->
+          <div>
+            <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">Selected Store / Branch</label>
+            <select id="store-filter" class="w-full text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-[#5C0612] focus:outline-none focus:ring-1 focus:ring-[#5C0612] font-sans">
+              <option value="All">All Shops / Stores (Combined)</option>
+            </select>
+          </div>
 
-        <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">From Date</label>
             <div class="flex gap-1.5">
-              <input type="date" id="from-date" class="flex-1 text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] font-sans">
+              <input type="date" id="from-date" class="flex-1 text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] font-sans font-numeric">
               <button onclick="document.getElementById('from-date').showPicker()" class="bg-[#5C0612] text-white px-3 rounded-xl hover:bg-[#4A030D] transition-colors shadow-sm flex items-center justify-center">
                 <i class="fa-regular fa-calendar-days text-xs text-[#EFE5C9]"></i>
               </button>
             </div>
           </div>
+
           <div>
             <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">To Date</label>
             <div class="flex gap-1.5">
-              <input type="date" id="to-date" class="flex-1 text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] font-sans">
+              <input type="date" id="to-date" class="flex-1 text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] font-sans font-numeric">
               <button onclick="document.getElementById('to-date').showPicker()" class="bg-[#5C0612] text-white px-3 rounded-xl hover:bg-[#4A030D] transition-colors shadow-sm flex items-center justify-center">
                 <i class="fa-regular fa-calendar-days text-xs text-[#EFE5C9]"></i>
               </button>
             </div>
           </div>
+        </div>
+
+        <!-- QUICK DATE PRESETS -->
+        <div class="flex flex-wrap gap-1.5 font-numeric text-[10px] pt-1 border-t border-[#E5D5C6]/40">
+          <button onclick="setQuickDateRange('today')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">Today</button>
+          <button onclick="setQuickDateRange('yesterday')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">Yesterday</button>
+          <button onclick="setQuickDateRange('week')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">This Week</button>
+          <button onclick="setQuickDateRange('month')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">This Month</button>
+          <button onclick="setQuickDateRange('lastmonth')" class="bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 font-bold px-2.5 py-1 rounded-lg border border-[#E5D5C6] transition-all">Last Month</button>
         </div>
       </div>
 
@@ -173,7 +180,7 @@
             <input type="number" id="target-input-field" value="1000000" oninput="updateMonthlyTarget(this.value)" class="w-full text-xs font-bold text-[#5C0612] bg-[#FAF6EE] border border-[#E5D5C6] rounded-lg p-1.5 focus:outline-none font-numeric">
           </div>
           <div class="text-right text-[9px] text-stone-500 font-numeric">
-            Achieved: <strong id="target-achieved-text" class="text-stone-800 font-bold block text-xs">₹0</strong>
+            Achieved: <strong id="target-achieved-text" class="text-stone-800 font-bold block text-xs font-numeric">₹0</strong>
           </div>
         </div>
       </div>
@@ -183,37 +190,40 @@
     <!-- Visual Analytics Scorecards Grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       
-      <!-- Total Sales Revenue + Retail KPIs -->
+      <!-- Total Combined Sales Revenue + Retail KPIs -->
       <div id="card-total" onclick="selectChannel('All')" class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] warm-shadow sm:col-span-2 cursor-pointer transition-all hover:scale-[1.01] hover:border-[#DAA520] duration-200 relative overflow-hidden">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
         <div class="p-5">
           <div class="flex justify-between items-center">
-            <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Total Store Revenue</p>
-            <span class="text-[8px] text-white bg-[#5C0612] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-[#DAA520]">All Channels</span>
+            <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Total Revenue (Combined / Filtered)</p>
+            <span class="text-[8px] text-white bg-[#5C0612] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-[#DAA520]">Selected Filter</span>
           </div>
-          <p id="metric-total" class="text-3xl sm:text-4xl font-black text-[#5C0612] mt-1 font-sans">₹0</p>
+          <p id="metric-total" class="text-3xl sm:text-4xl font-black text-[#5C0612] mt-1 font-numeric">₹0</p>
         </div>
         
-        <!-- Retail Analytics Breakdown (UPT, ATV, AUV, ASP) -->
+        <!-- Retail Analytics Breakdown -->
         <div class="bg-[#F3EFE9] border-t border-[#E5D5C6] p-3 grid grid-cols-4 gap-1 text-center text-xs font-numeric">
           <div class="border-r border-[#E5D5C6]">
             <p class="text-[8px] font-bold text-stone-500 uppercase font-traditional">Basket (UPT)</p>
-            <p id="metric-upt" class="text-xs sm:text-sm font-black text-stone-800 font-sans">0.0</p>
+            <p id="metric-upt" class="text-xs sm:text-sm font-black text-stone-800 font-numeric">0.0</p>
           </div>
           <div class="border-r border-[#E5D5C6]">
             <p class="text-[8px] font-bold text-stone-500 uppercase font-traditional">Avg Bill (ATV)</p>
-            <p id="metric-atv" class="text-xs sm:text-sm font-black text-[#5C0612] font-sans">₹0</p>
+            <p id="metric-atv" class="text-xs sm:text-sm font-black text-[#5C0612] font-numeric">₹0</p>
           </div>
           <div class="border-r border-[#E5D5C6]">
             <p class="text-[8px] font-bold text-stone-500 uppercase font-traditional">Avg Unit (AUV)</p>
-            <p id="metric-auv" class="text-xs sm:text-sm font-black text-[#5C0612] font-sans">₹0</p>
+            <p id="metric-auv" class="text-xs sm:text-sm font-black text-[#5C0612] font-numeric">₹0</p>
           </div>
           <div>
             <p class="text-[8px] font-bold text-stone-500 uppercase font-traditional">Avg Price (ASP)</p>
-            <p id="metric-asp" class="text-xs sm:text-sm font-black text-emerald-800 font-sans">₹0</p>
+            <p id="metric-asp" class="text-xs sm:text-sm font-black text-emerald-800 font-numeric">₹0</p>
           </div>
         </div>
       </div>
+
+      <!-- DYNAMIC MULTI-STORE BREAKDOWN CARDS -->
+      <div id="store-breakdown-container" class="contents"></div>
       
       <!-- Online Sale Card -->
       <div id="card-online" onclick="selectChannel('Online')" class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow cursor-pointer transition-all hover:scale-[1.01] duration-200 hover:border-blue-400">
@@ -262,28 +272,44 @@
         <div class="grid grid-cols-5 gap-1.5 text-center font-numeric text-xs">
           <div class="bg-emerald-50 p-2 rounded-xl border border-emerald-200">
             <span class="block text-[7px] sm:text-[8px] font-bold text-emerald-800 uppercase">UPI STORE</span>
-            <strong id="paymode-upi-store" class="text-emerald-900 text-xs">₹0</strong>
+            <strong id="paymode-upi-store" class="text-emerald-900 text-xs font-numeric">₹0</strong>
           </div>
           <div class="bg-teal-50 p-2 rounded-xl border border-teal-200">
             <span class="block text-[7px] sm:text-[8px] font-bold text-teal-800 uppercase">UPI ONL</span>
-            <strong id="paymode-upi-onl" class="text-teal-900 text-xs">₹0</strong>
+            <strong id="paymode-upi-onl" class="text-teal-900 text-xs font-numeric">₹0</strong>
           </div>
           <div class="bg-amber-50 p-2 rounded-xl border border-amber-200">
             <span class="block text-[7px] sm:text-[8px] font-bold text-amber-800 uppercase">Cash</span>
-            <strong id="paymode-cash" class="text-amber-900 text-xs">₹0</strong>
+            <strong id="paymode-cash" class="text-amber-900 text-xs font-numeric">₹0</strong>
           </div>
           <div class="bg-blue-50 p-2 rounded-xl border border-blue-200">
             <span class="block text-[7px] sm:text-[8px] font-bold text-blue-800 uppercase">Card</span>
-            <strong id="paymode-card" class="text-blue-900 text-xs">₹0</strong>
+            <strong id="paymode-card" class="text-blue-900 text-xs font-numeric">₹0</strong>
           </div>
           <div class="bg-purple-50 p-2 rounded-xl border border-purple-200">
             <span class="block text-[7px] sm:text-[8px] font-bold text-purple-800 uppercase">Takebyhand</span>
-            <strong id="paymode-hand" class="text-purple-900 text-xs">₹0</strong>
+            <strong id="paymode-hand" class="text-purple-900 text-xs font-numeric">₹0</strong>
           </div>
         </div>
       </div>
 
-      <!-- Ticket Size Buckets Card (UPDATED THRESHOLDS) -->
+      <!-- Account Name (Bank Account) Credit Breakdown Card -->
+      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow sm:col-span-2 space-y-2">
+        <div class="flex justify-between items-center">
+          <p class="text-[10px] font-bold text-stone-600 uppercase tracking-wider font-traditional flex items-center gap-1">
+            <i class="fa-solid fa-building-columns text-[#5C0612]"></i> Bank Account Revenue Split
+          </p>
+          <button onclick="switchTab('banks-tab')" class="text-[9px] text-[#5C0612] font-bold hover:underline font-traditional uppercase">View Bank Statements →</button>
+        </div>
+        <div id="account-split-container" class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center font-numeric text-xs">
+          <div class="bg-stone-50 p-2 rounded-xl border border-stone-200">
+            <span class="block text-[8px] font-bold text-stone-500 uppercase">General Acc</span>
+            <strong class="text-stone-800 text-xs font-numeric">₹0</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ticket Size Buckets Card -->
       <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow sm:col-span-2 space-y-2">
         <p class="text-[10px] font-bold text-stone-600 uppercase tracking-wider font-traditional flex items-center gap-1">
           <i class="fa-solid fa-receipt text-[#5C0612]"></i> Ticket Size Buckets
@@ -308,23 +334,24 @@
       <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow sm:col-span-2 flex justify-between items-center text-xs font-numeric">
         <div>
           <span class="text-[9px] font-bold text-stone-500 uppercase font-traditional block">🏆 Peak Revenue Day</span>
-          <strong id="peak-sales-date" class="text-[#5C0612] font-sans text-sm">N/A</strong>
+          <strong id="peak-sales-date" class="text-[#5C0612] font-sans text-sm font-bold">N/A</strong>
         </div>
         <div class="text-right">
           <span class="text-[9px] font-bold text-stone-500 uppercase font-traditional block">Peak Amount</span>
-          <strong id="peak-sales-amount" class="text-[#5C0612] text-sm">₹0</strong>
+          <strong id="peak-sales-amount" class="text-[#5C0612] text-sm font-numeric">₹0</strong>
         </div>
       </div>
 
     </div>
 
     <!-- Navigation Tabs -->
-    <div class="flex bg-[#EFE5C9]/50 rounded-2xl p-1 shadow-inner border border-[#E5D5C6] gap-1 overflow-x-auto max-w-2xl mx-auto">
+    <div class="flex bg-[#EFE5C9]/50 rounded-2xl p-1 shadow-inner border border-[#E5D5C6] gap-1 overflow-x-auto max-w-3xl mx-auto">
       <button onclick="switchTab('products-tab')" id="btn-products-tab" class="flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-white text-[#5C0612] shadow-sm font-traditional">Products</button>
       <button onclick="switchTab('agents-tab')" id="btn-agents-tab" class="flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional">Staff Sales</button>
       <button onclick="switchTab('daywise-tab')" id="btn-daywise-tab" class="flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional">Day-Wise</button>
-      
-      <!-- ATTENDANCE TAB BUTTON (ADMIN ONLY) -->
+      <button onclick="switchTab('banks-tab')" id="btn-banks-tab" class="admin-only hidden flex-1 min-w-[110px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional flex items-center justify-center gap-1">
+        <i class="fa-solid fa-building-columns text-[10px]"></i> Bank Ledgers
+      </button>
       <button onclick="switchTab('attendance-tab')" id="btn-attendance-tab" class="admin-only hidden flex-1 min-w-[110px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional flex items-center justify-center gap-1">
         <i class="fa-solid fa-user-check text-[10px]"></i> Payroll & Attendance
       </button>
@@ -345,7 +372,6 @@
           <input type="text" id="product-search" placeholder="Search product line..." class="w-full text-xs bg-white border border-[#E5D5C6] rounded-2xl py-3 pl-10 pr-4 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] shadow-sm font-sans">
         </div>
 
-        <!-- CATEGORY FILTER PILLS -->
         <div class="flex flex-wrap gap-1.5 justify-center text-[10px] font-bold font-traditional pt-1">
           <button onclick="filterCategory('All')" id="cat-btn-all" class="px-3 py-1 rounded-full bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-bold shadow-sm transition-all">All Items</button>
           <button onclick="filterCategory('Sarees')" id="cat-btn-sarees" class="px-3 py-1 rounded-full bg-[#FFFDF9] text-stone-600 border border-[#E5D5C6] hover:bg-stone-100 font-bold transition-all">🥻 Sarees</button>
@@ -475,38 +501,104 @@
       </div>
     </div>
 
-    <!-- Tab 4: ATTENDANCE, COMMISSIONS & PAYROLL (ADMIN ONLY) -->
-    <div id="attendance-tab" class="tab-content admin-only hidden space-y-4">
-      
-      <!-- Section Header with PDF Button -->
-      <div class="flex justify-between items-center">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional">Monthly Payroll, Commissions & Attendance</h3>
-        <button onclick="exportSectionToPDF('attendance-tab', 'Monthly_Payroll_Report')" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-rose-700 flex items-center gap-1 export-ignore">
-          <i class="fa-solid fa-file-pdf text-[#DAA520]"></i> PDF Report
-        </button>
+    <!-- Tab 4: BANK STATEMENTS & LEDGERS (ADMIN ONLY) -->
+    <div id="banks-tab" class="tab-content admin-only hidden space-y-4">
+      <div class="flex justify-between items-center flex-wrap gap-2">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional flex items-center gap-1.5">
+          <i class="fa-solid fa-building-columns text-[#5C0612]"></i> Bank Account Ledgers & Statements
+        </h3>
+        <div class="flex items-center gap-2 export-ignore">
+          <button onclick="backupBankStatementExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm active:scale-95 transition-all">
+            <i class="fa-solid fa-file-excel"></i> Export Bank Excel
+          </button>
+          <button onclick="exportSectionToPDF('banks-tab', 'Bank_Account_Statement')" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-rose-700 flex items-center gap-1">
+            <i class="fa-solid fa-file-pdf text-[#DAA520]"></i> PDF Statement
+          </button>
+        </div>
       </div>
 
-      <!-- Financial Margins & Store Net Overview -->
+      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex flex-col sm:flex-row justify-between items-center gap-3">
+        <div class="w-full sm:w-auto flex-1 max-w-xs">
+          <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">Select Credited Bank Account</label>
+          <select id="bank-filter-select" onchange="renderBankLedgerModule()" class="w-full text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-[#5C0612] focus:outline-none">
+            <option value="All">All Bank Accounts</option>
+          </select>
+        </div>
+        <div class="text-right font-numeric">
+          <span class="block text-[9px] text-stone-500 uppercase font-traditional">Bank Credited Total</span>
+          <strong id="bank-selected-total" class="text-xl font-black text-[#5C0612] font-numeric">₹0</strong>
+        </div>
+      </div>
+
+      <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden warm-shadow">
+        <div class="p-4 bg-[#F3EFE9] border-b border-[#E5D5C6] flex justify-between items-center">
+          <h4 id="bank-table-title" class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional">Credited Bills Ledger</h4>
+          <span id="bank-bills-count" class="text-[10px] font-numeric font-bold bg-[#5C0612] text-white px-2 py-0.5 rounded-full">0 Bills</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs font-numeric">
+            <thead>
+              <tr class="bg-stone-100 text-stone-600 uppercase text-[9px] font-extrabold border-b border-[#E5D5C6]">
+                <th class="p-3 font-traditional">Bill Date</th>
+                <th class="p-3 font-traditional">Bill No</th>
+                <th class="p-3 font-traditional">Shop / Store</th>
+                <th class="p-3 font-traditional">Staff Name</th>
+                <th class="p-3 font-traditional">Credited Bank</th>
+                <th class="p-3 text-right font-traditional">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="bank-ledger-tbody" class="divide-y divide-[#E5D5C6]/30"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 5: ATTENDANCE, COMMISSIONS & PAYROLL (ADMIN ONLY) -->
+   <!-- Tab 5: ATTENDANCE, COMMISSIONS & PAYROLL (ADMIN ONLY) -->
+    <div id="attendance-tab" class="tab-content admin-only hidden space-y-4">
+      <div class="flex justify-between items-center flex-wrap gap-2">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional">Monthly Payroll, Commissions & Attendance</h3>
+        <div class="flex items-center gap-2 export-ignore">
+          <button onclick="shareAllPayslipsWhatsApp()" class="bg-[#25D366] hover:bg-[#128C7E] text-white font-bold text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm active:scale-95 transition-all" title="Send WhatsApp Messages to Employees">
+            <i class="fa-brands fa-whatsapp text-xs"></i> Send All Payslips
+          </button>
+          <button onclick="exportSectionToPDF('attendance-tab', 'Monthly_Payroll_Report')" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-rose-700 flex items-center gap-1">
+            <i class="fa-solid fa-file-pdf text-[#DAA520]"></i> PDF Executive Summary
+          </button>
+        </div>
+      </div>
+
+      <!-- DEDICATED PERMANENT ATTENDANCE MONTH SELECTOR CARD -->
+      <div id="attendance-month-filter-card" class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex flex-col sm:flex-row justify-between items-center gap-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-calendar-days text-[#5C0612] text-base"></i>
+          <label class="text-xs font-bold text-stone-700 font-traditional">Select Attendance Month Sheet Tab:</label>
+        </div>
+        <select id="attendance-month-select" onchange="filterAttendanceMonth(this.value)" class="w-full sm:w-auto text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-[#5C0612] focus:outline-none font-sans font-numeric">
+          <option value="All">All Months (Combined)</option>
+        </select>
+      </div>
+
+      <!-- Store Payroll vs Revenue Executive Card -->
       <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow grid grid-cols-1 sm:grid-cols-4 gap-3 text-center font-numeric">
         <div>
           <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Active Staff</span>
-          <strong id="payroll-staff-count" class="text-base font-black text-stone-800">0</strong>
+          <strong id="payroll-staff-count" class="text-base font-black text-stone-800 font-numeric">0</strong>
         </div>
         <div>
-          <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Net Store Revenue</span>
-          <strong id="profit-store-sales" class="text-base font-black text-stone-800">₹0</strong>
+          <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Net Filtered Sales</span>
+          <strong id="profit-store-sales" class="text-base font-black text-stone-800 font-numeric">₹0</strong>
         </div>
         <div>
           <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Total Staff Payroll</span>
-          <strong id="payroll-total-amount" class="text-base font-black text-[#5C0612]">₹0</strong>
+          <strong id="payroll-total-amount" class="text-base font-black text-[#5C0612] font-numeric">₹0</strong>
         </div>
         <div>
-          <span class="block text-[8px] font-bold text-emerald-800 uppercase font-traditional">Gross Operating Profit</span>
-          <strong id="profit-gross-amount" class="text-base font-black text-emerald-700">₹0</strong>
+          <span class="block text-[8px] font-bold text-emerald-800 uppercase font-traditional">Gross Store Net Earnings</span>
+          <strong id="profit-gross-amount" class="text-base font-black text-emerald-700 font-numeric">₹0</strong>
         </div>
       </div>
 
-      <!-- Incentive Settings & Google Sheets Sync -->
       <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex justify-between items-center">
         <div>
           <label class="block text-[8px] font-bold uppercase text-stone-500 font-traditional">Global Incentive Rate (%)</label>
@@ -517,21 +609,19 @@
         </button>
       </div>
 
-      <!-- Staff Attendance & Salary Cards Grid -->
       <div id="staff-salary-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
     </div>
-
   </main>
 
   <!-- CHANNEL VIEW SCREEN -->
   <div id="channel-view" class="hidden min-h-screen bg-[#FAF6EE] pb-16">
-    <div id="channel-header" class="text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md">
+    <div id="channel-header" class="bg-[#5C0612] text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md border-b-2 border-[#DAA520]">
       <div class="flex items-center gap-3.5">
         <button onclick="closeChannelScreen()" class="text-white text-base hover:opacity-80 p-1 export-ignore">
           <i class="fa-solid fa-arrow-left"></i> Back
         </button>
         <div>
-          <h2 id="channel-view-title" class="text-sm font-bold tracking-wide uppercase font-traditional">Channel Sales</h2>
+          <h2 id="channel-view-title" class="text-sm font-bold tracking-wide uppercase font-traditional text-[#EFE5C9]">Channel Sales</h2>
           <p id="channel-view-subtitle" class="text-[9px] text-stone-200 font-medium uppercase"></p>
         </div>
       </div>
@@ -544,7 +634,7 @@
       <div class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow text-center relative overflow-hidden max-w-md mx-auto">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
         <p id="channel-revenue-label" class="text-[10px] font-bold text-stone-500 uppercase font-traditional">Channel Revenue</p>
-        <p id="channel-view-total" class="text-3xl font-black mt-1 text-stone-800 font-sans">₹0</p>
+        <p id="channel-view-total" class="text-3xl font-black mt-1 text-[#5C0612] font-numeric">₹0</p>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -636,35 +726,34 @@
         <div class="zari-border absolute top-0 left-0 right-0"></div>
         <div class="p-5 text-center">
           <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Total Revenue Sold</p>
-          <p id="agent-analysis-total-revenue" class="text-3xl font-black mt-1 text-[#5C0612] font-sans">₹0</p>
+          <p id="agent-analysis-total-revenue" class="text-3xl font-black mt-1 text-[#5C0612] font-numeric">₹0</p>
           
           <div class="mt-3 pt-3 border-t border-[#E5D5C6]/60 grid grid-cols-3 gap-1 text-center text-xs">
             <div>
               <p class="text-[9px] font-bold text-stone-500 uppercase font-traditional">Online Sale</p>
-              <p id="agent-analysis-online-sales" class="text-xs font-black text-blue-600 font-sans mt-0.5">₹0</p>
+              <p id="agent-analysis-online-sales" class="text-xs font-black text-blue-600 font-numeric mt-0.5">₹0</p>
             </div>
             <div class="border-x border-[#E5D5C6]/60">
               <p class="text-[9px] font-bold text-stone-500 uppercase font-traditional">Offline Sale</p>
-              <p id="agent-analysis-offline-sales" class="text-xs font-black text-orange-600 font-sans mt-0.5">₹0</p>
+              <p id="agent-analysis-offline-sales" class="text-xs font-black text-orange-600 font-numeric mt-0.5">₹0</p>
             </div>
             <div>
               <p class="text-[9px] font-bold text-stone-500 uppercase font-traditional">Takebyhand</p>
-              <p id="agent-analysis-takebyhand-sales" class="text-xs font-black text-purple-600 font-sans mt-0.5">₹0</p>
+              <p id="agent-analysis-takebyhand-sales" class="text-xs font-black text-purple-600 font-numeric mt-0.5">₹0</p>
             </div>
           </div>
 
           <div id="admin-agent-analysis-kpi" class="mt-3 pt-3 border-t border-[#E5D5C6]/60 grid grid-cols-2 gap-2 text-center text-xs">
             <div class="border-r border-[#E5D5C6]/60">
               <p class="text-[9px] font-bold text-stone-500 uppercase font-traditional">Staff ATV</p>
-              <p id="agent-analysis-atv" class="text-sm font-black text-stone-800 font-sans">₹0</p>
+              <p id="agent-analysis-atv" class="text-sm font-black text-stone-800 font-numeric">₹0</p>
             </div>
             <div>
               <p class="text-[9px] font-bold text-stone-500 uppercase font-traditional">Staff AUV</p>
-              <p id="agent-analysis-auv" class="text-sm font-black text-stone-800 font-sans">₹0</p>
+              <p id="agent-analysis-auv" class="text-sm font-black text-stone-800 font-numeric">₹0</p>
             </div>
           </div>
 
-          <!-- EXPORT BUTTONS -->
           <div class="mt-4 flex flex-wrap gap-2 justify-center export-ignore">
             <button onclick="exportSectionToPDF('agent-analysis-view', `${activeAnalysisAgent}_Performance_Report`)" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md font-traditional flex items-center gap-1.5 border border-[#DAA520] active:scale-95 duration-100">
               <i class="fa-solid fa-file-pdf text-sm text-[#DAA520]"></i> Export PDF
@@ -687,6 +776,31 @@
       <div class="space-y-3.5" id="agent-analysis-daily-list"></div>
     </div>
   </div>
+<!-- BULK WHATSAPP PAYSLIP SENDER MODAL -->
+  <div id="whatsapp-bulk-modal" class="hidden fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-[#FFFDF9] rounded-3xl border-2 border-[#5C0612] max-w-lg w-full overflow-hidden warm-shadow-lg relative">
+      <div class="zari-border absolute top-0 left-0 right-0"></div>
+      
+      <div class="p-4 bg-[#5C0612] text-white flex justify-between items-center border-b border-[#DAA520]">
+        <div>
+          <h3 class="font-bold text-sm tracking-wide font-traditional text-[#EFE5C9] flex items-center gap-1.5">
+            <i class="fa-brands fa-whatsapp text-emerald-400 text-base"></i> Send Staff Payslips via WhatsApp
+          </h3>
+          <p class="text-[10px] text-stone-200 font-medium">Click on each employee to open their WhatsApp message directly</p>
+        </div>
+        <button onclick="closeWhatsAppBulkModal()" class="text-[#EFE5C9] font-bold hover:opacity-80">
+          <i class="fa-solid fa-circle-xmark text-lg"></i>
+        </button>
+      </div>
 
+      <div id="whatsapp-bulk-list" class="p-4 space-y-2.5 max-h-[60vh] overflow-y-auto"></div>
+
+      <div class="p-3 bg-[#FAF6EE] border-t border-[#E5D5C6] text-center">
+        <button onclick="closeWhatsAppBulkModal()" class="bg-[#5C0612] text-[#EFE5C9] font-bold text-xs px-5 py-2 rounded-xl font-traditional border border-[#DAA520]">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
