@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbwG2Sacsn40OSeSgalo1R_2VkJlPHXg3mJGGbDsrs_OFBrnAsP1Fy8WNdvcm4nEBF8n/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxl0_3uUzVh-ocraU81vMGBNIYLvhNCxtL7z66TdoQk009uPwC0etQNoR0Hw-YZEIQa/exec";
 const SESSION_TIMEOUT = 6 * 60 * 60 * 1000;
 
 let rawData = [];
@@ -19,7 +19,7 @@ let currentDaySales = [0, 0, 0, 0, 0, 0, 0];
 let prodSortCol = 'qty', prodSortAsc = false;
 let agentSortCol = 'revenue', agentSortAsc = false;
 
-let monthlyTarget = parseFloat(localStorage.getItem('kk_monthly_target')) || 10000000;
+let monthlyTarget = parseFloat(localStorage.getItem('kk_monthly_target')) || 1000000;
 let defaultCommissionPct = 0.0;
 
 if (history.state === null) history.replaceState({ view: 'home' }, '');
@@ -129,6 +129,7 @@ function getBillNo(row) {
   return 'N/A';
 }
 
+// DIRECTLY GETS RAW DATA FROM COLUMN M ("Acc No")
 function getRowBankDirect(row) {
   if (!row || typeof row !== 'object') return 'Not Defined';
 
@@ -142,18 +143,7 @@ function getRowBankDirect(row) {
   for (let k of directKeys) {
     if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
       const val = row[k].toString().trim();
-      if (
-        val && 
-        val !== '0' && 
-        val !== '-' && 
-        val.toLowerCase() !== 'null' && 
-        val.toLowerCase() !== 'undefined' && 
-        val.toLowerCase() !== 'n/a' && 
-        val.toLowerCase() !== 'not defined' &&
-        val.toLowerCase() !== 'acc no'
-      ) {
-        return val;
-      }
+      if (val) return val; // Returns EXACT value from Column M
     }
   }
 
@@ -169,18 +159,7 @@ function getRowBankDirect(row) {
       cleanKey === 'creditedbankaccount'
     ) {
       const val = (row[key] || '').toString().trim();
-      if (
-        val && 
-        val !== '0' && 
-        val !== '-' && 
-        val.toLowerCase() !== 'null' && 
-        val.toLowerCase() !== 'undefined' && 
-        val.toLowerCase() !== 'n/a' && 
-        val.toLowerCase() !== 'not defined' &&
-        val.toLowerCase() !== 'acc no'
-      ) {
-        return val;
-      }
+      if (val) return val; // Returns EXACT value from Column M
     }
   }
   return 'Not Defined';
@@ -189,9 +168,11 @@ function getRowBankDirect(row) {
 function getRowBank(row) {
   if (!row || typeof row !== 'object') return 'Not Defined';
   
+  // 1. Direct row property check (Shows exact data from Column M)
   const directVal = getRowBankDirect(row);
   if (directVal !== 'Not Defined') return directVal;
 
+  // 2. Check Bill No in globalBillBankMap (populated from Recievables tab)
   const bNo = getBillNo(row);
   if (bNo && bNo !== 'N/A') {
     if (globalBillBankMap[bNo]) return globalBillBankMap[bNo];
@@ -331,7 +312,7 @@ async function fetchData(user, pass) {
 
     buildGlobalBillBankMap();
     updateRoleVisibility();
-    detectDateRanges(); // Sets "THIS MONTH" by default
+    detectDateRanges();
     detectAndPopulateStores();
     populateBankDropdown();
     populateAttendanceMonthDropdown();
@@ -427,12 +408,11 @@ function populateAttendanceMonthDropdown() {
 
   mSelect.innerHTML = optionsHTML;
 
-  // Auto-default to Current Month sheet (e.g. 'attendance' or matching current month name)
   if (selectedAttendanceMonth === 'All') {
-    const curMonthName = new Date().toLocaleString('en-US', { month: 'short' }).toLowerCase(); // e.g., 'aug'
+    const curMonthName = new Date().toLocaleString('en-US', { month: 'short' }).toLowerCase();
     let matchedSheet = monthList.find(m => m.toLowerCase() === 'attendance') || 
                        monthList.find(m => m.toLowerCase().includes(curMonthName)) || 
-                       monthList[monthList.length - 1]; // or latest month sheet
+                       monthList[monthList.length - 1];
     if (matchedSheet) {
       selectedAttendanceMonth = matchedSheet;
     }
@@ -516,15 +496,13 @@ function showLoginError(message) {
   document.getElementById('login-btn-spinner').classList.add('hidden');
 }
 
-// DEFAULT TO THIS MONTH ONLY (From 1st of current month to latest date)
 function detectDateRanges() {
   if (rawData.length === 0) return;
   const allDates = rawData.map(row => normalizeToDateString(row['Bill Date'])).filter(Boolean).sort();
   if (allDates.length > 0) {
-    const maxDateStr = allDates[allDates.length - 1]; // e.g. "2026-08-02"
+    const maxDateStr = allDates[allDates.length - 1];
     const [yyyy, mm] = maxDateStr.split('-');
     
-    // Set 1st day of the current month
     const firstDayOfMonth = `${yyyy}-${mm}-01`;
     
     document.getElementById('from-date').value = firstDayOfMonth;
@@ -1043,6 +1021,38 @@ function renderBankLedgerModule() {
   `).join('');
 }
 
+function backupBankStatementExcel() {
+  if (!isAdmin || typeof XLSX === 'undefined') return;
+  const selectEl = document.getElementById('bank-filter-select');
+  const selectedBank = selectEl ? selectEl.value : 'All';
+  const fromVal = document.getElementById('from-date').value;
+  const toVal = document.getElementById('to-date').value;
+
+  const statementData = rawData.filter(row => {
+    if (!row['Bill Date']) return false;
+    const rDate = normalizeToDateString(row['Bill Date']);
+    if (fromVal && rDate < fromVal) return false;
+    if (toVal && rDate > toVal) return false;
+    const bAcc = getRowBank(row);
+    if (selectedBank !== 'All' && bAcc.toLowerCase() !== selectedBank.toLowerCase()) return false;
+    return true;
+  }).map(r => ({
+    "Bill Date": normalizeToDateString(r['Bill Date']),
+    "Bill No": getBillNo(r),
+    "Store / Branch": r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Main Branch',
+    "Item Name": r['Item Name'] || '',
+    "Staff Name": r['SM Name'] || 'No Agent',
+    "Credited Bank Account": getRowBank(r),
+    "Payment Mode": r['PayMode'] || r['Pay Mode'] || r['Sale type'] || r['Sale Type'] || '',
+    "Bill Amount": parseFloat((r['Final Amount'] || r['FinalAmount'] || r['Total Value'] || r['TotalValue'] || r['BillAmount'] || r['Bill Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0
+  }));
+
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.json_to_sheet(statementData);
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Bank Statement");
+  XLSX.writeFile(workbook, `Kailash_BankStatement_${selectedBank.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+
 function filterAttendanceMonth(mSheet) {
   selectedAttendanceMonth = mSheet;
   renderAttendanceSalaryModule(parseFloat((document.getElementById('metric-total').textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
@@ -1124,7 +1134,6 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
     const gridDayBadges = [];
     const leaveReasonsList = [];
 
-    // ALWAYS loop through ALL 31 DAYS so full 31-day month grid displays!
     for (let d = 1; d <= 31; d++) {
       const rawVal = getDayValue(emp, d);
       const note = getDayNote(emp, d);
