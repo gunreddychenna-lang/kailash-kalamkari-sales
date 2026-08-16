@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbzRXIxYx3PolA7qfjamvmMzeTTeX9JRIAmE2Cmw_9C2pD_-i-mFcOjr5KBTBDq1BUxX/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwSdvj2seF5EV9onv1GeirtNHBvh2A6r8RJlu1krcNOhXMY92UXWeZduiqUDpbrcG_q/exec";
 const SESSION_TIMEOUT = 6 * 60 * 60 * 1000;
 
 let rawData = [];
@@ -14,6 +14,7 @@ let selectedAttendanceMonth = "All";
 let activeAnalysisAgent = "";
 let isAdmin = false;
 let globalBillBankMap = {};
+let agentBillsViewMode = 'summary'; // 'summary' or 'detailed'
 
 let currentDaySales = [0, 0, 0, 0, 0, 0, 0];
 let prodSortCol = 'qty', prodSortAsc = false;
@@ -129,16 +130,16 @@ function getBillNo(row) {
   return 'N/A';
 }
 
-// ROBUST BANK EXTRACTOR
 function getRowBankDirect(row) {
   if (!row || typeof row !== 'object') return 'Not Defined';
 
   const directKeys = [
+    'Acc Name', 'AccName', 'Account Name', 'AccountName', 'Acc Name.', 'Account Name.',
     'Bank', 'Bank Name', 'BankName', 'Bank_Name', 'Bank A/c', 'Bank A/c.', 'Bank Account',
     'Bank Account No', 'Bank Account Number', 'Credited Bank', 'Credited Bank Name',
-    'Credited Bank Account', 'Bank Details', 'Account', 'Account Name', 'AccountName', 'Acc Name',
-    'Acc No', 'Acc No.', 'AccNo', 'Acc_No', 'A/c No', 'A/c No.', 'A/C No', 'A/C No.', 'Ac No', 'Ac No.',
-    'Account No', 'Account No.', 'AccountNo', 'Account_No', 'Deposit Bank', 'Payment Bank', 'Bank / Cash'
+    'Credited Bank Account', 'Bank Details', 'Account', 'Acc No', 'Acc No.', 'AccNo', 'Acc_No', 
+    'A/c No', 'A/c No.', 'A/C No', 'A/C No.', 'Ac No', 'Ac No.', 'Account No', 'Account No.', 
+    'AccountNo', 'Account_No', 'Deposit Bank', 'Payment Bank', 'Bank / Cash'
   ];
 
   for (let k of directKeys) {
@@ -153,15 +154,16 @@ function getRowBankDirect(row) {
   for (let key in row) {
     const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
     if (
-      cleanKey.includes('bank') || 
-      cleanKey.includes('accname') || 
-      cleanKey.includes('accountname') || 
-      cleanKey.includes('creditedbank') || 
-      cleanKey.includes('bankac') || 
-      cleanKey.includes('accountno') || 
-      cleanKey === 'accno' || 
-      cleanKey === 'acno' || 
-      cleanKey === 'account'
+      cleanKey === 'accname' ||
+      cleanKey === 'accountname' ||
+      cleanKey === 'bank' ||
+      cleanKey === 'bankname' ||
+      cleanKey.includes('bank') ||
+      cleanKey.includes('accname') ||
+      cleanKey.includes('accountname') ||
+      cleanKey === 'accno' ||
+      cleanKey === 'acno' ||
+      cleanKey === 'accountno'
     ) {
       const val = (row[key] || '').toString().trim();
       if (val && val !== '0' && val !== '-' && val !== '--' && val.toLowerCase() !== 'null' && val.toLowerCase() !== 'undefined' && val.toLowerCase() !== 'not found' && val.toLowerCase() !== 'not defined') {
@@ -1744,6 +1746,25 @@ function renderWeeklyDistributionDOM() {
   }).join('');
 }
 
+function setAgentBillsViewMode(mode) {
+  agentBillsViewMode = mode;
+  
+  const sumBtn = document.getElementById('btn-agent-mode-summary');
+  const detBtn = document.getElementById('btn-agent-mode-detailed');
+  
+  if (mode === 'summary') {
+    if (sumBtn) sumBtn.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all bg-[#5C0612] text-[#EFE5C9] shadow-sm font-traditional flex items-center gap-1.5";
+    if (detBtn) detBtn.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-stone-600 hover:text-stone-900 font-traditional flex items-center gap-1.5";
+  } else {
+    if (sumBtn) sumBtn.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-stone-600 hover:text-stone-900 font-traditional flex items-center gap-1.5";
+    if (detBtn) detBtn.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all bg-[#5C0612] text-[#EFE5C9] shadow-sm font-traditional flex items-center gap-1.5";
+  }
+  
+  if (activeAnalysisAgent) {
+    populateAgentAnalysisScreenDOM(activeAnalysisAgent);
+  }
+}
+
 function populateAgentAnalysisScreenDOM(agentName) {
   activeAnalysisAgent = agentName;
   const fromVal = document.getElementById('from-date').value;
@@ -1752,7 +1773,7 @@ function populateAgentAnalysisScreenDOM(agentName) {
   const titleEl = document.getElementById('agent-analysis-title');
   const subEl = document.getElementById('agent-analysis-subtitle');
   if (titleEl) titleEl.textContent = `${agentName} Ledger`;
-  if (subEl) subEl.textContent = `Date limits: ${fromVal || 'Start'} to ${toVal || 'End'}`;
+  if (subEl) subEl.textContent = `Period: ${fromVal || 'Start'} to ${toVal || 'End'}`;
 
   const filtered = rawData.filter(row => {
     if (!row['Bill Date']) return false;
@@ -1797,8 +1818,9 @@ function populateAgentAnalysisScreenDOM(agentName) {
     if (!dailyGroup[date]) dailyGroup[date] = { total: 0, bills: {} };
     dailyGroup[date].total += amount;
 
-    if (!dailyGroup[date].bills[billNo]) dailyGroup[date].bills[billNo] = { total: 0, bank: bankAcc, items: [] };
+    if (!dailyGroup[date].bills[billNo]) dailyGroup[date].bills[billNo] = { total: 0, bank: bankAcc, items: [], totalQty: 0 };
     dailyGroup[date].bills[billNo].total += amount;
+    dailyGroup[date].bills[billNo].totalQty += qty;
     dailyGroup[date].bills[billNo].items.push({ name: item, qty: qty, amount: amount, channel: channel });
 
     if (!productSales[item]) {
@@ -1838,7 +1860,7 @@ function populateAgentAnalysisScreenDOM(agentName) {
   const productShareContainer = document.getElementById('agent-analysis-product-share');
   if (productShareContainer) {
     productShareContainer.innerHTML = sortedProductSales.length === 0 ? `
-      <p class="text-center text-stone-400 text-xs font-traditional py-4">No product sales recorded for this agent in this date range.</p>
+      <p class="text-center text-stone-400 text-xs font-traditional py-4">No product sales recorded for this staff member in this date range.</p>
     ` : sortedProductSales.map(p => `
       <div class="space-y-1.5 p-3 rounded-xl bg-[#FAF6EE]/60 border border-[#E5D5C6]/60">
         <div class="flex justify-between items-center text-xs font-semibold text-stone-700">
@@ -1854,37 +1876,75 @@ function populateAgentAnalysisScreenDOM(agentName) {
 
   const sortedDates = Object.keys(dailyGroup).sort((a, b) => b.localeCompare(a));
   const dailyListContainer = document.getElementById('agent-analysis-daily-list');
+  
   if (dailyListContainer) {
+    if (sortedDates.length === 0) {
+      dailyListContainer.innerHTML = `<p class="p-6 text-center text-stone-400 font-traditional">No daily bills found for this staff member.</p>`;
+      return;
+    }
+
     dailyListContainer.innerHTML = sortedDates.map(dateStr => {
       const dayData = dailyGroup[dateStr];
       const sortedBills = Object.entries(dayData.bills).sort((a, b) => b[1].total - a[1].total);
 
-      const billsHTML = sortedBills.map(([billNo, billData]) => {
-        const itemsHTML = billData.items.map(item => `
-          <div class="flex justify-between items-center text-[11px] text-stone-600 py-1.5">
-            <span class="font-sans font-medium text-stone-700">${item.name} x${item.qty}</span>
-            <span class="font-numeric font-semibold text-stone-800">₹${item.amount.toLocaleString('en-IN')}</span>
-          </div>
-        `).join('');
+      let billsContentHTML = '';
 
-        return `
-          <div class="bg-stone-50/60 rounded-xl p-3 border border-[#E5D5C6]/40 space-y-1.5">
-            <div class="flex justify-between items-center border-b border-[#E5D5C6]/30 pb-1">
-              <span class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">Bill No: ${billNo} <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded ml-1 font-numeric">🏦 ${billData.bank}</span></span>
-              <span class="text-xs font-black text-[#5C0612] font-numeric">₹${billData.total.toLocaleString('en-IN')}</span>
-            </div>
-            <div class="divide-y divide-[#E5D5C6]/15">${itemsHTML}</div>
+      if (agentBillsViewMode === 'summary') {
+        billsContentHTML = `
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs font-numeric">
+              <thead>
+                <tr class="text-stone-500 text-[9px] uppercase font-bold border-b border-[#E5D5C6]">
+                  <th class="p-2 font-traditional">Bill No</th>
+                  <th class="p-2 text-center font-traditional">Qty</th>
+                  <th class="p-2 font-traditional">Bank A/C</th>
+                  <th class="p-2 text-right font-traditional">Amount</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#E5D5C6]/20">
+                ${sortedBills.map(([billNo, billData]) => `
+                  <tr class="hover:bg-amber-50/20">
+                    <td class="p-2 font-bold text-stone-800">${billNo}</td>
+                    <td class="p-2 text-center text-stone-600">${billData.totalQty} items</td>
+                    <td class="p-2"><span class="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-bold px-2 py-0.5 rounded font-numeric">${billData.bank}</span></td>
+                    <td class="p-2 text-right font-black text-[#5C0612]">₹${billData.total.toLocaleString('en-IN')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
           </div>
         `;
-      }).join('');
+      } else {
+        billsContentHTML = sortedBills.map(([billNo, billData]) => {
+          const itemsHTML = billData.items.map(item => `
+            <div class="flex justify-between items-center text-[11px] text-stone-600 py-1.5">
+              <span class="font-sans font-medium text-stone-700">${item.name} <strong class="text-stone-500">x${item.qty}</strong> <span class="text-[9px] text-stone-400 font-bold">(${item.channel})</span></span>
+              <span class="font-numeric font-semibold text-stone-800">₹${item.amount.toLocaleString('en-IN')}</span>
+            </div>
+          `).join('');
+
+          return `
+            <div class="bg-stone-50/60 rounded-xl p-3 border border-[#E5D5C6]/40 space-y-1.5">
+              <div class="flex justify-between items-center border-b border-[#E5D5C6]/30 pb-1">
+                <span class="text-[10px] font-bold text-stone-500 uppercase tracking-wider font-traditional">
+                  Bill No: <strong class="text-stone-800">${billNo}</strong> 
+                  <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded ml-1 font-numeric">🏦 ${billData.bank}</span>
+                </span>
+                <span class="text-xs font-black text-[#5C0612] font-numeric">₹${billData.total.toLocaleString('en-IN')}</span>
+              </div>
+              <div class="divide-y divide-[#E5D5C6]/15">${itemsHTML}</div>
+            </div>
+          `;
+        }).join('');
+      }
 
       return `
         <div class="border border-[#E5D5C6] rounded-2xl bg-[#FFFDF9] overflow-hidden warm-shadow">
           <div class="bg-[#F3EFE9] px-4 py-3 border-b border-[#E5D5C6] flex justify-between items-center">
-            <span class="font-traditional font-bold text-stone-700 text-xs">${dateStr}</span>
+            <span class="font-traditional font-bold text-stone-700 text-xs">${dateStr} (${sortedBills.length} Bills)</span>
             <span class="font-numeric font-black text-[#5C0612] text-xs">Day Total: ₹${dayData.total.toLocaleString('en-IN')}</span>
           </div>
-          <div class="p-3 space-y-3">${billsHTML}</div>
+          <div class="p-3 space-y-3">${billsContentHTML}</div>
         </div>
       `;
     }).join('');

@@ -705,6 +705,7 @@
   </div>
 
   <!-- STAFF SALES ANALYSIS / LEDGER SCREEN -->
+  <!-- STAFF SALES ANALYSIS / LEDGER SCREEN -->
   <div id="agent-analysis-view" class="hidden min-h-screen bg-[#FAF6EE] pb-16">
     <div class="bg-[#5C0612] text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md border-b-2 border-[#DAA520]">
       <div class="flex items-center gap-3.5">
@@ -722,6 +723,7 @@
     </div>
 
     <div class="max-w-4xl mx-auto px-4 mt-6 space-y-4">
+      <!-- Revenue & KPI Scorecard -->
       <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] warm-shadow overflow-hidden relative">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
         <div class="p-5 text-center">
@@ -765,6 +767,7 @@
         </div>
       </div>
 
+      <!-- Product Sales Share -->
       <div class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow relative overflow-hidden">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
         <h3 class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional flex items-center gap-1.5 border-b border-[#E5D5C6]/60 pb-1.5 mb-3">
@@ -773,6 +776,25 @@
         <div class="space-y-3.5" id="agent-analysis-product-share"></div>
       </div>
 
+      <!-- NEW: SUMMARY VS DETAILED BILLS TOGGLE CARD -->
+      <div class="bg-[#FFFDF9] p-3 rounded-2xl border border-[#E5D5C6] warm-shadow flex justify-between items-center">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-receipt text-[#5C0612] text-sm"></i>
+          <span class="text-xs font-bold text-stone-700 font-traditional">Bills Display Mode:</span>
+        </div>
+        
+        <!-- Toggle Pill Buttons -->
+        <div class="flex bg-[#FAF6EE] p-1 rounded-xl border border-[#E5D5C6]">
+          <button id="btn-agent-mode-summary" onclick="setAgentBillsViewMode('summary')" class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all bg-[#5C0612] text-[#EFE5C9] shadow-sm font-traditional flex items-center gap-1.5">
+            <i class="fa-solid fa-list"></i> Summary
+          </button>
+          <button id="btn-agent-mode-detailed" onclick="setAgentBillsViewMode('detailed')" class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-stone-600 hover:text-stone-900 font-traditional flex items-center gap-1.5">
+            <i class="fa-solid fa-layer-group"></i> Detailed Items
+          </button>
+        </div>
+      </div>
+
+      <!-- Daily Bills Container -->
       <div class="space-y-3.5" id="agent-analysis-daily-list"></div>
     </div>
   </div>
