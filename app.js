@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbxl0_3uUzVh-ocraU81vMGBNIYLvhNCxtL7z66TdoQk009uPwC0etQNoR0Hw-YZEIQa/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzRXIxYx3PolA7qfjamvmMzeTTeX9JRIAmE2Cmw_9C2pD_-i-mFcOjr5KBTBDq1BUxX/exec";
 const SESSION_TIMEOUT = 6 * 60 * 60 * 1000;
 
 let rawData = [];
@@ -83,8 +83,8 @@ function getBillNo(row) {
   
   const directKeys = [
     'Bil No', 'Bil No.', 'BilNo', 'Bill No', 'Bill No.', 'BillNo', 
-    'Invoice No', 'InvoiceNo', 'Bill #', 'Invoice #', 'Bill Number', 
-    'Invoice Number', 'Doc No', 'Voucher No', 'Ref No', 'Bill_No', 'Invoice_No'
+    'Invoice No', 'Invoice No.', 'InvoiceNo', 'Bill #', 'Invoice #', 'Bill Number', 
+    'Invoice Number', 'Doc No', 'Voucher No', 'Ref No', 'Bill_No', 'Invoice_No', 'Invoice_No.'
   ];
   for (let k of directKeys) {
     if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
@@ -129,37 +129,44 @@ function getBillNo(row) {
   return 'N/A';
 }
 
-// DIRECTLY GETS RAW DATA FROM COLUMN M ("Acc No")
+// ROBUST BANK EXTRACTOR
 function getRowBankDirect(row) {
   if (!row || typeof row !== 'object') return 'Not Defined';
 
   const directKeys = [
-    'Acc No', 'Acc No.', 'AccNo', 'Acc_No', 
-    'Account No', 'Account No.', 'AccountNo', 'Account_No', 
-    'Bank', 'Credited Bank', 'Credited Bank Account', 'Account', 
-    'Bank Account', 'Credited Bank Name', 'Bank Name'
+    'Bank', 'Bank Name', 'BankName', 'Bank_Name', 'Bank A/c', 'Bank A/c.', 'Bank Account',
+    'Bank Account No', 'Bank Account Number', 'Credited Bank', 'Credited Bank Name',
+    'Credited Bank Account', 'Bank Details', 'Account', 'Account Name', 'AccountName', 'Acc Name',
+    'Acc No', 'Acc No.', 'AccNo', 'Acc_No', 'A/c No', 'A/c No.', 'A/C No', 'A/C No.', 'Ac No', 'Ac No.',
+    'Account No', 'Account No.', 'AccountNo', 'Account_No', 'Deposit Bank', 'Payment Bank', 'Bank / Cash'
   ];
 
   for (let k of directKeys) {
     if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
       const val = row[k].toString().trim();
-      if (val) return val; // Returns EXACT value from Column M
+      if (val && val !== '0' && val !== '-' && val !== '--' && val.toLowerCase() !== 'null' && val.toLowerCase() !== 'undefined' && val.toLowerCase() !== 'not found' && val.toLowerCase() !== 'not defined') {
+        return val;
+      }
     }
   }
 
   for (let key in row) {
     const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
     if (
+      cleanKey.includes('bank') || 
+      cleanKey.includes('accname') || 
+      cleanKey.includes('accountname') || 
+      cleanKey.includes('creditedbank') || 
+      cleanKey.includes('bankac') || 
+      cleanKey.includes('accountno') || 
       cleanKey === 'accno' || 
-      cleanKey === 'accountno' || 
-      cleanKey === 'bank' || 
-      cleanKey === 'creditedbank' || 
-      cleanKey === 'account' || 
-      cleanKey === 'bankaccount' ||
-      cleanKey === 'creditedbankaccount'
+      cleanKey === 'acno' || 
+      cleanKey === 'account'
     ) {
       const val = (row[key] || '').toString().trim();
-      if (val) return val; // Returns EXACT value from Column M
+      if (val && val !== '0' && val !== '-' && val !== '--' && val.toLowerCase() !== 'null' && val.toLowerCase() !== 'undefined' && val.toLowerCase() !== 'not found' && val.toLowerCase() !== 'not defined') {
+        return val;
+      }
     }
   }
   return 'Not Defined';
@@ -168,11 +175,9 @@ function getRowBankDirect(row) {
 function getRowBank(row) {
   if (!row || typeof row !== 'object') return 'Not Defined';
   
-  // 1. Direct row property check (Shows exact data from Column M)
   const directVal = getRowBankDirect(row);
   if (directVal !== 'Not Defined') return directVal;
 
-  // 2. Check Bill No in globalBillBankMap (populated from Recievables tab)
   const bNo = getBillNo(row);
   if (bNo && bNo !== 'N/A') {
     if (globalBillBankMap[bNo]) return globalBillBankMap[bNo];
@@ -184,16 +189,21 @@ function getRowBank(row) {
   return 'Not Defined';
 }
 
+function registerBillBank(billNo, bankName) {
+  if (!billNo || billNo === 'N/A' || !bankName || bankName === 'Not Defined') return;
+  const strBNo = billNo.toString().trim();
+  const strBank = bankName.toString().trim();
+  globalBillBankMap[strBNo] = strBank;
+  globalBillBankMap[strBNo.toLowerCase()] = strBank;
+  globalBillBankMap[strBNo.toLowerCase().replace(/[^a-z0-9]/g, '')] = strBank;
+}
+
 function buildGlobalBillBankMap() {
   rawData.forEach(row => {
     const bNo = getBillNo(row);
-    if (bNo && bNo !== 'N/A') {
-      const bnk = getRowBankDirect(row);
-      if (bnk !== 'Not Defined') {
-        globalBillBankMap[bNo] = bnk;
-        globalBillBankMap[bNo.toLowerCase()] = bnk;
-        globalBillBankMap[bNo.toLowerCase().replace(/[^a-z0-9]/g, '')] = bnk;
-      }
+    const bnk = getRowBankDirect(row);
+    if (bNo !== 'N/A' && bnk !== 'Not Defined') {
+      registerBillBank(bNo, bnk);
     }
   });
 }
@@ -295,14 +305,13 @@ async function fetchData(user, pass) {
       rawAttendanceData = Array.isArray(data.attendance) ? data.attendance : [];
     }
 
-    if (data.recievables && Array.isArray(data.recievables)) {
-      data.recievables.forEach(r => {
+    const receivablesSource = data.receivables || data.recievables || data.bank_ledger || [];
+    if (Array.isArray(receivablesSource)) {
+      receivablesSource.forEach(r => {
         const bNo = getBillNo(r);
         const bnk = getRowBankDirect(r);
         if (bNo && bNo !== 'N/A' && bnk && bnk !== 'Not Defined') {
-          globalBillBankMap[bNo] = bnk;
-          globalBillBankMap[bNo.toLowerCase()] = bnk;
-          globalBillBankMap[bNo.toLowerCase().replace(/[^a-z0-9]/g, '')] = bnk;
+          registerBillBank(bNo, bnk);
         }
       });
     }
@@ -360,7 +369,7 @@ function populateBankDropdown() {
   
   bankAccountsList.forEach(bk => {
     const bStr = (bk || '').toString().trim();
-    if (bStr) bankSet.add(bStr);
+    if (bStr && bStr !== 'Not Defined') bankSet.add(bStr);
   });
 
   rawData.forEach(row => {
@@ -368,6 +377,10 @@ function populateBankDropdown() {
     if (bName && bName !== 'Not Defined') {
       bankSet.add(bName);
     }
+  });
+
+  Object.values(globalBillBankMap).forEach(bName => {
+    if (bName && bName !== 'Not Defined') bankSet.add(bName);
   });
 
   const currentSelection = bSelect.value || 'All';
@@ -502,7 +515,6 @@ function detectDateRanges() {
   if (allDates.length > 0) {
     const maxDateStr = allDates[allDates.length - 1];
     const [yyyy, mm] = maxDateStr.split('-');
-    
     const firstDayOfMonth = `${yyyy}-${mm}-01`;
     
     document.getElementById('from-date').value = firstDayOfMonth;
@@ -1641,6 +1653,7 @@ function populateAgentDetailsDOM(agentName) {
     <tr class="hover:bg-amber-50/20 transition-colors">
       <td class="p-2.5 font-semibold text-stone-700">${b.date || 'N/A'}</td>
       <td class="p-2.5 text-center font-bold text-stone-500">${b.billNo || 'N/A'}</td>
+      <td class="p-2.5 text-center"><span class="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-bold px-2 py-0.5 rounded font-numeric">${b.bank || 'Not Defined'}</span></td>
       <td class="p-2.5 text-right font-extrabold text-[#5C0612]">₹${b.amount.toLocaleString('en-IN')}</td>
     </tr>
   `).join('');
