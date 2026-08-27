@@ -64,12 +64,17 @@
 
   <!-- DASHBOARD HEADER -->
   <header id="standard-header" class="hidden bg-[#5C0612] text-white shadow-md sticky top-0 z-50 border-b-2 border-[#DAA520]">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
       <div>
         <h1 class="text-xl sm:text-2xl font-bold tracking-wide font-traditional text-[#EFE5C9]">Kailash Kalamkari</h1>
         <p class="text-[9px] sm:text-xs text-stone-300 font-medium tracking-wider uppercase">Multi-Store Executive Analytics</p>
       </div>
       <div class="flex items-center gap-2">
+        <!-- Open Dedicated Data Entry Portal in New Tab (ADMIN ONLY) -->
+        <a href="entry.html" target="_blank" class="admin-only hidden bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#B38F4D] active:scale-95 duration-100" title="Open Easy Data Entry in New Tab">
+          <i class="fa-solid fa-up-right-from-square text-xs"></i> <span class="hidden md:inline">Data Entry Portal ↗</span>
+        </a>
+
         <button onclick="exportSectionToPDF('standard-main', 'Kailash_Kalamkari_Full_Dashboard')" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md border border-rose-700 active:scale-95 duration-100" title="Export Full Dashboard PDF">
           <i class="fa-solid fa-file-pdf text-xs text-[#DAA520]"></i> <span class="hidden md:inline">Export PDF</span>
         </button>
@@ -345,10 +350,13 @@
     </div>
 
     <!-- Navigation Tabs -->
-    <div class="flex bg-[#EFE5C9]/50 rounded-2xl p-1 shadow-inner border border-[#E5D5C6] gap-1 overflow-x-auto max-w-3xl mx-auto">
+    <div class="flex bg-[#EFE5C9]/50 rounded-2xl p-1 shadow-inner border border-[#E5D5C6] gap-1 overflow-x-auto max-w-5xl mx-auto">
       <button onclick="switchTab('products-tab')" id="btn-products-tab" class="flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-white text-[#5C0612] shadow-sm font-traditional">Products</button>
       <button onclick="switchTab('agents-tab')" id="btn-agents-tab" class="flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional">Staff Sales</button>
       <button onclick="switchTab('daywise-tab')" id="btn-daywise-tab" class="flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional">Day-Wise</button>
+      <button onclick="switchTab('payments-tab')" id="btn-payments-tab" class="admin-only hidden flex-1 min-w-[120px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional flex items-center justify-center gap-1">
+        <i class="fa-solid fa-money-bill-transfer text-[10px]"></i> Record Payment
+      </button>
       <button onclick="switchTab('banks-tab')" id="btn-banks-tab" class="admin-only hidden flex-1 min-w-[110px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional flex items-center justify-center gap-1">
         <i class="fa-solid fa-building-columns text-[10px]"></i> Bank Ledgers
       </button>
@@ -501,7 +509,96 @@
       </div>
     </div>
 
-    <!-- Tab 4: BANK STATEMENTS & LEDGERS (ADMIN ONLY) -->
+    <!-- Tab 4: PAYMENT SPLIT & BILL SETTLEMENT (ADMIN ONLY) -->
+    <div id="payments-tab" class="tab-content admin-only hidden space-y-4">
+      <div class="flex justify-between items-center flex-wrap gap-2">
+        <div>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-stone-700 font-traditional flex items-center gap-1.5">
+            <i class="fa-solid fa-receipt text-[#5C0612]"></i> Bill Payment Split & Settlement
+          </h3>
+          <p class="text-[10px] text-stone-500 font-traditional">Record multi-account and cash payments for any invoice</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <a href="entry.html" target="_blank" class="bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] text-xs font-black px-3 py-2 rounded-xl shadow-sm flex items-center gap-1.5 active:scale-95 transition-all">
+            <i class="fa-solid fa-up-right-from-square text-[10px]"></i> Open in Dedicated Tab ↗
+          </a>
+          <button onclick="openNewAccountModal()" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] text-xs font-bold px-3 py-2 rounded-xl border border-[#DAA520] shadow-sm flex items-center gap-1.5 active:scale-95 transition-all">
+            <i class="fa-solid fa-plus-circle text-[#DAA520]"></i> + New Account Type
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Left: Bill Lookup Card -->
+        <div class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow space-y-3 relative overflow-hidden">
+          <div class="zari-border absolute top-0 left-0 right-0"></div>
+          <h4 class="text-xs font-bold uppercase text-stone-600 font-traditional border-b border-[#E5D5C6]/60 pb-1.5">
+            1. Select Bill Number
+          </h4>
+
+          <div>
+            <label class="block text-[10px] font-bold text-stone-500 uppercase font-traditional mb-1">Search / Enter Bill No</label>
+            <div class="flex gap-2">
+              <input type="text" id="split-bill-search" placeholder="e.g. 111BN0540" list="bills-datalist" class="flex-1 text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-numeric font-bold focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
+              <datalist id="bills-datalist"></datalist>
+              <button onclick="lookupBillDetails()" class="bg-[#5C0612] text-[#EFE5C9] px-3 py-2 rounded-xl font-bold text-xs hover:bg-[#4A030D] transition-all">
+                Load
+              </button>
+            </div>
+          </div>
+
+          <!-- Bill Info Display -->
+          <div id="bill-info-box" class="bg-[#FAF6EE] p-3 rounded-xl border border-[#E5D5C6] space-y-1.5 text-xs font-numeric hidden">
+            <div class="flex justify-between"><span class="text-stone-500 text-[10px] uppercase">Bill Date:</span> <strong id="info-bill-date" class="text-stone-800">-</strong></div>
+            <div class="flex justify-between"><span class="text-stone-500 text-[10px] uppercase">Store:</span> <strong id="info-bill-store" class="text-stone-800">-</strong></div>
+            <div class="flex justify-between"><span class="text-stone-500 text-[10px] uppercase">Sales Staff:</span> <strong id="info-bill-agent" class="text-stone-800">-</strong></div>
+            <div class="flex justify-between border-t border-[#E5D5C6]/60 pt-1">
+              <span class="text-stone-600 text-[10px] uppercase font-bold">Total Bill Value:</span>
+              <strong id="info-bill-total" class="text-sm font-black text-[#5C0612]">₹0</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Split Payment Allocation -->
+        <div class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow space-y-4 lg:col-span-2 relative overflow-hidden">
+          <div class="zari-border absolute top-0 left-0 right-0"></div>
+          
+          <div class="flex justify-between items-center border-b border-[#E5D5C6]/60 pb-2">
+            <h4 class="text-xs font-bold uppercase text-stone-600 font-traditional">
+              2. Payment Distribution / Splits
+            </h4>
+            <button onclick="addSplitRow()" class="text-[10px] bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300 font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all">
+              <i class="fa-solid fa-plus"></i> Add Another Split
+            </button>
+          </div>
+
+          <div id="split-rows-container" class="space-y-2.5"></div>
+
+          <!-- Balance Match Indicator -->
+          <div class="bg-[#FAF6EE] p-3 rounded-xl border border-[#E5D5C6] flex justify-between items-center text-xs font-numeric">
+            <div>
+              <span class="text-[9px] font-bold text-stone-500 uppercase block">Split Total</span>
+              <strong id="split-allocated-total" class="text-xs font-black text-stone-800">₹0</strong>
+            </div>
+            <div>
+              <span class="text-[9px] font-bold text-stone-500 uppercase block">Remaining Balance</span>
+              <strong id="split-remaining-balance" class="text-xs font-black text-[#5C0612]">₹0</strong>
+            </div>
+            <div id="split-status-badge" class="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-stone-200 text-stone-600">
+              Enter Splits
+            </div>
+          </div>
+
+          <button id="save-split-btn" onclick="submitSplitPayment()" class="w-full bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs py-3 rounded-xl transition-all shadow-md font-traditional border border-[#DAA520] tracking-wider uppercase flex items-center justify-center gap-2 active:scale-95 duration-100">
+            <i class="fa-solid fa-cloud-arrow-up text-sm text-[#DAA520]"></i>
+            <span id="save-split-text">Save Settlement to Google Sheet</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 5: BANK STATEMENTS & LEDGERS (ADMIN ONLY) -->
     <div id="banks-tab" class="tab-content admin-only hidden space-y-4">
       <div class="flex justify-between items-center flex-wrap gap-2">
         <h3 class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional flex items-center gap-1.5">
@@ -553,8 +650,7 @@
       </div>
     </div>
 
-    <!-- Tab 5: ATTENDANCE, COMMISSIONS & PAYROLL (ADMIN ONLY) -->
-   <!-- Tab 5: ATTENDANCE, COMMISSIONS & PAYROLL (ADMIN ONLY) -->
+    <!-- Tab 6: ATTENDANCE, COMMISSIONS & PAYROLL (ADMIN ONLY) -->
     <div id="attendance-tab" class="tab-content admin-only hidden space-y-4">
       <div class="flex justify-between items-center flex-wrap gap-2">
         <h3 class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional">Monthly Payroll, Commissions & Attendance</h3>
@@ -568,7 +664,7 @@
         </div>
       </div>
 
-      <!-- DEDICATED PERMANENT ATTENDANCE MONTH SELECTOR CARD -->
+      <!-- DEDICATED ATTENDANCE MONTH SELECTOR CARD -->
       <div id="attendance-month-filter-card" class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex flex-col sm:flex-row justify-between items-center gap-3">
         <div class="flex items-center gap-2">
           <i class="fa-solid fa-calendar-days text-[#5C0612] text-base"></i>
@@ -612,6 +708,32 @@
       <div id="staff-salary-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
     </div>
   </main>
+
+  <!-- MODAL: ADD NEW ACCOUNT TYPE -->
+  <div id="new-account-modal" class="hidden fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-[#FFFDF9] rounded-3xl border-2 border-[#5C0612] max-w-sm w-full overflow-hidden warm-shadow-lg relative">
+      <div class="zari-border absolute top-0 left-0 right-0"></div>
+      
+      <div class="p-4 bg-[#5C0612] text-white flex justify-between items-center border-b border-[#DAA520]">
+        <h3 class="font-bold text-xs uppercase tracking-wider font-traditional text-[#EFE5C9] flex items-center gap-1.5">
+          <i class="fa-solid fa-building-columns text-[#DAA520]"></i> Add Account / Bank
+        </h3>
+        <button onclick="closeNewAccountModal()" class="text-[#EFE5C9] font-bold hover:opacity-80">
+          <i class="fa-solid fa-circle-xmark text-base"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-3">
+        <div>
+          <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">Account / Bank Name or Code</label>
+          <input type="text" id="new-account-name-input" placeholder="e.g. 42441-TJ, KC, HDFC-Main" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] font-sans">
+        </div>
+        <button onclick="saveNewAccountType()" class="w-full bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs py-2.5 rounded-xl transition-all shadow-md font-traditional border border-[#DAA520] tracking-wider uppercase">
+          Save Account
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- CHANNEL VIEW SCREEN -->
   <div id="channel-view" class="hidden min-h-screen bg-[#FAF6EE] pb-16">
@@ -705,7 +827,6 @@
   </div>
 
   <!-- STAFF SALES ANALYSIS / LEDGER SCREEN -->
-  <!-- STAFF SALES ANALYSIS / LEDGER SCREEN -->
   <div id="agent-analysis-view" class="hidden min-h-screen bg-[#FAF6EE] pb-16">
     <div class="bg-[#5C0612] text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50 shadow-md border-b-2 border-[#DAA520]">
       <div class="flex items-center gap-3.5">
@@ -723,7 +844,6 @@
     </div>
 
     <div class="max-w-4xl mx-auto px-4 mt-6 space-y-4">
-      <!-- Revenue & KPI Scorecard -->
       <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] warm-shadow overflow-hidden relative">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
         <div class="p-5 text-center">
@@ -776,14 +896,12 @@
         <div class="space-y-3.5" id="agent-analysis-product-share"></div>
       </div>
 
-      <!-- NEW: SUMMARY VS DETAILED BILLS TOGGLE CARD -->
+      <!-- Mode Toggle -->
       <div class="bg-[#FFFDF9] p-3 rounded-2xl border border-[#E5D5C6] warm-shadow flex justify-between items-center">
         <div class="flex items-center gap-2">
           <i class="fa-solid fa-receipt text-[#5C0612] text-sm"></i>
           <span class="text-xs font-bold text-stone-700 font-traditional">Bills Display Mode:</span>
         </div>
-        
-        <!-- Toggle Pill Buttons -->
         <div class="flex bg-[#FAF6EE] p-1 rounded-xl border border-[#E5D5C6]">
           <button id="btn-agent-mode-summary" onclick="setAgentBillsViewMode('summary')" class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all bg-[#5C0612] text-[#EFE5C9] shadow-sm font-traditional flex items-center gap-1.5">
             <i class="fa-solid fa-list"></i> Summary
@@ -798,7 +916,8 @@
       <div class="space-y-3.5" id="agent-analysis-daily-list"></div>
     </div>
   </div>
-<!-- BULK WHATSAPP PAYSLIP SENDER MODAL -->
+
+  <!-- BULK WHATSAPP PAYSLIP SENDER MODAL -->
   <div id="whatsapp-bulk-modal" class="hidden fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-[#FFFDF9] rounded-3xl border-2 border-[#5C0612] max-w-lg w-full overflow-hidden warm-shadow-lg relative">
       <div class="zari-border absolute top-0 left-0 right-0"></div>
@@ -824,5 +943,6 @@
       </div>
     </div>
   </div>
+
 </body>
 </html>

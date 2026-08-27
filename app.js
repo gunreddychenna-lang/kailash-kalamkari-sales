@@ -13,8 +13,12 @@ let selectedCategory = "All";
 let selectedAttendanceMonth = "All";
 let activeAnalysisAgent = "";
 let isAdmin = false;
+
+// MULTI-SPLIT PAYMENT TRACKING
+let globalBillSplitsMap = {}; 
 let globalBillBankMap = {};
 let agentBillsViewMode = 'summary'; // 'summary' or 'detailed'
+let currentSelectedBillData = null;
 
 let currentDaySales = [0, 0, 0, 0, 0, 0, 0];
 let prodSortCol = 'qty', prodSortAsc = false;
@@ -174,40 +178,50 @@ function getRowBankDirect(row) {
   return 'Not Defined';
 }
 
+function registerBillSplit(billNo, bankName, splitAmount, payMode) {
+  if (!billNo || billNo === 'N/A') return;
+  const bKey = billNo.toString().trim();
+  const cleanKey = bKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const bank = (bankName || 'Not Defined').toString().trim();
+  const amt = parseFloat(splitAmount) || 0;
+
+  const splitEntry = {
+    bank: bank,
+    amount: amt,
+    mode: payMode || bank
+  };
+
+  if (!globalBillSplitsMap[bKey]) globalBillSplitsMap[bKey] = [];
+  globalBillSplitsMap[bKey].push(splitEntry);
+
+  if (cleanKey !== bKey) {
+    if (!globalBillSplitsMap[cleanKey]) globalBillSplitsMap[cleanKey] = [];
+    globalBillSplitsMap[cleanKey].push(splitEntry);
+  }
+
+  globalBillBankMap[bKey] = bank;
+  globalBillBankMap[cleanKey] = bank;
+}
+
+function getBillSplits(billNo) {
+  if (!billNo || billNo === 'N/A') return [];
+  const bKey = billNo.toString().trim();
+  const cleanKey = bKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return globalBillSplitsMap[bKey] || globalBillSplitsMap[cleanKey] || [];
+}
+
 function getRowBank(row) {
   if (!row || typeof row !== 'object') return 'Not Defined';
-  
   const directVal = getRowBankDirect(row);
   if (directVal !== 'Not Defined') return directVal;
 
   const bNo = getBillNo(row);
   if (bNo && bNo !== 'N/A') {
     if (globalBillBankMap[bNo]) return globalBillBankMap[bNo];
-    if (globalBillBankMap[bNo.toLowerCase()]) return globalBillBankMap[bNo.toLowerCase()];
     const cleanKey = bNo.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (globalBillBankMap[cleanKey]) return globalBillBankMap[cleanKey];
   }
-
   return 'Not Defined';
-}
-
-function registerBillBank(billNo, bankName) {
-  if (!billNo || billNo === 'N/A' || !bankName || bankName === 'Not Defined') return;
-  const strBNo = billNo.toString().trim();
-  const strBank = bankName.toString().trim();
-  globalBillBankMap[strBNo] = strBank;
-  globalBillBankMap[strBNo.toLowerCase()] = strBank;
-  globalBillBankMap[strBNo.toLowerCase().replace(/[^a-z0-9]/g, '')] = strBank;
-}
-
-function buildGlobalBillBankMap() {
-  rawData.forEach(row => {
-    const bNo = getBillNo(row);
-    const bnk = getRowBankDirect(row);
-    if (bNo !== 'N/A' && bnk !== 'Not Defined') {
-      registerBillBank(bNo, bnk);
-    }
-  });
 }
 
 function getSalesType(payMode) {
@@ -268,6 +282,7 @@ async function fetchData(user, pass) {
   document.getElementById('login-screen').classList.add('hidden');
   
   try {
+    globalBillSplitsMap = {};
     globalBillBankMap = {};
 
     const url = `${API_URL}?username=${encodeURIComponent(cleanUser)}&password=${encodeURIComponent(cleanPass)}`;
@@ -312,8 +327,14 @@ async function fetchData(user, pass) {
       receivablesSource.forEach(r => {
         const bNo = getBillNo(r);
         const bnk = getRowBankDirect(r);
-        if (bNo && bNo !== 'N/A' && bnk && bnk !== 'Not Defined') {
-          registerBillBank(bNo, bnk);
+        const splitAmt = parseFloat((
+          r['Net Invoice Value'] || r['NetInvoiceValue'] || r['Amount'] || 
+          r['Received'] || r['Final Amount'] || r['Bill Amount'] || '0'
+        ).toString().replace(/[^0-9.-]+/g, "")) || 0;
+        const pMode = r['Account Name'] || r['PayMode'] || r['Pay Mode'] || bnk;
+
+        if (bNo && bNo !== 'N/A') {
+          registerBillSplit(bNo, bnk, splitAmt, pMode);
         }
       });
     }
@@ -321,12 +342,12 @@ async function fetchData(user, pass) {
     const targetEl = document.getElementById('target-input-field');
     if (targetEl) targetEl.value = monthlyTarget;
 
-    buildGlobalBillBankMap();
     updateRoleVisibility();
     detectDateRanges();
     detectAndPopulateStores();
     populateBankDropdown();
     populateAttendanceMonthDropdown();
+    populateBillsDatalist();
     processData();
 
     document.getElementById('loader').classList.add('hidden');
@@ -368,6 +389,7 @@ function populateBankDropdown() {
   if (!bSelect) return;
 
   const bankSet = new Set();
+  ['Cash', '42441-TJ', 'KC'].forEach(bk => bankSet.add(bk));
   
   bankAccountsList.forEach(bk => {
     const bStr = (bk || '').toString().trim();
@@ -376,9 +398,7 @@ function populateBankDropdown() {
 
   rawData.forEach(row => {
     const bName = getRowBank(row);
-    if (bName && bName !== 'Not Defined') {
-      bankSet.add(bName);
-    }
+    if (bName && bName !== 'Not Defined') bankSet.add(bName);
   });
 
   Object.values(globalBillBankMap).forEach(bName => {
@@ -671,38 +691,69 @@ function processData() {
     const agent = (row['SM Name'] || row['SMName'] || row['Agent'] || 'No Agent').toString().trim();
     const payMode = row['PayMode'] || row['Pay Mode'] || row['Paymode'] || row['Sale type'] || row['Sale Type'] || row['Saletype'] || '';
     
-    const bankAcc = getRowBank(row);
-    const type = getSalesType(payMode);
-    
-    const rawPm = payMode.toString().toLowerCase();
-    const cleanPm = rawPm.replace(/[^a-z0-9]/g, ' ').trim();
-    
     const billNo = getBillNo(row);
     const billDate = normalizeToDateString(row['Bill Date']);
+    const type = getSalesType(payMode);
 
     totalSales += amount;
     totalUnits += qty;
 
-    if (bankAcc && bankAcc !== 'Not Defined') {
-      accountTotals[bankAcc] = (accountTotals[bankAcc] || 0) + amount;
+    const splits = getBillSplits(billNo);
+
+    if (splits.length > 0) {
+      const splitSum = splits.reduce((sum, s) => sum + (s.amount > 0 ? s.amount : 0), 0);
+
+      splits.forEach(s => {
+        const sAmt = (s.amount > 0 && splitSum > 0) 
+          ? (splitSum === amount ? s.amount : (s.amount / splitSum) * amount)
+          : (amount / splits.length);
+
+        const sBank = s.bank || 'Not Defined';
+        const sModeStr = (s.mode || s.bank || '').toString().toLowerCase();
+
+        if (sBank && sBank !== 'Not Defined') {
+          accountTotals[sBank] = (accountTotals[sBank] || 0) + sAmt;
+        }
+
+        if (sModeStr.includes('cash')) {
+          payCash += sAmt;
+        } else if (sModeStr.includes('card')) {
+          payCard += sAmt;
+        } else if (sModeStr.includes('hand') || sModeStr.includes('wholesale')) {
+          payHand += sAmt;
+        } else if (sModeStr.includes('onl') || sModeStr.includes('online')) {
+          payUpiOnline += sAmt;
+        } else if (sModeStr.includes('store') || sModeStr.includes('counter')) {
+          payUpiStore += sAmt;
+        } else {
+          if (type === 'Online') payUpiOnline += sAmt;
+          else payUpiStore += sAmt;
+        }
+      });
+    } else {
+      const bankAcc = getRowBank(row);
+      if (bankAcc && bankAcc !== 'Not Defined') {
+        accountTotals[bankAcc] = (accountTotals[bankAcc] || 0) + amount;
+      }
+
+      const cleanPm = payMode.toString().toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
+      if (cleanPm.includes('cash')) payCash += amount;
+      else if (cleanPm.includes('card')) payCard += amount;
+      else if (cleanPm.includes('hand') || cleanPm.includes('wholesale') || cleanPm.includes('takebyhand')) payHand += amount;
+      else if (cleanPm.includes('onl') || cleanPm.includes('online')) payUpiOnline += amount;
+      else if (cleanPm.includes('store') || cleanPm.includes('counter') || cleanPm.includes('shop')) payUpiStore += amount;
+      else if (cleanPm.includes('upi') || cleanPm.includes('gpay') || cleanPm.includes('phonepe')) {
+        if (type === 'Online') payUpiOnline += amount;
+        else payUpiStore += amount;
+      } else {
+        if (type === 'Online') payUpiOnline += amount;
+        else payCash += amount;
+      }
     }
 
     if (type === 'Online') totalOnline += amount;
     else if (type === 'Wholesale') totalWholesale += amount;
     else totalOffline += amount;
-
-    if (cleanPm.includes('cash')) payCash += amount;
-    else if (cleanPm.includes('card')) payCard += amount;
-    else if (cleanPm.includes('hand') || cleanPm.includes('wholesale') || cleanPm.includes('takebyhand')) payHand += amount;
-    else if (cleanPm.includes('onl') || cleanPm.includes('online')) payUpiOnline += amount;
-    else if (cleanPm.includes('store') || cleanPm.includes('counter') || cleanPm.includes('shop')) payUpiStore += amount;
-    else if (cleanPm.includes('upi') || cleanPm.includes('gpay') || cleanPm.includes('phonepe')) {
-      if (type === 'Online') payUpiOnline += amount;
-      else payUpiStore += amount;
-    } else {
-      if (type === 'Online') payUpiOnline += amount;
-      else payCash += amount;
-    }
 
     const billKey = billNo !== 'N/A' ? billNo : `${billDate}-${amount}`;
     uniqueBills.add(billKey);
@@ -734,7 +785,13 @@ function processData() {
     agentsObj[agent].items[item].qty += qty;
     agentsObj[agent].items[item].revenue += amount;
 
-    if (!agentsObj[agent].bills[billKey]) agentsObj[agent].bills[billKey] = { billNo: billNo, date: billDate, amount: 0, bank: bankAcc };
+    const displayBankStr = splits.length > 0 
+      ? splits.map(s => `${s.bank}: ₹${s.amount.toLocaleString('en-IN')}`).join(', ')
+      : getRowBank(row);
+
+    if (!agentsObj[agent].bills[billKey]) {
+      agentsObj[agent].bills[billKey] = { billNo: billNo, date: billDate, amount: 0, bank: displayBankStr };
+    }
     agentsObj[agent].bills[billKey].amount += amount;
   });
 
@@ -792,7 +849,7 @@ function processData() {
       </div>` : accEntries.map(([accName, val]) => `
       <div class="bg-[#FAF6EE] p-2 rounded-xl border border-[#E5D5C6]">
         <span class="block text-[8px] font-bold text-stone-600 uppercase font-traditional truncate">${accName}</span>
-        <strong class="text-[#5C0612] text-xs font-black font-numeric">₹${val.toLocaleString('en-IN')}</strong>
+        <strong class="text-[#5C0612] text-xs font-black font-numeric">₹${Math.round(val).toLocaleString('en-IN')}</strong>
       </div>
     `).join('');
   }
@@ -817,11 +874,11 @@ function processData() {
     forecastEl.innerHTML = monthlyTarget > 0 ? `Pacing: <strong class="text-stone-800">₹${Math.round(avgDailySales).toLocaleString('en-IN')}/day</strong> • Projected: <strong class="text-[#5C0612]">₹${projectedMonthSales.toLocaleString('en-IN')}</strong> (${((projectedMonthSales / monthlyTarget) * 100).toFixed(0)}%)` : `Daily Average: <strong>₹${Math.round(avgDailySales).toLocaleString('en-IN')}/day</strong>`;
   }
 
-  document.getElementById('paymode-upi-store').textContent = `₹${payUpiStore.toLocaleString('en-IN')}`;
-  document.getElementById('paymode-upi-onl').textContent = `₹${payUpiOnline.toLocaleString('en-IN')}`;
-  document.getElementById('paymode-cash').textContent = `₹${payCash.toLocaleString('en-IN')}`;
-  document.getElementById('paymode-card').textContent = `₹${payCard.toLocaleString('en-IN')}`;
-  document.getElementById('paymode-hand').textContent = `₹${payHand.toLocaleString('en-IN')}`;
+  document.getElementById('paymode-upi-store').textContent = `₹${Math.round(payUpiStore).toLocaleString('en-IN')}`;
+  document.getElementById('paymode-upi-onl').textContent = `₹${Math.round(payUpiOnline).toLocaleString('en-IN')}`;
+  document.getElementById('paymode-cash').textContent = `₹${Math.round(payCash).toLocaleString('en-IN')}`;
+  document.getElementById('paymode-card').textContent = `₹${Math.round(payCard).toLocaleString('en-IN')}`;
+  document.getElementById('paymode-hand').textContent = `₹${Math.round(payHand).toLocaleString('en-IN')}`;
 
   document.getElementById('bucket-small').textContent = `${bucketSmall} Bills`;
   document.getElementById('bucket-medium').textContent = `${bucketMedium} Bills`;
@@ -980,50 +1037,69 @@ function renderBankLedgerModule() {
   const countEl = document.getElementById('bank-bills-count');
   if (!tbody) return;
 
-  const filteredBills = rawData.filter(row => {
-    if (!row['Bill Date']) return false;
-    const rDate = normalizeToDateString(row['Bill Date']);
-    if (fromVal && rDate < fromVal) return false;
-    if (toVal && rDate > toVal) return false;
-    
-    const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Kailash Kalamkari').toString().trim();
-    if (selectedStore !== 'All' && storeName.toLowerCase() !== selectedStore.toLowerCase()) return false;
-
-    const bAcc = getRowBank(row).trim();
-    if (selectedBank !== 'All') {
-      const sBank = selectedBank.trim().toLowerCase();
-      const rowB = bAcc.toLowerCase();
-      if (rowB !== sBank && !rowB.includes(sBank) && !sBank.includes(rowB)) return false;
-    }
-    return true;
-  });
-
+  const ledgerRecords = [];
   let totalBankAmount = 0;
-  const uniqueBillMap = {};
+  const processedBills = new Set();
 
-  filteredBills.forEach(r => {
-    const amt = parseFloat((r['Final Amount'] || r['FinalAmount'] || r['Total Value'] || r['TotalValue'] || r['BillAmount'] || r['Bill Amount'] || r['Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
+  rawData.forEach(r => {
+    if (!r['Bill Date']) return;
+    const rDate = normalizeToDateString(r['Bill Date']);
+    if (fromVal && rDate < fromVal) return;
+    if (toVal && rDate > toVal) return;
+
+    const storeName = (r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Shop 1').toString().trim();
+    if (selectedStore !== 'All' && storeName.toLowerCase() !== selectedStore.toLowerCase()) return;
+
     const bNo = getBillNo(r);
-    const bDate = normalizeToDateString(r['Bill Date']);
-    const store = r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Shop 1';
-    const agent = r['SM Name'] || r['Agent'] || 'No Agent';
-    const bankName = getRowBank(r);
+    const billKey = `${bNo}-${rDate}`;
+    if (processedBills.has(billKey)) return;
+    processedBills.add(billKey);
 
-    const key = `${bNo}-${bDate}-${amt}`;
-    if (!uniqueBillMap[key]) {
-      uniqueBillMap[key] = { date: bDate, billNo: bNo, store: store, agent: agent, bank: bankName, amount: amt };
-      totalBankAmount += amt;
+    const fullAmt = parseFloat((r['Final Amount'] || r['FinalAmount'] || r['Total Value'] || r['TotalValue'] || r['BillAmount'] || r['Bill Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
+    const agent = r['SM Name'] || r['Agent'] || 'No Agent';
+    const splits = getBillSplits(bNo);
+
+    if (splits.length > 0) {
+      splits.forEach((s, idx) => {
+        const sBank = s.bank || 'Not Defined';
+        const sAmt = s.amount > 0 ? s.amount : fullAmt / splits.length;
+
+        if (selectedBank === 'All' || sBank.toLowerCase() === selectedBank.toLowerCase() || sBank.toLowerCase().includes(selectedBank.toLowerCase())) {
+          ledgerRecords.push({
+            date: rDate,
+            billNo: `${bNo} (Split ${idx + 1})`,
+            store: storeName,
+            agent: agent,
+            bank: sBank,
+            amount: sAmt
+          });
+          totalBankAmount += sAmt;
+        }
+      });
+    } else {
+      const bAcc = getRowBank(r);
+      if (selectedBank === 'All' || bAcc.toLowerCase() === selectedBank.toLowerCase() || bAcc.toLowerCase().includes(selectedBank.toLowerCase())) {
+        ledgerRecords.push({
+          date: rDate,
+          billNo: bNo,
+          store: storeName,
+          agent: agent,
+          bank: bAcc,
+          amount: fullAmt
+        });
+        totalBankAmount += fullAmt;
+      }
     }
   });
 
-  const billList = Object.values(uniqueBillMap).sort((a, b) => b.date.localeCompare(a.date));
+  ledgerRecords.sort((a, b) => b.date.localeCompare(a.date));
 
   if (totalEl) totalEl.textContent = `₹${totalBankAmount.toLocaleString('en-IN')}`;
-  if (countEl) countEl.textContent = `${billList.length} Bills`;
+  if (countEl) countEl.textContent = `${ledgerRecords.length} Entries`;
 
-  tbody.innerHTML = billList.length === 0 ? `
+  tbody.innerHTML = ledgerRecords.length === 0 ? `
     <tr><td colspan="6" class="p-6 text-center text-stone-400 font-traditional">No bank credit records found for this selection</td></tr>
-  ` : billList.map(b => `
+  ` : ledgerRecords.map(b => `
     <tr class="hover:bg-amber-50/20 transition-colors">
       <td class="p-3 text-stone-700 font-numeric">${b.date}</td>
       <td class="p-3 font-bold text-stone-800 font-numeric">${b.billNo}</td>
@@ -1235,7 +1311,6 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
         </div>
       </div>
 
-      <!-- 31-Day Complete Visual Attendance Grid -->
       <div class="space-y-1">
         <div class="flex justify-between items-center">
           <span class="text-[9px] font-bold uppercase text-stone-500 font-traditional">31-Day Attendance Grid (${payableDays} Days Payable)</span>
@@ -1246,7 +1321,6 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
         </div>
       </div>
 
-      <!-- Recorded Leave Reasons Section -->
       ${leaveReasonsList.length > 0 ? `
         <div class="space-y-1 border-t border-[#E5D5C6]/40 pt-2">
           <p class="text-[9px] font-bold text-amber-900 uppercase font-traditional flex items-center gap-1">
@@ -1748,7 +1822,6 @@ function renderWeeklyDistributionDOM() {
 
 function setAgentBillsViewMode(mode) {
   agentBillsViewMode = mode;
-  
   const sumBtn = document.getElementById('btn-agent-mode-summary');
   const detBtn = document.getElementById('btn-agent-mode-detailed');
   
@@ -1804,9 +1877,10 @@ function populateAgentAnalysisScreenDOM(agentName) {
     const qty = parseInt(row['Qty']) || parseInt(row['QTY']) || 0;
     const item = row['Item Name'] || row['ItemName'] || 'Unknown Item';
     const payMode = row['PayMode'] || row['Pay Mode'] || row['Paymode'] || row['Sale type'] || row['Sale Type'] || '';
-    const bankAcc = getRowBank(row);
     const channel = getSalesType(payMode);
     const billNo = getBillNo(row);
+    const splits = getBillSplits(billNo);
+    const bankAcc = splits.length > 0 ? splits.map(s => `${s.bank}: ₹${s.amount.toLocaleString('en-IN')}`).join(', ') : getRowBank(row);
 
     totalAgentRevenue += amount;
     totalAgentUnits += qty;
@@ -1897,7 +1971,7 @@ function populateAgentAnalysisScreenDOM(agentName) {
                 <tr class="text-stone-500 text-[9px] uppercase font-bold border-b border-[#E5D5C6]">
                   <th class="p-2 font-traditional">Bill No</th>
                   <th class="p-2 text-center font-traditional">Qty</th>
-                  <th class="p-2 font-traditional">Bank A/C</th>
+                  <th class="p-2 font-traditional">Bank / Split Details</th>
                   <th class="p-2 text-right font-traditional">Amount</th>
                 </tr>
               </thead>
@@ -1957,35 +2031,257 @@ function shareAgentSalesReportWhatsApp() {
   window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
+// TAB SWITCHER
 function switchTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
   const targetTab = document.getElementById(tabId);
   if (targetTab) targetTab.classList.remove('hidden');
 
-  document.getElementById('btn-products-tab').className = tabId === 'products-tab' 
-    ? "flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-white text-[#5C0612] shadow-sm font-traditional"
-    : "flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional";
+  const btnMap = {
+    'products-tab': 'btn-products-tab',
+    'agents-tab': 'btn-agents-tab',
+    'daywise-tab': 'btn-daywise-tab',
+    'payments-tab': 'btn-payments-tab',
+    'banks-tab': 'btn-banks-tab',
+    'attendance-tab': 'btn-attendance-tab'
+  };
 
-  document.getElementById('btn-agents-tab').className = tabId === 'agents-tab' 
-    ? "flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-[#5C0612] text-[#EFE5C9] shadow-sm font-traditional"
-    : "flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional";
+  Object.entries(btnMap).forEach(([tId, bId]) => {
+    const btn = document.getElementById(bId);
+    if (btn) {
+      btn.className = (tId === tabId)
+        ? "flex-1 min-w-[90px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-white text-[#5C0612] shadow-sm font-traditional flex items-center justify-center gap-1"
+        : "flex-1 min-w-[90px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional flex items-center justify-center gap-1";
+    }
+  });
+}
 
-  document.getElementById('btn-daywise-tab').className = tabId === 'daywise-tab' 
-    ? "flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-white text-[#5C0612] shadow-sm font-traditional"
-    : "flex-1 min-w-[80px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional";
+// -------------------------------------------------------------
+// PAYMENT SPLIT & MULTI-ACCOUNT RECORDING ENGINE (ADMIN ONLY)
+// -------------------------------------------------------------
+function populateBillsDatalist() {
+  const datalist = document.getElementById('bills-datalist');
+  if (!datalist) return;
+  
+  const billSet = new Set();
+  rawData.forEach(row => {
+    const bNo = getBillNo(row);
+    if (bNo && bNo !== 'N/A') billSet.add(bNo);
+  });
 
-  const bankBtn = document.getElementById('btn-banks-tab');
-  if (bankBtn) {
-    bankBtn.className = tabId === 'banks-tab' 
-      ? "flex-1 min-w-[110px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-white text-[#5C0612] shadow-sm font-traditional flex items-center justify-center gap-1"
-      : "flex-1 min-w-[110px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional flex items-center justify-center gap-1";
+  datalist.innerHTML = Array.from(billSet).slice(0, 500).map(b => `<option value="${b}">`).join('');
+}
+
+function lookupBillDetails() {
+  const inputVal = (document.getElementById('split-bill-search').value || '').trim();
+  if (!inputVal) {
+    alert("Please enter a Bill Number.");
+    return;
   }
 
-  const attBtn = document.getElementById('btn-attendance-tab');
-  if (attBtn) {
-    attBtn.className = tabId === 'attendance-tab' 
-      ? "flex-1 min-w-[110px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-white text-[#5C0612] shadow-sm font-traditional flex items-center justify-center gap-1"
-      : "flex-1 min-w-[110px] text-center py-2 text-xs font-bold rounded-xl transition-all text-stone-500 hover:text-stone-700 font-traditional flex items-center justify-center gap-1";
+  const matchingRows = rawData.filter(r => getBillNo(r).toLowerCase() === inputVal.toLowerCase());
+  
+  if (matchingRows.length === 0) {
+    alert(`Bill No "${inputVal}" was not found in the current sales records.`);
+    return;
+  }
+
+  const firstRow = matchingRows[0];
+  const totalBillAmt = matchingRows.reduce((sum, r) => {
+    const amt = parseFloat((r['Final Amount'] || r['FinalAmount'] || r['Total Value'] || r['TotalValue'] || r['BillAmount'] || r['Bill Amount'] || r['Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
+    return sum + amt;
+  }, 0);
+
+  currentSelectedBillData = {
+    billNo: getBillNo(firstRow),
+    date: normalizeToDateString(firstRow['Bill Date']),
+    store: firstRow['Store'] || firstRow['Shop'] || 'Main Store',
+    agent: firstRow['SM Name'] || firstRow['Agent'] || 'No Agent',
+    totalAmount: totalBillAmt
+  };
+
+  document.getElementById('info-bill-date').textContent = currentSelectedBillData.date;
+  document.getElementById('info-bill-store').textContent = currentSelectedBillData.store;
+  document.getElementById('info-bill-agent').textContent = currentSelectedBillData.agent;
+  document.getElementById('info-bill-total').textContent = `₹${totalBillAmt.toLocaleString('en-IN')}`;
+  document.getElementById('bill-info-box').classList.remove('hidden');
+
+  const container = document.getElementById('split-rows-container');
+  container.innerHTML = '';
+
+  const existingSplits = getBillSplits(currentSelectedBillData.billNo);
+  if (existingSplits.length > 0) {
+    existingSplits.forEach(s => addSplitRow(s.bank, s.amount));
+  } else {
+    addSplitRow('Cash', '');
+    addSplitRow('42441-TJ', '');
+  }
+  calculateSplitTotals();
+}
+
+function addSplitRow(selectedBank = '', amount = '') {
+  const container = document.getElementById('split-rows-container');
+  if (!container) return;
+
+  const rowId = `split-row-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+  const accounts = Array.from(new Set(['Cash', '42441-TJ', 'KC', ...bankAccountsList]));
+
+  const rowDiv = document.createElement('div');
+  rowDiv.id = rowId;
+  rowDiv.className = "flex items-center gap-2 bg-[#FAF6EE] p-2 rounded-xl border border-[#E5D5C6]";
+  
+  rowDiv.innerHTML = `
+    <div class="flex-1">
+      <select class="split-account-select w-full text-xs font-bold bg-white border border-[#E5D5C6] rounded-lg p-2 text-stone-800 focus:outline-none">
+        <option value="">-- Select Account / Cash --</option>
+        ${accounts.map(acc => `<option value="${acc}" ${acc.toLowerCase() === selectedBank.toLowerCase() ? 'selected' : ''}>${acc}</option>`).join('')}
+      </select>
+    </div>
+    <div class="w-32">
+      <input type="number" step="any" placeholder="Amount (₹)" value="${amount}" oninput="calculateSplitTotals()" class="split-amount-input w-full text-xs font-bold font-numeric bg-white border border-[#E5D5C6] rounded-lg p-2 text-[#5C0612] focus:outline-none">
+    </div>
+    <button onclick="removeSplitRow('${rowId}')" class="text-stone-400 hover:text-rose-600 p-2 text-xs" title="Remove Split">
+      <i class="fa-solid fa-trash-can"></i>
+    </button>
+  `;
+
+  container.appendChild(rowDiv);
+  calculateSplitTotals();
+}
+
+function removeSplitRow(rowId) {
+  const rowEl = document.getElementById(rowId);
+  if (rowEl) rowEl.remove();
+  calculateSplitTotals();
+}
+
+function calculateSplitTotals() {
+  const amtInputs = document.querySelectorAll('.split-amount-input');
+  let allocatedTotal = 0;
+
+  amtInputs.forEach(input => {
+    allocatedTotal += parseFloat(input.value) || 0;
+  });
+
+  const totalBill = currentSelectedBillData ? currentSelectedBillData.totalAmount : 0;
+  const remaining = totalBill - allocatedTotal;
+
+  document.getElementById('split-allocated-total').textContent = `₹${allocatedTotal.toLocaleString('en-IN')}`;
+  document.getElementById('split-remaining-balance').textContent = `₹${remaining.toLocaleString('en-IN')}`;
+
+  const statusBadge = document.getElementById('split-status-badge');
+  if (!currentSelectedBillData) {
+    statusBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-stone-200 text-stone-600";
+    statusBadge.textContent = "Select Bill";
+  } else if (remaining === 0 && allocatedTotal > 0) {
+    statusBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300";
+    statusBadge.textContent = "Matched ✅";
+  } else if (remaining > 0) {
+    statusBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-amber-100 text-amber-800 border border-amber-300";
+    statusBadge.textContent = `₹${remaining} Remaining`;
+  } else {
+    statusBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-rose-100 text-rose-800 border border-rose-300";
+    statusBadge.textContent = `Exceeded by ₹${Math.abs(remaining)}`;
+  }
+}
+
+function openNewAccountModal() {
+  document.getElementById('new-account-name-input').value = '';
+  document.getElementById('new-account-modal').classList.remove('hidden');
+}
+
+function closeNewAccountModal() {
+  document.getElementById('new-account-modal').classList.add('hidden');
+}
+
+function saveNewAccountType() {
+  const name = (document.getElementById('new-account-name-input').value || '').trim();
+  if (!name) {
+    alert("Please enter a valid Account Name or Code.");
+    return;
+  }
+
+  if (!bankAccountsList.includes(name)) {
+    bankAccountsList.push(name);
+  }
+
+  populateBankDropdown();
+  
+  document.querySelectorAll('.split-account-select').forEach(sel => {
+    const currentVal = sel.value;
+    sel.innerHTML = `
+      <option value="">-- Select Account / Cash --</option>
+      ${Array.from(new Set(['Cash', '42441-TJ', 'KC', ...bankAccountsList])).map(acc => `<option value="${acc}">${acc}</option>`).join('')}
+    `;
+    sel.value = currentVal;
+  });
+
+  closeNewAccountModal();
+  alert(`Account "${name}" added successfully!`);
+}
+
+async function submitSplitPayment() {
+  if (!currentSelectedBillData) {
+    alert("Please load a valid Bill Number first.");
+    return;
+  }
+
+  const rows = document.querySelectorAll('#split-rows-container > div');
+  const splitsPayload = [];
+
+  rows.forEach(r => {
+    const account = r.querySelector('.split-account-select').value.trim();
+    const amount = parseFloat(r.querySelector('.split-amount-input').value) || 0;
+    if (account && amount > 0) {
+      splitsPayload.push({ account: account, amount: amount });
+    }
+  });
+
+  if (splitsPayload.length === 0) {
+    alert("Please enter at least one account and amount.");
+    return;
+  }
+
+  const btnText = document.getElementById('save-split-text');
+  btnText.textContent = "Recording to Google Sheets...";
+
+  const user = localStorage.getItem('kk_user') || 'admin';
+  const pass = localStorage.getItem('kk_pass') || '';
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'save_payment_splits',
+        username: user,
+        password: pass,
+        billNo: currentSelectedBillData.billNo,
+        date: currentSelectedBillData.date,
+        agent: currentSelectedBillData.agent,
+        store: currentSelectedBillData.store,
+        splits: splitsPayload
+      })
+    });
+
+    const result = await response.json();
+    if (result.status === 'success') {
+      alert(`✅ Bill ${currentSelectedBillData.billNo} payment splits recorded successfully!`);
+      splitsPayload.forEach(s => {
+        registerBillSplit(currentSelectedBillData.billNo, s.account, s.amount, s.account);
+      });
+      processData();
+    } else {
+      alert("Note: Saved locally. " + (result.error || ""));
+    }
+  } catch (err) {
+    splitsPayload.forEach(s => {
+      registerBillSplit(currentSelectedBillData.billNo, s.account, s.amount, s.account);
+    });
+    processData();
+    alert(`✅ Recorded locally in session for Bill ${currentSelectedBillData.billNo}!`);
+  } finally {
+    btnText.textContent = "Save Settlement to Google Sheet";
   }
 }
 

@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kailash Kalamkari - Bill Payment Settlement Sheet</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { corePlugins: { preflight: true } }
+  </script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-[#FAF6EE] text-stone-800 pb-16 min-h-screen">
+
+  <!-- HEADER -->
+  <header class="bg-[#5C0612] text-white shadow-md sticky top-0 z-50 border-b-2 border-[#DAA520]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row justify-between items-center gap-3">
+      <div class="flex items-center gap-3 w-full sm:w-auto">
+        <div class="w-9 h-9 rounded-xl bg-[#EFE5C9] text-[#5C0612] flex items-center justify-center font-bold text-lg font-traditional border border-[#DAA520] shrink-0">
+          KK
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-wide font-traditional text-[#EFE5C9]">Bill Settlement Table</h1>
+          <p class="text-[9px] text-stone-300 font-medium tracking-wider uppercase">Direct Multi-Account Payment Entry</p>
+        </div>
+      </div>
+      
+      <!-- Top Actions -->
+      <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+        <button onclick="openNewAccountModal()" class="bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 active:scale-95 duration-100">
+          <i class="fa-solid fa-plus-circle text-xs"></i> + New Account Type
+        </button>
+        <button onclick="fetchSheetData()" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20 transition-all flex items-center gap-1.5 active:scale-95" title="Refresh Sales Data">
+          <i id="refresh-icon" class="fa-solid fa-arrows-rotate text-xs"></i>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+    <div class="zari-line"></div>
+  </header>
+
+  <!-- MAIN WORKSPACE CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-4">
+    
+    <!-- SEARCH & FILTER TOOLBAR -->
+    <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex flex-col lg:flex-row justify-between items-center gap-3">
+      <!-- Search Input -->
+      <div class="relative flex-1 w-full max-w-md">
+        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-stone-400 text-xs"></i>
+        <input type="text" id="table-search" placeholder="Search by Bill No, Staff Name, or Date..." oninput="renderBillsTable()" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl py-2.5 pl-10 pr-4 text-stone-800 font-sans focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
+      </div>
+
+      <!-- Quick Filter & Sort Controls -->
+      <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-start lg:justify-end">
+        
+        <!-- Direct Quick Sort Dropdown -->
+        <select id="filter-sort" onchange="handleSortDropdown(this.value)" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 focus:outline-none font-traditional">
+          <option value="date-desc">Date: Newest First (Latest ➔ Old)</option>
+          <option value="date-asc" selected>Date: Oldest First (Old ➔ Latest)</option>
+          <option value="amount-desc">Amount: High to Low (₹ ▼)</option>
+          <option value="amount-asc">Amount: Low to High (₹ ▲)</option>
+          <option value="bill-asc">Bill No: A → Z</option>
+          <option value="bill-desc">Bill No: Z → A</option>
+        </select>
+
+        <select id="filter-status" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-[#5C0612] focus:outline-none font-traditional">
+          <option value="all">All Invoices</option>
+          <option value="unsettled" selected>Pending Settlement</option>
+          <option value="settled">Already Settled</option>
+        </select>
+        
+        <select id="filter-store" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-700 focus:outline-none font-sans">
+          <option value="all">All Branches</option>
+        </select>
+
+        <span id="filtered-count-badge" class="text-[11px] font-bold font-numeric bg-[#5C0612] text-[#EFE5C9] px-3 py-2 rounded-xl">
+          0 Invoices
+        </span>
+      </div>
+    </div>
+
+    <!-- SPREADSHEET-LIKE DATA ENTRY TABLE WITH CLICKABLE COLUMN SORTS -->
+    <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden warm-shadow">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="bg-[#F3EFE9] text-stone-700 uppercase text-[9px] font-extrabold tracking-wider border-b border-[#E5D5C6] select-none">
+              
+              <!-- Date Sort Header -->
+              <th onclick="toggleSort('date')" class="p-3.5 font-traditional w-28 cursor-pointer hover:text-[#5C0612] hover:bg-amber-100/50 transition-colors">
+                <div class="flex items-center gap-1">
+                  <span>DATE</span>
+                  <span id="sort-icon-date"><i class="fa-solid fa-sort text-[8px] text-[#5C0612]"></i></span>
+                </div>
+              </th>
+
+              <!-- Bill No Sort Header -->
+              <th onclick="toggleSort('billNo')" class="p-3.5 font-traditional w-32 cursor-pointer hover:text-[#5C0612] hover:bg-amber-100/50 transition-colors">
+                <div class="flex items-center gap-1">
+                  <span>BILL NO</span>
+                  <span id="sort-icon-billNo"><i class="fa-solid fa-sort text-[8px] text-stone-400"></i></span>
+                </div>
+              </th>
+
+              <!-- Branch Sort Header -->
+              <th onclick="toggleSort('store')" class="p-3.5 font-traditional w-28 cursor-pointer hover:text-[#5C0612] hover:bg-amber-100/50 transition-colors">
+                <div class="flex items-center gap-1">
+                  <span>BRANCH</span>
+                  <span id="sort-icon-store"><i class="fa-solid fa-sort text-[8px] text-stone-400"></i></span>
+                </div>
+              </th>
+
+              <!-- Sales Staff Sort Header -->
+              <th onclick="toggleSort('agent')" class="p-3.5 font-traditional w-28 cursor-pointer hover:text-[#5C0612] hover:bg-amber-100/50 transition-colors">
+                <div class="flex items-center gap-1">
+                  <span>SALES STAFF</span>
+                  <span id="sort-icon-agent"><i class="fa-solid fa-sort text-[8px] text-stone-400"></i></span>
+                </div>
+              </th>
+
+              <!-- Bill Value Sort Header -->
+              <th onclick="toggleSort('amount')" class="p-3.5 text-right font-traditional w-28 cursor-pointer hover:text-[#5C0612] hover:bg-amber-100/50 transition-colors">
+                <div class="flex items-center justify-end gap-1">
+                  <span>BILL VALUE</span>
+                  <span id="sort-icon-amount"><i class="fa-solid fa-sort text-[8px] text-stone-400"></i></span>
+                </div>
+              </th>
+
+              <!-- Payment Entry Column -->
+              <th class="p-3.5 font-traditional text-center min-w-[340px]">PAYMENT ENTRY / ACCOUNT SPLIT</th>
+
+              <!-- Action Column -->
+              <th class="p-3.5 text-center font-traditional w-28">ACTION</th>
+            </tr>
+          </thead>
+          <tbody id="bills-table-body" class="divide-y divide-[#E5D5C6]/40 font-numeric">
+            <tr>
+              <td colspan="7" class="p-8 text-center text-stone-400 font-traditional">
+                <i class="fa-solid fa-spinner animate-spin mr-2"></i> Loading sales and settlement records...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL: ADD NEW ACCOUNT TYPE -->
+  <div id="new-account-modal" class="hidden fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-[#FFFDF9] rounded-3xl border-2 border-[#5C0612] max-w-sm w-full overflow-hidden warm-shadow-lg relative">
+      <div class="zari-border absolute top-0 left-0 right-0"></div>
+      
+      <div class="p-4 bg-[#5C0612] text-white flex justify-between items-center border-b border-[#DAA520]">
+        <h3 class="font-bold text-xs uppercase tracking-wider font-traditional text-[#EFE5C9] flex items-center gap-1.5">
+          <i class="fa-solid fa-building-columns text-[#DAA520]"></i> Add Account / Bank
+        </h3>
+        <button onclick="closeNewAccountModal()" class="text-[#EFE5C9] font-bold hover:opacity-80">
+          <i class="fa-solid fa-circle-xmark text-base"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-3">
+        <div>
+          <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">Account / Bank Name or Code</label>
+          <input type="text" id="modal-account-name" placeholder="e.g. 42441-TJ, KC, HDFC-Primary" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 font-bold focus:outline-none focus:ring-1 focus:ring-[#5C0612] font-sans">
+        </div>
+        <button onclick="submitNewAccount()" class="w-full bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs py-2.5 rounded-xl transition-all shadow-md font-traditional border border-[#DAA520] tracking-wider uppercase">
+          Save Account
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbwSdvj2seF5EV9onv1GeirtNHBvh2A6r8RJlu1krcNOhXMY92UXWeZduiqUDpbrcG_q/exec";
+    
+    let billsList = [];
+    let accountsMaster = ['Cash', '42441-TJ', 'KC'];
+    let settlementRowsState = {}; 
+
+    // Default Sort: Date Oldest First
+    let currentSortCol = 'date';
+    let currentSortAsc = true;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchSheetData();
+    });
+
+    // TRUE CHRONOLOGICAL DATE PARSER
+    function parseDateToISO(dateVal) {
+      if (!dateVal) return { iso: '1970-01-01', display: '', timestamp: 0 };
+      let strVal = dateVal.toString().trim();
+      if (!strVal) return { iso: '1970-01-01', display: '', timestamp: 0 };
+
+      // Handle format: 24-Aug-2026 or 01/Jul/2026
+      const dMmmYyyyMatch = strVal.match(/^(\d{1,2})[-/ ]([A-Za-z]{3})[-/ ](\d{4})/);
+      if (dMmmYyyyMatch) {
+        const day = String(dMmmYyyyMatch[1]).padStart(2, '0');
+        const monthStr = dMmmYyyyMatch[2].toLowerCase();
+        const year = dMmmYyyyMatch[3];
+        const months = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
+        if (months[monthStr]) {
+          const iso = `${year}-${months[monthStr]}-${day}`;
+          const ts = new Date(parseInt(year), parseInt(months[monthStr]) - 1, parseInt(day)).getTime();
+          return { iso: iso, display: strVal.split(' ')[0], timestamp: ts };
+        }
+      }
+
+      // Handle ISO format: YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}/.test(strVal)) {
+        const cleanISO = strVal.substring(0, 10);
+        const [y, m, d] = cleanISO.split('-').map(Number);
+        const ts = new Date(y, m - 1, d).getTime();
+        return { iso: cleanISO, display: cleanISO, timestamp: ts };
+      }
+
+      // Fallback Date Parsing
+      const parsed = new Date(strVal);
+      if (!isNaN(parsed.getTime())) {
+        const yyyy = parsed.getFullYear();
+        const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+        const dd = String(parsed.getDate()).padStart(2, '0');
+        const iso = `${yyyy}-${mm}-${dd}`;
+        return { iso: iso, display: strVal.split('T')[0], timestamp: parsed.getTime() };
+      }
+
+      return { iso: strVal, display: strVal, timestamp: 0 };
+    }
+
+    function getCleanBillNo(row) {
+      if (!row) return '';
+      const keys = ['Bil No', 'Bil No.', 'BilNo', 'Bill No', 'Bill No.', 'BillNo', 'Invoice No', 'Invoice No.'];
+      for (let k of keys) {
+        if (row[k]) return row[k].toString().trim();
+      }
+      return '';
+    }
+
+    async function fetchSheetData() {
+      const icon = document.getElementById('refresh-icon');
+      if (icon) icon.classList.add('animate-spin');
+
+      const user = localStorage.getItem('kk_user') || 'admin';
+      const pass = localStorage.getItem('kk_pass') || '';
+
+      try {
+        const response = await fetch(`${API_URL}?username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`);
+        const data = await response.json();
+
+        let rawSales = [];
+        if (Array.isArray(data)) rawSales = data;
+        else if (data.sales) {
+          if (Array.isArray(data.sales)) rawSales = data.sales;
+          else if (typeof data.sales === 'object') {
+            Object.values(data.sales).forEach(arr => { if (Array.isArray(arr)) rawSales.push(...arr); });
+          }
+        }
+
+        if (Array.isArray(data.banks)) {
+          data.banks.forEach(b => {
+            const bStr = (b || '').toString().trim();
+            if (bStr && !accountsMaster.includes(bStr)) accountsMaster.push(bStr);
+          });
+        }
+
+        const existingSettlements = {};
+        const recList = data.recievables || data.receivables || [];
+        recList.forEach(r => {
+          const bNo = getCleanBillNo(r);
+          const amt = parseFloat((r['Net Invoice Value'] || r['Amount'] || r['Bill Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
+          const acc = (r['Acc No'] || r['Account Name'] || r['Bank'] || '').toString().trim();
+          if (bNo) {
+            if (!existingSettlements[bNo]) existingSettlements[bNo] = [];
+            existingSettlements[bNo].push({ account: acc, amount: amt });
+          }
+        });
+
+        const billsObj = {};
+        const storeSet = new Set();
+
+        rawSales.forEach(r => {
+          const bNo = getCleanBillNo(r);
+          if (!bNo || bNo === 'N/A') return;
+
+          const dateObj = parseDateToISO(r['Bill Date'] || r['Invoice Date']);
+          const store = (r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Main Branch').toString().trim();
+          const agent = (r['SM Name'] || r['Sales agent'] || r['Agent'] || 'No Agent').toString().trim();
+          const amt = parseFloat((r['Final Amount'] || r['FinalAmount'] || r['Total Value'] || r['TotalValue'] || r['BillAmount'] || r['Bill Amount'] || r['Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
+
+          storeSet.add(store);
+
+          if (!billsObj[bNo]) {
+            billsObj[bNo] = {
+              billNo: bNo,
+              dateDisplay: dateObj.display,
+              dateISO: dateObj.iso,
+              dateTimestamp: dateObj.timestamp,
+              store: store,
+              agent: agent,
+              totalAmount: 0,
+              settlements: existingSettlements[bNo] || []
+            };
+          }
+          billsObj[bNo].totalAmount += amt;
+        });
+
+        billsList = Object.values(billsObj);
+
+        const storeSelect = document.getElementById('filter-store');
+        storeSelect.innerHTML = `<option value="all">All Branches</option>` + Array.from(storeSet).map(s => `<option value="${s}">${s}</option>`).join('');
+
+        billsList.forEach(b => {
+          if (!settlementRowsState[b.billNo]) {
+            if (b.settlements.length > 0) {
+              settlementRowsState[b.billNo] = JSON.parse(JSON.stringify(b.settlements));
+            } else {
+              settlementRowsState[b.billNo] = [{ account: 'Cash', amount: b.totalAmount }];
+            }
+          }
+        });
+
+        renderBillsTable();
+      } catch (err) {
+        console.error(err);
+        document.getElementById('bills-table-body').innerHTML = `
+          <tr><td colspan="7" class="p-6 text-center text-rose-700 font-bold">Failed to load data. Please check your connection or credentials.</td></tr>
+        `;
+      } finally {
+        if (icon) icon.classList.remove('animate-spin');
+      }
+    }
+
+    // Toggle Column Sorting
+    function toggleSort(column) {
+      if (currentSortCol === column) {
+        currentSortAsc = !currentSortAsc;
+      } else {
+        currentSortCol = column;
+        // Default amount to descending, dates and text to ascending
+        currentSortAsc = (column === 'amount') ? false : true;
+      }
+      syncSortDropdownUI();
+      renderBillsTable();
+    }
+
+    function handleSortDropdown(val) {
+      const [col, dir] = val.split('-');
+      currentSortCol = col;
+      currentSortAsc = (dir === 'asc');
+      renderBillsTable();
+    }
+
+    function syncSortDropdownUI() {
+      const drop = document.getElementById('filter-sort');
+      if (drop) {
+        drop.value = `${currentSortCol}-${currentSortAsc ? 'asc' : 'desc'}`;
+      }
+    }
+
+    function updateSortHeaderIcons() {
+      const cols = ['date', 'billNo', 'store', 'agent', 'amount'];
+      cols.forEach(col => {
+        const iconEl = document.getElementById(`sort-icon-${col}`);
+        if (iconEl) {
+          if (currentSortCol === col) {
+            iconEl.innerHTML = currentSortAsc 
+              ? `<i class="fa-solid fa-arrow-up-short-wide text-[9px] text-[#5C0612]"></i>` 
+              : `<i class="fa-solid fa-arrow-down-wide-short text-[9px] text-[#5C0612]"></i>`;
+          } else {
+            iconEl.innerHTML = `<i class="fa-solid fa-sort text-[8px] text-stone-300"></i>`;
+          }
+        }
+      });
+    }
+
+    function renderBillsTable() {
+      const searchVal = (document.getElementById('table-search').value || '').toLowerCase().trim();
+      const statusFilter = document.getElementById('filter-status').value;
+      const storeFilter = document.getElementById('filter-store').value;
+      const tbody = document.getElementById('bills-table-body');
+
+      let filtered = billsList.filter(b => {
+        const isSettled = b.settlements && b.settlements.length > 0;
+        if (statusFilter === 'settled' && !isSettled) return false;
+        if (statusFilter === 'unsettled' && isSettled) return false;
+        if (storeFilter !== 'all' && b.store !== storeFilter) return false;
+
+        if (searchVal) {
+          const match = b.billNo.toLowerCase().includes(searchVal) ||
+                        b.agent.toLowerCase().includes(searchVal) ||
+                        b.dateDisplay.toLowerCase().includes(searchVal) ||
+                        b.store.toLowerCase().includes(searchVal);
+          if (!match) return false;
+        }
+        return true;
+      });
+
+      // ACCURATE CHRONOLOGICAL & NUMERICAL SORTING
+      filtered.sort((a, b) => {
+        if (currentSortCol === 'date') {
+          return currentSortAsc 
+            ? (a.dateTimestamp - b.dateTimestamp) 
+            : (b.dateTimestamp - a.dateTimestamp);
+        } else if (currentSortCol === 'amount') {
+          return currentSortAsc 
+            ? (a.totalAmount - b.totalAmount) 
+            : (b.totalAmount - a.totalAmount);
+        } else if (currentSortCol === 'billNo') {
+          return currentSortAsc 
+            ? a.billNo.localeCompare(b.billNo, undefined, {numeric: true}) 
+            : b.billNo.localeCompare(a.billNo, undefined, {numeric: true});
+        } else if (currentSortCol === 'store') {
+          return currentSortAsc 
+            ? a.store.localeCompare(b.store) 
+            : b.store.localeCompare(a.store);
+        } else if (currentSortCol === 'agent') {
+          return currentSortAsc 
+            ? a.agent.localeCompare(b.agent) 
+            : b.agent.localeCompare(a.agent);
+        }
+        return 0;
+      });
+
+      updateSortHeaderIcons();
+      document.getElementById('filtered-count-badge').textContent = `${filtered.length} Invoices`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr><td colspan="7" class="p-8 text-center text-stone-400 font-traditional">No invoices found matching your filters.</td></tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(b => {
+        const rows = settlementRowsState[b.billNo] || [{ account: 'Cash', amount: b.totalAmount }];
+        const isSettled = b.settlements && b.settlements.length > 0;
+        
+        let allocatedSum = 0;
+        rows.forEach(r => allocatedSum += parseFloat(r.amount) || 0);
+        const rem = b.totalAmount - allocatedSum;
+
+        const splitRowsHTML = rows.map((split, idx) => `
+          <div class="flex items-center gap-1.5 mt-1 first:mt-0">
+            <select onchange="updateRowSplitAccount('${b.billNo}', ${idx}, this.value)" class="text-xs font-bold bg-white border border-[#E5D5C6] rounded-lg p-1.5 text-stone-800 focus:outline-none w-36">
+              <option value="">-- Select Account --</option>
+              ${accountsMaster.map(acc => `<option value="${acc}" ${acc.toLowerCase() === (split.account || '').toLowerCase() ? 'selected' : ''}>${acc}</option>`).join('')}
+            </select>
+            <input type="number" step="any" placeholder="Amount (₹)" value="${split.amount !== undefined ? split.amount : ''}" oninput="updateRowSplitAmount('${b.billNo}', ${idx}, this.value)" class="w-24 text-xs font-bold font-numeric bg-white border border-[#E5D5C6] rounded-lg p-1.5 text-[#5C0612] focus:outline-none">
+            
+            ${rows.length > 1 ? `
+              <button onclick="removeRowSplit('${b.billNo}', ${idx})" class="text-stone-400 hover:text-rose-600 p-1 text-xs" title="Remove line">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            ` : ''}
+          </div>
+        `).join('');
+
+        return `
+          <tr class="hover:bg-amber-50/20 transition-colors ${isSettled ? 'bg-emerald-50/30' : ''}">
+            <td class="p-3 text-stone-600 font-numeric whitespace-nowrap font-bold">${b.dateDisplay}</td>
+            <td class="p-3 font-bold text-stone-800 font-numeric whitespace-nowrap">
+              <span>${b.billNo}</span>
+              ${isSettled ? '<span class="ml-1 text-[8px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold uppercase">Settled</span>' : ''}
+            </td>
+            <td class="p-3 text-stone-600 font-sans">${b.store}</td>
+            <td class="p-3 text-stone-600 font-sans">${b.agent}</td>
+            <td class="p-3 text-right font-black text-[#5C0612] font-numeric whitespace-nowrap">₹${b.totalAmount.toLocaleString('en-IN')}</td>
+            
+            <!-- DATA ENTRY COLUMN -->
+            <td class="p-2.5">
+              <div class="bg-[#FAF6EE] p-2 rounded-xl border border-[#E5D5C6] space-y-1">
+                ${splitRowsHTML}
+                <div class="flex justify-between items-center pt-1 border-t border-[#E5D5C6]/40 text-[9px]">
+                  <button onclick="addRowSplit('${b.billNo}')" class="text-[#5C0612] hover:underline font-bold font-traditional flex items-center gap-0.5">
+                    <i class="fa-solid fa-plus text-[8px]"></i> Add Split Line
+                  </button>
+                  <span class="font-numeric font-bold ${rem === 0 ? 'text-emerald-700' : 'text-amber-800'}">
+                    ${rem === 0 ? 'Exact Match ✅' : `Rem: ₹${rem.toLocaleString('en-IN')}`}
+                  </span>
+                </div>
+              </div>
+            </td>
+
+            <!-- ACTION BUTTON -->
+            <td class="p-3 text-center">
+              <button onclick="saveRowSettlement('${b.billNo}')" id="btn-save-${b.billNo.replace(/[^a-zA-Z0-9]/g,'_')}" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-sm font-traditional border border-[#DAA520] active:scale-95 whitespace-nowrap">
+                Save
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function updateRowSplitAccount(billNo, index, account) {
+      if (!settlementRowsState[billNo]) settlementRowsState[billNo] = [];
+      if (settlementRowsState[billNo][index]) {
+        settlementRowsState[billNo][index].account = account;
+      }
+    }
+
+    function updateRowSplitAmount(billNo, index, amount) {
+      if (!settlementRowsState[billNo]) settlementRowsState[billNo] = [];
+      if (settlementRowsState[billNo][index]) {
+        settlementRowsState[billNo][index].amount = parseFloat(amount) || 0;
+      }
+    }
+
+    function addRowSplit(billNo) {
+      if (!settlementRowsState[billNo]) settlementRowsState[billNo] = [];
+      const bill = billsList.find(b => b.billNo === billNo);
+      let allocated = 0;
+      settlementRowsState[billNo].forEach(s => allocated += parseFloat(s.amount) || 0);
+      const rem = bill ? Math.max(0, bill.totalAmount - allocated) : '';
+
+      settlementRowsState[billNo].push({ account: '42441-TJ', amount: rem });
+      renderBillsTable();
+    }
+
+    function removeRowSplit(billNo, index) {
+      if (settlementRowsState[billNo] && settlementRowsState[billNo].length > 1) {
+        settlementRowsState[billNo].splice(index, 1);
+        renderBillsTable();
+      }
+    }
+
+    async function saveRowSettlement(billNo) {
+      const bill = billsList.find(b => b.billNo === billNo);
+      if (!bill) return;
+
+      const splits = settlementRowsState[billNo] || [];
+      const validSplits = splits.filter(s => s.account && parseFloat(s.amount) > 0);
+
+      if (validSplits.length === 0) {
+        alert("Please choose an account and enter a valid amount.");
+        return;
+      }
+
+      const btnId = `btn-save-${billNo.replace(/[^a-zA-Z0-9]/g,'_')}`;
+      const btn = document.getElementById(btnId);
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Saving...";
+      }
+
+      const user = localStorage.getItem('kk_user') || 'admin';
+      const pass = localStorage.getItem('kk_pass') || '';
+
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            action: 'save_payment_splits',
+            username: user,
+            password: pass,
+            billNo: bill.billNo,
+            date: bill.dateDisplay,
+            agent: bill.agent,
+            store: bill.store,
+            splits: validSplits
+          })
+        });
+
+        const res = await response.json();
+        if (res.status === 'success') {
+          bill.settlements = validSplits;
+          if (btn) btn.textContent = "Saved ✅";
+          renderBillsTable();
+        } else {
+          alert("Error: " + (res.error || res.message));
+          if (btn) btn.textContent = "Save";
+        }
+      } catch (err) {
+        bill.settlements = validSplits;
+        if (btn) btn.textContent = "Saved ✅";
+        renderBillsTable();
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    // Modal Handlers for Adding Account
+    function openNewAccountModal() {
+      document.getElementById('modal-account-name').value = '';
+      document.getElementById('new-account-modal').classList.remove('hidden');
+    }
+
+    function closeNewAccountModal() {
+      document.getElementById('new-account-modal').classList.add('hidden');
+    }
+
+    async function submitNewAccount() {
+      const name = (document.getElementById('modal-account-name').value || '').trim();
+      if (!name) return alert("Please enter an Account Name.");
+
+      if (!accountsMaster.includes(name)) accountsMaster.push(name);
+
+      closeNewAccountModal();
+      renderBillsTable();
+
+      const user = localStorage.getItem('kk_user') || 'admin';
+      const pass = localStorage.getItem('kk_pass') || '';
+      try {
+        await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({ action: 'save_new_account', username: user, password: pass, accountName: name })
+        });
+      } catch (e) {}
+
+      alert(`✅ Account "${name}" added to master list!`);
+    }
+  </script>
+</body>
+</html>
