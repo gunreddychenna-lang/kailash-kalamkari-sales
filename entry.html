@@ -61,7 +61,7 @@
       <!-- Search Input -->
       <div class="relative flex-1 w-full max-w-md">
         <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-stone-400 text-xs"></i>
-        <input type="text" id="table-search" placeholder="Search Bill No, Channel, Staff, Date..." oninput="renderBillsTable()" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl py-2.5 pl-10 pr-4 text-stone-800 font-sans focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
+        <input type="text" id="table-search" placeholder="Search by Bill No, Channel, Staff, Date..." oninput="renderBillsTable()" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl py-2.5 pl-10 pr-4 text-stone-800 font-sans focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
       </div>
 
       <!-- Quick Filter & Sort Controls -->
@@ -77,20 +77,22 @@
           <option value="bill-desc">Bill No: Z → A</option>
         </select>
 
-        <!-- Channel Filter (Online / Wholesale / Offline) -->
+        <!-- Channel Filter -->
         <select id="filter-channel" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 focus:outline-none font-traditional">
           <option value="all">All Channels</option>
           <option value="Online">🌐 Online</option>
           <option value="Offline">🏬 Offline Store</option>
-          <option value="Wholesale">📦 Wholesale / Hand</option>
+          <option value="Wholesale">📦 Takebyhand / Wholesale</option>
         </select>
 
+        <!-- Status Filter -->
         <select id="filter-status" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-[#5C0612] focus:outline-none font-traditional">
           <option value="all">All Invoices</option>
           <option value="unsettled" selected>Pending Settlement</option>
           <option value="settled">Already Settled</option>
         </select>
         
+        <!-- Branch Filter -->
         <select id="filter-store" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-700 focus:outline-none font-sans">
           <option value="all">All Branches</option>
         </select>
@@ -260,9 +262,17 @@
 
     function getCleanBillNo(row) {
       if (!row) return '';
-      const keys = ['Bil No', 'Bil No.', 'BilNo', 'Bill No', 'Bill No.', 'BillNo', 'Invoice No', 'Invoice No.'];
+      const keys = ['Bil No', 'Bil No.', 'BilNo', 'Bill No', 'Bill No.', 'BillNo', 'Invoice No', 'Invoice No.', 'Bill_No', 'Invoice_No'];
       for (let k of keys) {
-        if (row[k]) return row[k].toString().trim();
+        if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
+          return row[k].toString().trim();
+        }
+      }
+      for (let key in row) {
+        const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanKey === 'bilno' || cleanKey === 'billno' || cleanKey === 'invoiceno') {
+          return (row[key] || '').toString().trim();
+        }
       }
       return '';
     }
@@ -295,16 +305,18 @@
         }
         syncDatalist();
 
+        // 1. Build existing settlements with case-insensitive & trimmed keys
         const existingSettlements = {};
-        const recList = data.recievables || data.receivables || [];
+        const recList = data.recievables || data.receivables || data.bank_ledger || [];
         recList.forEach(r => {
-          const bNo = getCleanBillNo(r);
-          const amt = parseFloat((r['Net Invoice Value'] || r['Amount'] || r['Bill Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
+          const rawBNo = getCleanBillNo(r);
+          if (!rawBNo) return;
+          const cleanKey = rawBNo.toString().trim().toUpperCase();
+          const amt = parseFloat((r['Net Invoice Value'] || r['Amount'] || r['Bill Amount'] || r['Received'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
           const acc = (r['Acc No'] || r['Account Name'] || r['Bank'] || '').toString().trim();
-          if (bNo) {
-            if (!existingSettlements[bNo]) existingSettlements[bNo] = [];
-            existingSettlements[bNo].push({ account: acc, amount: amt });
-          }
+          
+          if (!existingSettlements[cleanKey]) existingSettlements[cleanKey] = [];
+          existingSettlements[cleanKey].push({ account: acc, amount: amt });
         });
 
         const billsObj = {};
@@ -314,6 +326,7 @@
           const bNo = getCleanBillNo(r);
           if (!bNo || bNo === 'N/A') return;
 
+          const cleanKey = bNo.toString().trim().toUpperCase();
           const dateObj = parseDateToISO(r['Bill Date'] || r['Invoice Date']);
           const store = (r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Main Branch').toString().trim();
           const agent = (r['SM Name'] || r['Sales agent'] || r['Agent'] || 'No Agent').toString().trim();
@@ -323,9 +336,9 @@
 
           storeSet.add(store);
 
-          if (!billsObj[bNo]) {
-            billsObj[bNo] = {
-              billNo: bNo,
+          if (!billsObj[cleanKey]) {
+            billsObj[cleanKey] = {
+              billNo: bNo.toString().trim(),
               channel: channel,
               dateDisplay: dateObj.display,
               dateISO: dateObj.iso,
@@ -333,10 +346,10 @@
               store: store,
               agent: agent,
               totalAmount: 0,
-              settlements: existingSettlements[bNo] || []
+              settlements: existingSettlements[cleanKey] || []
             };
           }
-          billsObj[bNo].totalAmount += amt;
+          billsObj[cleanKey].totalAmount += amt;
         });
 
         billsList = Object.values(billsObj);
@@ -344,9 +357,10 @@
         const storeSelect = document.getElementById('filter-store');
         storeSelect.innerHTML = `<option value="all">All Branches</option>` + Array.from(storeSet).map(s => `<option value="${s}">${s}</option>`).join('');
 
+        // Populate row state with either settled records or defaults
         billsList.forEach(b => {
           if (!settlementRowsState[b.billNo]) {
-            if (b.settlements.length > 0) {
+            if (b.settlements && b.settlements.length > 0) {
               settlementRowsState[b.billNo] = JSON.parse(JSON.stringify(b.settlements));
             } else {
               settlementRowsState[b.billNo] = [{ account: 'Cash', amount: b.totalAmount }];
