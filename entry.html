@@ -23,7 +23,7 @@
 </head>
 <body class="bg-[#FAF6EE] text-stone-800 pb-16 min-h-screen">
 
-  <!-- Master Accounts Datalist for Keyboard Autocomplete & Arrow Selection -->
+  <!-- Master Accounts Datalist for Keyboard Autocomplete -->
   <datalist id="accounts-master-datalist"></datalist>
 
   <!-- HEADER -->
@@ -39,7 +39,7 @@
         </div>
       </div>
       
-      <!-- Top Actions -->
+      <!-- Top Action Buttons -->
       <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
         <button onclick="openNewAccountModal()" class="bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 active:scale-95 duration-100">
           <i class="fa-solid fa-plus-circle text-xs"></i> + New Account Type
@@ -56,26 +56,34 @@
   <!-- MAIN WORKSPACE CONTAINER -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-4">
     
-    <!-- SEARCH & FILTER TOOLBAR -->
-    <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex flex-col lg:flex-row justify-between items-center gap-3">
+    <!-- SEARCH & CALENDAR FILTER TOOLBAR -->
+    <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex flex-col xl:flex-row justify-between items-center gap-3">
+      
       <!-- Search Input -->
-      <div class="relative flex-1 w-full max-w-md">
+      <div class="relative flex-1 w-full max-w-sm">
         <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-stone-400 text-xs"></i>
-        <input type="text" id="table-search" placeholder="Search by Bill No, Channel, Staff, Date..." oninput="renderBillsTable()" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl py-2.5 pl-10 pr-4 text-stone-800 font-sans focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
+        <input type="text" id="table-search" placeholder="Search by Bill No, Staff, Branch..." oninput="renderBillsTable()" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl py-2.5 pl-10 pr-4 text-stone-800 font-sans focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
       </div>
 
-      <!-- Quick Filter & Sort Controls -->
-      <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-start lg:justify-end">
-        
-        <!-- Direct Quick Sort Dropdown -->
-        <select id="filter-sort" onchange="handleSortDropdown(this.value)" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 focus:outline-none font-traditional">
-          <option value="date-desc" selected>Date: Newest First (Latest ➔ Old)</option>
-          <option value="date-asc">Date: Oldest First (Old ➔ Latest)</option>
-          <option value="amount-desc">Amount: High to Low (₹ ▼)</option>
-          <option value="amount-asc">Amount: Low to High (₹ ▲)</option>
-          <option value="bill-asc">Bill No: A → Z</option>
-          <option value="bill-desc">Bill No: Z → A</option>
-        </select>
+      <!-- CALENDAR DATE RANGE FILTER -->
+      <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+        <!-- From Date -->
+        <div class="flex items-center gap-1.5 bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl px-2.5 py-1.5">
+          <span class="text-[10px] font-bold text-stone-500 uppercase font-traditional">From:</span>
+          <input type="date" id="filter-from-date" onchange="renderBillsTable()" class="bg-transparent text-xs font-bold text-stone-800 focus:outline-none font-numeric">
+          <button onclick="document.getElementById('filter-from-date').showPicker()" class="text-[#5C0612] hover:text-[#4A030D] p-0.5">
+            <i class="fa-regular fa-calendar-days text-xs"></i>
+          </button>
+        </div>
+
+        <!-- To Date -->
+        <div class="flex items-center gap-1.5 bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl px-2.5 py-1.5">
+          <span class="text-[10px] font-bold text-stone-500 uppercase font-traditional">To:</span>
+          <input type="date" id="filter-to-date" onchange="renderBillsTable()" class="bg-transparent text-xs font-bold text-stone-800 focus:outline-none font-numeric">
+          <button onclick="document.getElementById('filter-to-date').showPicker()" class="text-[#5C0612] hover:text-[#4A030D] p-0.5">
+            <i class="fa-regular fa-calendar-days text-xs"></i>
+          </button>
+        </div>
 
         <!-- Channel Filter -->
         <select id="filter-channel" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 focus:outline-none font-traditional">
@@ -85,14 +93,14 @@
           <option value="Wholesale">📦 Takebyhand / Wholesale</option>
         </select>
 
-        <!-- Status Filter -->
+        <!-- Settlement Status Filter -->
         <select id="filter-status" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-[#5C0612] focus:outline-none font-traditional">
           <option value="all">All Invoices</option>
           <option value="unsettled" selected>Pending Settlement</option>
           <option value="settled">Already Settled</option>
         </select>
         
-        <!-- Branch Filter -->
+        <!-- Branch / Store Filter -->
         <select id="filter-store" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-700 focus:outline-none font-sans">
           <option value="all">All Branches</option>
         </select>
@@ -110,14 +118,14 @@
           <thead>
             <tr class="bg-[#F3EFE9] text-stone-700 uppercase text-[9px] font-extrabold tracking-wider border-b border-[#E5D5C6] select-none">
               
-              <th onclick="toggleSort('date')" class="p-3.5 font-traditional w-28 cursor-pointer hover:text-[#5C0612] hover:bg-amber-100/50 transition-colors">
+              <th onclick="toggleSort('date')" class="p-3.5 font-traditional w-28 cursor-pointer hover:text-[#5C0612] hover:bg-amber-100/50 transition-colors" title="Click to sort by Date">
                 <div class="flex items-center gap-1">
                   <span>DATE</span>
                   <span id="sort-icon-date"><i class="fa-solid fa-sort text-[8px] text-[#5C0612]"></i></span>
                 </div>
               </th>
 
-              <th onclick="toggleSort('billNo')" class="p-3.5 font-traditional w-44 cursor-pointer hover:text-[#5C0612] hover:bg-amber-100/50 transition-colors">
+              <th onclick="toggleSort('billNo')" class="p-3.5 font-traditional w-44 cursor-pointer hover:text-[#5C0612] hover:bg-amber-100/50 transition-colors" title="Click to sort by Bill No">
                 <div class="flex items-center gap-1">
                   <span>BILL NO & CHANNEL</span>
                   <span id="sort-icon-billNo"><i class="fa-solid fa-sort text-[8px] text-stone-400"></i></span>
@@ -138,7 +146,7 @@
                 </div>
               </th>
 
-              <th onclick="toggleSort('amount')" class="p-3.5 text-right font-traditional w-28 cursor-pointer hover:text-[#5C0612] hover:bg-amber-100/50 transition-colors">
+              <th onclick="toggleSort('amount')" class="p-3.5 text-right font-traditional w-28 cursor-pointer hover:text-[#5C0612] hover:bg-amber-100/50 transition-colors" title="Click to sort by Amount">
                 <div class="flex items-center justify-end gap-1">
                   <span>BILL VALUE</span>
                   <span id="sort-icon-amount"><i class="fa-solid fa-sort text-[8px] text-stone-400"></i></span>
@@ -198,7 +206,7 @@
     let accountsMaster = ['Cash', '42441-TJ', 'KC'];
     let settlementRowsState = {}; 
 
-    // Default Sort: Date Newest First
+    // Default Sorting State (Newest first)
     let currentSortCol = 'date';
     let currentSortAsc = false;
 
@@ -222,7 +230,7 @@
       return 'Offline';
     }
 
-    // Chronological Date Parser
+    // Chronological Date Parsing Utility
     function parseDateToISO(dateVal) {
       if (!dateVal) return { iso: '1970-01-01', display: '', timestamp: 0 };
       let strVal = dateVal.toString().trim();
@@ -277,6 +285,9 @@
       return '';
     }
 
+    // -------------------------------------------------------------
+    // SECURE POST-BASED DATA FETCHING
+    // -------------------------------------------------------------
     async function fetchSheetData() {
       const icon = document.getElementById('refresh-icon');
       if (icon) icon.classList.add('animate-spin');
@@ -285,8 +296,21 @@
       const pass = localStorage.getItem('kk_pass') || '';
 
       try {
-        const response = await fetch(`${API_URL}?username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`);
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            action: 'fetch_all',
+            username: user,
+            password: pass
+          })
+        });
+
         const data = await response.json();
+        if (data.error) {
+          alert("Session expired or invalid login: " + data.error);
+          return;
+        }
 
         let rawSales = [];
         if (Array.isArray(data)) rawSales = data;
@@ -305,7 +329,7 @@
         }
         syncDatalist();
 
-        // 1. Build existing settlements with case-insensitive & trimmed keys
+        // Map existing settlements
         const existingSettlements = {};
         const recList = data.recievables || data.receivables || data.bank_ledger || [];
         recList.forEach(r => {
@@ -321,6 +345,7 @@
 
         const billsObj = {};
         const storeSet = new Set();
+        const allISODates = [];
 
         rawSales.forEach(r => {
           const bNo = getCleanBillNo(r);
@@ -335,6 +360,7 @@
           const channel = getSalesType(payMode);
 
           storeSet.add(store);
+          if (dateObj.iso && dateObj.iso !== '1970-01-01') allISODates.push(dateObj.iso);
 
           if (!billsObj[cleanKey]) {
             billsObj[cleanKey] = {
@@ -354,10 +380,27 @@
 
         billsList = Object.values(billsObj);
 
-        const storeSelect = document.getElementById('filter-store');
-        storeSelect.innerHTML = `<option value="all">All Branches</option>` + Array.from(storeSet).map(s => `<option value="${s}">${s}</option>`).join('');
+        // Auto-populate Calendar Dates with the data range if not set
+        if (allISODates.length > 0) {
+          allISODates.sort();
+          const fromInput = document.getElementById('filter-from-date');
+          const toInput = document.getElementById('filter-to-date');
+          if (fromInput && !fromInput.value) {
+            const maxDateStr = allISODates[allISODates.length - 1];
+            const [yyyy, mm] = maxDateStr.split('-');
+            fromInput.value = `${yyyy}-${mm}-01`;
+          }
+          if (toInput && !toInput.value) {
+            toInput.value = allISODates[allISODates.length - 1];
+          }
+        }
 
-        // Populate row state with either settled records or defaults
+        const storeSelect = document.getElementById('filter-store');
+        if (storeSelect) {
+          storeSelect.innerHTML = `<option value="all">All Branches</option>` + Array.from(storeSet).map(s => `<option value="${s}">${s}</option>`).join('');
+        }
+
+        // Initialize Row State
         billsList.forEach(b => {
           if (!settlementRowsState[b.billNo]) {
             if (b.settlements && b.settlements.length > 0) {
@@ -379,6 +422,9 @@
       }
     }
 
+    // -------------------------------------------------------------
+    // SORTING HANDLERS
+    // -------------------------------------------------------------
     function toggleSort(column) {
       if (currentSortCol === column) {
         currentSortAsc = !currentSortAsc;
@@ -386,22 +432,7 @@
         currentSortCol = column;
         currentSortAsc = (column === 'amount' || column === 'date') ? false : true;
       }
-      syncSortDropdownUI();
       renderBillsTable();
-    }
-
-    function handleSortDropdown(val) {
-      const [col, dir] = val.split('-');
-      currentSortCol = col;
-      currentSortAsc = (dir === 'asc');
-      renderBillsTable();
-    }
-
-    function syncSortDropdownUI() {
-      const drop = document.getElementById('filter-sort');
-      if (drop) {
-        drop.value = `${currentSortCol}-${currentSortAsc ? 'asc' : 'desc'}`;
-      }
     }
 
     function updateSortHeaderIcons() {
@@ -420,14 +451,23 @@
       });
     }
 
+    // -------------------------------------------------------------
+    // SPREADSHEET TABLE RENDERER
+    // -------------------------------------------------------------
     function renderBillsTable() {
       const searchVal = (document.getElementById('table-search').value || '').toLowerCase().trim();
+      const fromDate = document.getElementById('filter-from-date') ? document.getElementById('filter-from-date').value : '';
+      const toDate = document.getElementById('filter-to-date') ? document.getElementById('filter-to-date').value : '';
       const statusFilter = document.getElementById('filter-status').value;
       const channelFilter = document.getElementById('filter-channel').value;
       const storeFilter = document.getElementById('filter-store').value;
       const tbody = document.getElementById('bills-table-body');
 
       let filtered = billsList.filter(b => {
+        // Date Range Filtering
+        if (fromDate && b.dateISO && b.dateISO < fromDate) return false;
+        if (toDate && b.dateISO && b.dateISO > toDate) return false;
+
         const isSettled = b.settlements && b.settlements.length > 0;
         if (statusFilter === 'settled' && !isSettled) return false;
         if (statusFilter === 'unsettled' && isSettled) return false;
@@ -581,7 +621,9 @@
       }).join('');
     }
 
-    // Keyboard handlers for instant arrow & enter operations
+    // -------------------------------------------------------------
+    // KEYBOARD NAVIGATION & INTERACTIVE ACTIONS
+    // -------------------------------------------------------------
     function handleAccountInputKey(e, billNo, idx) {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -637,6 +679,9 @@
       }
     }
 
+    // -------------------------------------------------------------
+    // SECURE MUTATION: SAVE SETTLEMENT TO SHEET
+    // -------------------------------------------------------------
     async function saveRowSettlement(billNo) {
       const bill = billsList.find(b => b.billNo === billNo);
       if (!bill) return;
@@ -693,6 +738,9 @@
       }
     }
 
+    // -------------------------------------------------------------
+    // MODAL & NEW ACCOUNT CREATION HANDLERS
+    // -------------------------------------------------------------
     function openNewAccountModal() {
       document.getElementById('modal-account-name').value = '';
       document.getElementById('new-account-modal').classList.remove('hidden');
@@ -716,13 +764,21 @@
 
       const user = localStorage.getItem('kk_user') || 'admin';
       const pass = localStorage.getItem('kk_pass') || '';
+      
       try {
         await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ action: 'save_new_account', username: user, password: pass, accountName: name })
+          body: JSON.stringify({ 
+            action: 'save_new_account', 
+            username: user, 
+            password: pass, 
+            accountName: name 
+          })
         });
-      } catch (e) {}
+      } catch (e) {
+        console.warn("Stored account locally:", e);
+      }
 
       alert(`✅ Account "${name}" added to master list!`);
     }

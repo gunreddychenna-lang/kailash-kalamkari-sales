@@ -1,6 +1,15 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbwSdvj2seF5EV9onv1GeirtNHBvh2A6r8RJlu1krcNOhXMY92UXWeZduiqUDpbrcG_q/exec";
-const SESSION_TIMEOUT = 6 * 60 * 60 * 1000;
 
+
+/**
+ * KAILASH KALAMKARI - EXECUTIVE PORTAL FRONTEND (app.js)
+ * Enterprise-grade client script with secure POST data sync,
+ * multi-store analytics, split-bill tracking, and payroll engine.
+ */
+
+const API_URL = "https://script.google.com/macros/s/AKfycbwSdvj2seF5EV9onv1GeirtNHBvh2A6r8RJlu1krcNOhXMY92UXWeZduiqUDpbrcG_q/exec";
+const SESSION_TIMEOUT = 6 * 60 * 60 * 1000; // 6 Hours
+
+// Global Application State
 let rawData = [];
 let rawAttendanceData = [];
 let bankAccountsList = [];
@@ -14,22 +23,28 @@ let selectedAttendanceMonth = "All";
 let activeAnalysisAgent = "";
 let isAdmin = false;
 
-// MULTI-SPLIT PAYMENT TRACKING
+// Multi-Split Payment Tracking Maps
 let globalBillSplitsMap = {}; 
 let globalBillBankMap = {};
-let agentBillsViewMode = 'summary'; // 'summary' or 'detailed'
+let agentBillsViewMode = 'summary'; // 'summary' | 'detailed'
 let currentSelectedBillData = null;
 
+// Weekly Distribution & Metrics
 let currentDaySales = [0, 0, 0, 0, 0, 0, 0];
 let prodSortCol = 'qty', prodSortAsc = false;
 let agentSortCol = 'revenue', agentSortAsc = false;
 
+// Target & Commission Settings
 let monthlyTarget = parseFloat(localStorage.getItem('kk_monthly_target')) || 1000000;
 let defaultCommissionPct = 0.0;
 
+// Initialize Routing State
 if (history.state === null) history.replaceState({ view: 'home' }, '');
 window.addEventListener('popstate', e => applyState(e.state, true));
 
+// -------------------------------------------------------------
+// PDF EXPORT UTILITY
+// -------------------------------------------------------------
 function exportSectionToPDF(elementId, titleFilename) {
   const element = document.getElementById(elementId);
   if (!element || typeof html2pdf === 'undefined') {
@@ -55,6 +70,9 @@ function exportSectionToPDF(elementId, titleFilename) {
   });
 }
 
+// -------------------------------------------------------------
+// DATA PARSING & NORMALIZATION UTILITIES
+// -------------------------------------------------------------
 function normalizeToDateString(dateVal) {
   if (!dateVal) return '';
   let strVal = dateVal.toString().trim();
@@ -102,18 +120,7 @@ function getBillNo(row) {
 
   for (let key in row) {
     const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (
-      cleanKey === 'bilno' || 
-      cleanKey === 'billno' || 
-      cleanKey === 'billnum' || 
-      cleanKey === 'billnumber' || 
-      cleanKey === 'invoiceno' || 
-      cleanKey === 'invoicenumber' || 
-      cleanKey === 'docno' || 
-      cleanKey === 'voucherno' || 
-      cleanKey === 'refno' || 
-      cleanKey === 'billcode'
-    ) {
+    if (['bilno', 'billno', 'billnum', 'billnumber', 'invoiceno', 'invoicenumber', 'docno', 'voucherno', 'refno', 'billcode'].includes(cleanKey)) {
       const val = (row[key] || '').toString().trim();
       if (val && val !== '0' && !val.includes('T') && !val.includes('Z') && val.toLowerCase() !== 'null' && val.toLowerCase() !== 'undefined') {
         return val;
@@ -228,7 +235,7 @@ function getSalesType(payMode) {
   if (!payMode) return 'Offline';
   const pm = payMode.toString().toLowerCase().trim();
   if (pm.includes('onl') || pm.includes('online') || pm.includes('web')) return 'Online';
-  if (pm.includes('by hand') || pm.includes('hand') || pm.includes('wholesale') || pm.includes('take by hand') || pm.includes('takebyhand')) return 'Wholesale';
+  if (pm.includes('by hand') || pm.includes('hand') || pm.includes('wholesale') || pm.includes('take by hand') || pm.includes('takebyhand') || pm.includes('tbh')) return 'Wholesale';
   return 'Offline';
 }
 
@@ -241,6 +248,9 @@ function getItemCategory(itemName) {
   return 'General';
 }
 
+// -------------------------------------------------------------
+// AUTHENTICATION & SECURE POST DATA SYNC
+// -------------------------------------------------------------
 function checkSession() {
   const savedUser = localStorage.getItem('kk_user');
   const savedPass = localStorage.getItem('kk_pass');
@@ -252,7 +262,7 @@ function checkSession() {
   }
   const cleanUser = savedUser.trim().toLowerCase();
   isAdmin = cleanUser === 'admin';
-  return { valid: true, user: cleanUser, pass: savedPass.trim().toLowerCase() };
+  return { valid: true, user: cleanUser, pass: savedPass.trim() };
 }
 
 const loginForm = document.getElementById('login-form');
@@ -260,7 +270,7 @@ if (loginForm) {
   loginForm.addEventListener('submit', async function(e) {
     e.preventDefault();
     const user = document.getElementById('login-username').value.trim().toLowerCase();
-    const pass = document.getElementById('login-password').value.trim().toLowerCase();
+    const pass = document.getElementById('login-password').value.trim();
     document.getElementById('login-error').classList.add('hidden');
     document.getElementById('login-btn-text').classList.add('hidden');
     document.getElementById('login-btn-spinner').classList.remove('hidden');
@@ -275,7 +285,7 @@ function handleLogout() {
 
 async function fetchData(user, pass) {
   const cleanUser = (user || '').trim().toLowerCase();
-  const cleanPass = (pass || '').trim().toLowerCase();
+  const cleanPass = (pass || '').trim();
 
   document.getElementById('loader').classList.remove('hidden');
   document.getElementById('standard-main').classList.add('hidden');
@@ -285,8 +295,17 @@ async function fetchData(user, pass) {
     globalBillSplitsMap = {};
     globalBillBankMap = {};
 
-    const url = `${API_URL}?username=${encodeURIComponent(cleanUser)}&password=${encodeURIComponent(cleanPass)}`;
-    const response = await fetch(url);
+    // SECURE POST REQUEST: Payload sent in request body, not exposed in query string
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'fetch_all',
+        username: cleanUser,
+        password: cleanPass
+      })
+    });
+
     if (!response.ok) throw new Error(`Server status ${response.status}`);
     
     const data = await response.json();
@@ -322,7 +341,7 @@ async function fetchData(user, pass) {
       rawAttendanceData = Array.isArray(data.attendance) ? data.attendance : [];
     }
 
-    const receivablesSource = data.receivables || data.recievables || data.bank_ledger || [];
+    const receivablesSource = data.receivables || data.recievables || [];
     if (Array.isArray(receivablesSource)) {
       receivablesSource.forEach(r => {
         const bNo = getBillNo(r);
@@ -331,7 +350,7 @@ async function fetchData(user, pass) {
           r['Net Invoice Value'] || r['NetInvoiceValue'] || r['Amount'] || 
           r['Received'] || r['Final Amount'] || r['Bill Amount'] || '0'
         ).toString().replace(/[^0-9.-]+/g, "")) || 0;
-        const pMode = r['Account Name'] || r['PayMode'] || r['Pay Mode'] || bnk;
+        const pMode = r['Acc No'] || r['Account Name'] || r['PayMode'] || bnk;
 
         if (bNo && bNo !== 'N/A') {
           registerBillSplit(bNo, bnk, splitAmt, pMode);
@@ -354,12 +373,25 @@ async function fetchData(user, pass) {
     applyState(history.state || { view: 'home' }, true);
   } catch (error) {
     console.error(error);
-    showLoginError("Connection failed. Please check credentials.");
+    showLoginError("Connection failed. Please check your credentials or network.");
   } finally {
     document.getElementById('loader').classList.add('hidden');
   }
 }
 
+function showLoginError(message) {
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('loader').classList.add('hidden');
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = message;
+  errEl.classList.remove('hidden');
+  document.getElementById('login-btn-text').classList.remove('hidden');
+  document.getElementById('login-btn-spinner').classList.add('hidden');
+}
+
+// -------------------------------------------------------------
+// FILTER POPULATION & METADATA DETECTION
+// -------------------------------------------------------------
 function detectAndPopulateStores() {
   const storeSelect = document.getElementById('store-filter');
   if (!storeSelect) return;
@@ -466,6 +498,9 @@ function updateRoleVisibility() {
   }
 }
 
+// -------------------------------------------------------------
+// SPA NAVIGATION & STATE MANAGEMENT
+// -------------------------------------------------------------
 function applyState(state, isPopState = false) {
   if (!state) state = { view: 'home' };
   const session = checkSession();
@@ -519,16 +554,6 @@ function applyState(state, isPopState = false) {
   }
 
   if (!isPopState) history.pushState(state, '');
-}
-
-function showLoginError(message) {
-  document.getElementById('login-screen').classList.remove('hidden');
-  document.getElementById('loader').classList.add('hidden');
-  const errEl = document.getElementById('login-error');
-  errEl.textContent = message;
-  errEl.classList.remove('hidden');
-  document.getElementById('login-btn-text').classList.remove('hidden');
-  document.getElementById('login-btn-spinner').classList.add('hidden');
 }
 
 function detectDateRanges() {
@@ -635,6 +660,9 @@ function formatPhoneForWhatsApp(phoneRaw) {
   return digits;
 }
 
+// -------------------------------------------------------------
+// CORE METRICS & ANALYTICS COMPUTATION ENGINE
+// -------------------------------------------------------------
 function processData() {
   const fromDate = document.getElementById('from-date').value;
   const toDate = document.getElementById('to-date').value;
@@ -655,7 +683,7 @@ function processData() {
 
     if (dateMatch) {
       const amount = parseFloat((row['Final Amount'] || row['FinalAmount'] || row['Total Value'] || row['TotalValue'] || row['BillAmount'] || row['Bill Amount'] || row['Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
-      const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Kailash Kalamkari').toString().trim();
+      const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Main Branch').toString().trim();
       storeTotals[storeName] = (storeTotals[storeName] || 0) + amount;
     }
   });
@@ -666,7 +694,7 @@ function processData() {
     let match = true;
     if (fromDate) match = match && (rDate >= fromDate);
     if (toDate) match = match && (rDate <= toDate);
-    const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Kailash Kalamkari').toString().trim();
+    const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Main Branch').toString().trim();
     if (selectedStore !== 'All' && storeName.toLowerCase() !== selectedStore.toLowerCase()) match = false;
     return match;
   });
@@ -719,7 +747,7 @@ function processData() {
           payCash += sAmt;
         } else if (sModeStr.includes('card')) {
           payCard += sAmt;
-        } else if (sModeStr.includes('hand') || sModeStr.includes('wholesale')) {
+        } else if (sModeStr.includes('hand') || sModeStr.includes('wholesale') || sModeStr.includes('tbh')) {
           payHand += sAmt;
         } else if (sModeStr.includes('onl') || sModeStr.includes('online')) {
           payUpiOnline += sAmt;
@@ -739,7 +767,7 @@ function processData() {
       const cleanPm = payMode.toString().toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
       if (cleanPm.includes('cash')) payCash += amount;
       else if (cleanPm.includes('card')) payCard += amount;
-      else if (cleanPm.includes('hand') || cleanPm.includes('wholesale') || cleanPm.includes('takebyhand')) payHand += amount;
+      else if (cleanPm.includes('hand') || cleanPm.includes('wholesale') || cleanPm.includes('takebyhand') || cleanPm.includes('tbh')) payHand += amount;
       else if (cleanPm.includes('onl') || cleanPm.includes('online')) payUpiOnline += amount;
       else if (cleanPm.includes('store') || cleanPm.includes('counter') || cleanPm.includes('shop')) payUpiStore += amount;
       else if (cleanPm.includes('upi') || cleanPm.includes('gpay') || cleanPm.includes('phonepe')) {
@@ -913,6 +941,9 @@ function processData() {
   if (selectedAgentDetail) populateAgentDetailsDOM(selectedAgentDetail);
 }
 
+// -------------------------------------------------------------
+// TABLE RENDERERS & DRILLDOWN VIEWS
+// -------------------------------------------------------------
 function filterCategory(cat) {
   selectedCategory = cat;
   ['All', 'Sarees', 'Fabrics', 'Frames'].forEach(c => {
@@ -958,8 +989,8 @@ function renderProductsTable() {
       </td>
       <td class="p-3.5 text-center font-bold text-stone-700 font-sans">${p.qty}</td>
       <td class="p-3.5 text-right font-sans">
-        <div class="font-bold text-[#5C0612] text-xs">₹${p.revenue.toLocaleString('en-IN')}</div>
-        <div class="text-[9px] text-[#DAA520] font-bold mt-1 uppercase">${p.share.toFixed(1)}% Share</div>
+        <div class="font-bold text-[#5C0612] text-xs font-numeric">₹${p.revenue.toLocaleString('en-IN')}</div>
+        <div class="text-[9px] text-[#DAA520] font-bold mt-1 uppercase font-numeric">${p.share.toFixed(1)}% Share</div>
       </td>
     </tr>
   `).join('');
@@ -986,10 +1017,10 @@ function renderAgentsTable() {
           <span class="text-[9px] text-[#DAA520] font-bold flex items-center gap-1 font-traditional">Ledger <i class="fa-solid fa-chevron-right text-[8px]"></i></span>
         </div>
         <div class="text-[9px] text-stone-500 font-bold mt-1 font-sans">
-          Basket (UPT): <strong>${a.upt.toFixed(1)}</strong> • Avg Ticket (ATV): <strong class="text-[#5C0612]">₹${Math.round(a.billCount > 0 ? (a.revenue / a.billCount) : 0).toLocaleString('en-IN')}</strong>
+          Basket (UPT): <strong class="font-numeric">${a.upt.toFixed(1)}</strong> • Avg Ticket (ATV): <strong class="text-[#5C0612] font-numeric">₹${Math.round(a.billCount > 0 ? (a.revenue / a.billCount) : 0).toLocaleString('en-IN')}</strong>
         </div>
       </td>
-      <td class="p-3.5 text-right font-extrabold text-[#5C0612] font-sans">₹${a.revenue.toLocaleString('en-IN')}</td>
+      <td class="p-3.5 text-right font-extrabold text-[#5C0612] font-sans font-numeric">₹${a.revenue.toLocaleString('en-IN')}</td>
     </tr>
   `).join('');
 }
@@ -1047,7 +1078,7 @@ function renderBankLedgerModule() {
     if (fromVal && rDate < fromVal) return;
     if (toVal && rDate > toVal) return;
 
-    const storeName = (r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Shop 1').toString().trim();
+    const storeName = (r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Main Branch').toString().trim();
     if (selectedStore !== 'All' && storeName.toLowerCase() !== selectedStore.toLowerCase()) return;
 
     const bNo = getBillNo(r);
@@ -1143,6 +1174,9 @@ function backupBankStatementExcel() {
   XLSX.writeFile(workbook, `Kailash_BankStatement_${selectedBank.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
+// -------------------------------------------------------------
+// ATTENDANCE, PAYROLL & COMMISSIONS MODULE
+// -------------------------------------------------------------
 function filterAttendanceMonth(mSheet) {
   selectedAttendanceMonth = mSheet;
   renderAttendanceSalaryModule(parseFloat((document.getElementById('metric-total').textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
@@ -1596,7 +1630,7 @@ function backupFullDatabaseExcel() {
   const workbook = XLSX.utils.book_new();
   const salesSheetData = rawData.map(r => ({
     "Date": normalizeToDateString(r['Bill Date']),
-    "Store/Shop": r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Shop 1',
+    "Store/Shop": r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Main Branch',
     "Bill No": getBillNo(r),
     "Staff Name": r['SM Name'] || 'No Agent',
     "Item Name": r['Item Name'] || '',
@@ -1626,6 +1660,7 @@ async function saveAttendanceData() {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ 
+        action: 'save_attendance',
         username: user, 
         password: pass, 
         records: rawAttendanceData, 
@@ -1633,13 +1668,16 @@ async function saveAttendanceData() {
       })
     });
     const res = await response.json();
-    if (res.status === 'success') alert("✅ Saved to Google Sheets!");
+    if (res.status === 'success') alert("✅ Attendance and payroll saved cleanly to Google Sheets!");
     else alert("Error saving: " + (res.error || "Unknown error"));
   } catch (err) {
     alert("Saved locally in session!");
   }
 }
 
+// -------------------------------------------------------------
+// DRILLDOWN & KPI DETAILS POPULATION
+// -------------------------------------------------------------
 function sortProducts(column) {
   if (prodSortCol === column) prodSortAsc = !prodSortAsc;
   else { prodSortCol = column; prodSortAsc = false; }
@@ -1667,7 +1705,7 @@ function populateProductDetailsDOM(productName, isChannel = false) {
     const rDate = normalizeToDateString(row['Bill Date']);
     if (fromVal && rDate < fromVal) return;
     if (toVal && rDate > toVal) return;
-    const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Kailash Kalamkari').toString().trim();
+    const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Main Branch').toString().trim();
     if (selectedStore !== 'All' && storeName.toLowerCase() !== selectedStore.toLowerCase()) return;
 
     if ((row['Item Name'] || row['ItemName']) !== productName) return;
@@ -1719,18 +1757,18 @@ function populateAgentDetailsDOM(agentName) {
   document.getElementById('agent-detail-table-body').innerHTML = sortedItems.map(([itemName, values]) => `
     <tr class="hover:bg-amber-50/20 transition-colors">
       <td class="p-2.5 font-semibold text-stone-700">${itemName}</td>
-      <td class="p-2.5 text-center font-bold text-stone-500">${values.qty}</td>
-      <td class="p-2.5 text-right font-extrabold text-[#5C0612]">₹${values.revenue.toLocaleString('en-IN')}</td>
+      <td class="p-2.5 text-center font-bold text-stone-500 font-numeric">${values.qty}</td>
+      <td class="p-2.5 text-right font-extrabold text-[#5C0612] font-numeric">₹${values.revenue.toLocaleString('en-IN')}</td>
     </tr>
   `).join('');
 
   const sortedBills = Object.values(agentObj.bills).sort((a, b) => b.amount - a.amount);
   document.getElementById('agent-detail-bill-table-body').innerHTML = sortedBills.map(b => `
     <tr class="hover:bg-amber-50/20 transition-colors">
-      <td class="p-2.5 font-semibold text-stone-700">${b.date || 'N/A'}</td>
-      <td class="p-2.5 text-center font-bold text-stone-500">${b.billNo || 'N/A'}</td>
+      <td class="p-2.5 font-semibold text-stone-700 font-numeric">${b.date || 'N/A'}</td>
+      <td class="p-2.5 text-center font-bold text-stone-500 font-numeric">${b.billNo || 'N/A'}</td>
       <td class="p-2.5 text-center"><span class="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-bold px-2 py-0.5 rounded font-numeric">${b.bank || 'Not Defined'}</span></td>
-      <td class="p-2.5 text-right font-extrabold text-[#5C0612]">₹${b.amount.toLocaleString('en-IN')}</td>
+      <td class="p-2.5 text-right font-extrabold text-[#5C0612] font-numeric">₹${b.amount.toLocaleString('en-IN')}</td>
     </tr>
   `).join('');
 
@@ -1747,7 +1785,7 @@ function populateChannelScreenDOM(channel) {
     let match = true;
     if (fromVal) match = match && (rDate >= fromVal);
     if (toVal) match = match && (rDate <= toVal);
-    const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Kailash Kalamkari').toString().trim();
+    const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Main Branch').toString().trim();
     if (selectedStore !== 'All' && storeName.toLowerCase() !== selectedStore.toLowerCase()) match = false;
 
     return match && (getSalesType(row['PayMode'] || row['Pay Mode'] || row['Sale type'] || row['Sale Type']) === channel);
@@ -1776,7 +1814,7 @@ function populateChannelScreenDOM(channel) {
     const sortedA = Object.entries(agentsObj).sort((a, b) => b[1] - a[1]);
     agentTable.innerHTML = sortedA.length === 0 ? `<tr><td colspan="2" class="p-4 text-center text-stone-400">No record</td></tr>` : sortedA.map(([aName, amt]) => `
       <tr class="hover:bg-amber-50/20">
-        <td class="p-3 font-bold text-stone-700">${aName}</td>
+        <td class="p-3 font-bold text-stone-700 font-sans">${aName}</td>
         <td class="p-3 text-right font-black text-[#5C0612] font-numeric">₹${amt.toLocaleString('en-IN')}</td>
       </tr>
     `).join('');
@@ -1787,7 +1825,7 @@ function populateChannelScreenDOM(channel) {
     const sortedP = Object.entries(productsObj).sort((a, b) => b[1].revenue - a[1].revenue);
     prodTable.innerHTML = sortedP.length === 0 ? `<tr><td colspan="3" class="p-4 text-center text-stone-400">No record</td></tr>` : sortedP.map(([pName, pObj]) => `
       <tr class="hover:bg-amber-50/20">
-        <td class="p-3 font-bold text-stone-700">${pName}</td>
+        <td class="p-3 font-bold text-stone-700 font-sans">${pName}</td>
         <td class="p-3 text-center font-bold text-stone-600 font-numeric">${pObj.qty}</td>
         <td class="p-3 text-right font-black text-[#5C0612] font-numeric">₹${pObj.revenue.toLocaleString('en-IN')}</td>
       </tr>
@@ -1809,7 +1847,7 @@ function renderWeeklyDistributionDOM() {
     return `
       <div class="space-y-1">
         <div class="flex justify-between items-center text-xs font-semibold text-stone-700">
-          <span>${day}</span>
+          <span class="font-traditional">${day}</span>
           <span class="font-numeric text-[#5C0612] font-black">₹${amount.toLocaleString('en-IN')} (${pct.toFixed(1)}%)</span>
         </div>
         <div class="w-full bg-[#E5D5C6]/40 h-2.5 rounded-full overflow-hidden">
@@ -1855,7 +1893,7 @@ function populateAgentAnalysisScreenDOM(agentName) {
     if (fromVal) match = match && (rDate >= fromVal);
     if (toVal) match = match && (rDate <= toVal);
     
-    const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Kailash Kalamkari').toString().trim();
+    const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Main Branch').toString().trim();
     if (selectedStore !== 'All' && storeName.toLowerCase() !== selectedStore.toLowerCase()) match = false;
     return match;
   });
@@ -2031,7 +2069,9 @@ function shareAgentSalesReportWhatsApp() {
   window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
+// -------------------------------------------------------------
 // TAB SWITCHER
+// -------------------------------------------------------------
 function switchTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
   const targetTab = document.getElementById(tabId);
@@ -2095,7 +2135,7 @@ function lookupBillDetails() {
   currentSelectedBillData = {
     billNo: getBillNo(firstRow),
     date: normalizeToDateString(firstRow['Bill Date']),
-    store: firstRow['Store'] || firstRow['Shop'] || 'Main Store',
+    store: firstRow['Store'] || firstRow['Shop'] || 'Main Branch',
     agent: firstRow['SM Name'] || firstRow['Agent'] || 'No Agent',
     totalAmount: totalBillAmt
   };
@@ -2194,7 +2234,7 @@ function closeNewAccountModal() {
   document.getElementById('new-account-modal').classList.add('hidden');
 }
 
-function saveNewAccountType() {
+async function saveNewAccountType() {
   const name = (document.getElementById('new-account-name-input').value || '').trim();
   if (!name) {
     alert("Please enter a valid Account Name or Code.");
@@ -2217,7 +2257,25 @@ function saveNewAccountType() {
   });
 
   closeNewAccountModal();
-  alert(`Account "${name}" added successfully!`);
+
+  const user = localStorage.getItem('kk_user') || 'admin';
+  const pass = localStorage.getItem('kk_pass') || '';
+
+  try {
+    await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'save_new_account',
+        username: user,
+        password: pass,
+        accountName: name
+      })
+    });
+    alert(`Account "${name}" registered successfully!`);
+  } catch (err) {
+    alert(`Account "${name}" stored locally!`);
+  }
 }
 
 async function submitSplitPayment() {
@@ -2266,7 +2324,10 @@ async function submitSplitPayment() {
 
     const result = await response.json();
     if (result.status === 'success') {
-      alert(`✅ Bill ${currentSelectedBillData.billNo} payment splits recorded successfully!`);
+      alert(`✅ Bill ${currentSelectedBillData.billNo} payment settlement saved cleanly!`);
+      
+      // Update in-memory state
+      delete globalBillSplitsMap[currentSelectedBillData.billNo];
       splitsPayload.forEach(s => {
         registerBillSplit(currentSelectedBillData.billNo, s.account, s.amount, s.account);
       });
@@ -2279,12 +2340,15 @@ async function submitSplitPayment() {
       registerBillSplit(currentSelectedBillData.billNo, s.account, s.amount, s.account);
     });
     processData();
-    alert(`✅ Recorded locally in session for Bill ${currentSelectedBillData.billNo}!`);
+    alert(`✅ Recorded locally for Bill ${currentSelectedBillData.billNo}!`);
   } finally {
     btnText.textContent = "Save Settlement to Google Sheet";
   }
 }
 
+// -------------------------------------------------------------
+// MODAL & SCREEN CLOSE HANDLERS
+// -------------------------------------------------------------
 function closeProductDetail() { document.getElementById('product-detail-card').classList.add('hidden'); }
 function closeAgentDetail() { document.getElementById('agent-detail-card').classList.add('hidden'); }
 function closeChannelScreen() { applyState({ view: 'home' }); }
@@ -2292,9 +2356,18 @@ function closeAgentAnalysisScreen() { applyState({ view: 'home' }); }
 function openWeeklyScreen() { applyState({ view: 'weekly' }); }
 function closeWeeklyScreen() { applyState({ view: 'home' }); }
 
+// -------------------------------------------------------------
+// EVENT LISTENERS & BOOTSTRAP
+// -------------------------------------------------------------
 document.getElementById('from-date').addEventListener('change', processData);
 document.getElementById('to-date').addEventListener('change', processData);
-document.getElementById('product-search').addEventListener('input', processData);
+
+// Debounced product search
+let searchTimer = null;
+document.getElementById('product-search').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(processData, 200);
+});
 
 const storeFilter = document.getElementById('store-filter');
 if (storeFilter) storeFilter.addEventListener('change', processData);
@@ -2304,6 +2377,10 @@ document.getElementById('refresh-btn').addEventListener('click', () => {
   if (session.valid) fetchData(session.user, session.pass);
 });
 
+// Auto-login session verification
 const session = checkSession();
-if (session.valid) fetchData(session.user, session.pass);
-else document.getElementById('login-screen').classList.remove('hidden');
+if (session.valid) {
+  fetchData(session.user, session.pass);
+} else {
+  document.getElementById('login-screen').classList.remove('hidden');
+}
