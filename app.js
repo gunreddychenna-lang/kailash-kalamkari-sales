@@ -144,44 +144,52 @@ function getBillNo(row) {
 function getRowBankDirect(row) {
   if (!row || typeof row !== 'object') return 'Not Defined';
 
-  const directKeys = [
-    'Acc Name', 'AccName', 'Account Name', 'AccountName', 'Acc Name.', 'Account Name.',
-    'Bank', 'Bank Name', 'BankName', 'Bank_Name', 'Bank A/c', 'Bank A/c.', 'Bank Account',
-    'Bank Account No', 'Bank Account Number', 'Credited Bank', 'Credited Bank Name',
-    'Credited Bank Account', 'Bank Details', 'Account', 'Acc No', 'Acc No.', 'AccNo', 'Acc_No', 
-    'A/c No', 'A/c No.', 'A/C No', 'A/C No.', 'Ac No', 'Ac No.', 'Account No', 'Account No.', 
-    'AccountNo', 'Account_No', 'Deposit Bank', 'Payment Bank', 'Bank / Cash'
+  // Specific ignored/placeholder words
+  const ignoreKeywords = ['split payment', 'split', 'payment', 'not defined', 'not found', 'null', 'undefined', '-', '--', '0'];
+
+  // 1. Check specific Bank/Account Number columns first (Column G 'Acc No' in Sheets)
+  const priorityKeys = [
+    'Acc No', 'Acc No.', 'AccNo', 'Acc_No', 'A/c No', 'A/c No.', 'A/C No', 'A/C No.',
+    'Ac No', 'Ac No.', 'Account No', 'Account No.', 'AccountNo', 'Account_No',
+    'Bank', 'Bank Name', 'BankName', 'Bank_Name', 'Bank A/c', 'Bank A/c.', 
+    'Bank Account', 'Credited Bank', 'Credited Bank Name', 'Deposit Bank'
   ];
 
-  for (let k of directKeys) {
+  for (let k of priorityKeys) {
     if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
       const val = row[k].toString().trim();
-      if (val && val !== '0' && val !== '-' && val !== '--' && val.toLowerCase() !== 'null' && val.toLowerCase() !== 'undefined' && val.toLowerCase() !== 'not found' && val.toLowerCase() !== 'not defined') {
+      if (val && !ignoreKeywords.includes(val.toLowerCase())) {
         return val;
       }
     }
   }
 
+  // 2. Check general Account Name keys (only if it's not "Split Payment")
+  const secondaryKeys = ['Account Name', 'AccountName', 'Acc Name', 'AccName', 'Account Name.', 'Account', 'Bank Details'];
+  for (let k of secondaryKeys) {
+    if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
+      const val = row[k].toString().trim();
+      if (val && !ignoreKeywords.includes(val.toLowerCase())) {
+        return val;
+      }
+    }
+  }
+
+  // 3. Fallback fuzzy search ignoring placeholder strings
   for (let key in row) {
     const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
     if (
-      cleanKey === 'accname' ||
-      cleanKey === 'accountname' ||
-      cleanKey === 'bank' ||
-      cleanKey === 'bankname' ||
-      cleanKey.includes('bank') ||
-      cleanKey.includes('accname') ||
-      cleanKey.includes('accountname') ||
-      cleanKey === 'accno' ||
-      cleanKey === 'acno' ||
-      cleanKey === 'accountno'
+      cleanKey === 'accno' || cleanKey === 'acno' || cleanKey === 'accountno' ||
+      cleanKey === 'bank' || cleanKey === 'bankname' || cleanKey === 'accname' ||
+      cleanKey === 'accountname'
     ) {
       const val = (row[key] || '').toString().trim();
-      if (val && val !== '0' && val !== '-' && val !== '--' && val.toLowerCase() !== 'null' && val.toLowerCase() !== 'undefined' && val.toLowerCase() !== 'not found' && val.toLowerCase() !== 'not defined') {
+      if (val && !ignoreKeywords.includes(val.toLowerCase())) {
         return val;
       }
     }
   }
+
   return 'Not Defined';
 }
 
