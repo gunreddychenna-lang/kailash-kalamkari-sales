@@ -1,27 +1,31 @@
-
-
 /**
- * KAILASH KALAMKARI - EXECUTIVE PORTAL FRONTEND (app.js)
- * Enterprise-grade client script with secure POST data sync,
- * multi-store analytics, split-bill tracking, and payroll engine.
+ * =========================================================================
+ * KAILASH KALAMKARI - MULTI-ROLE EXECUTIVE PORTAL CLIENT ENGINE (app.js)
+ * Enterprise-grade client script with multi-date format detection,
+ * automatic date range calibration, split-bill tracking, and payroll engine.
+ * =========================================================================
  */
 
 const API_URL = "https://script.google.com/macros/s/AKfycbwSdvj2seF5EV9onv1GeirtNHBvh2A6r8RJlu1krcNOhXMY92UXWeZduiqUDpbrcG_q/exec";
 const SESSION_TIMEOUT = 6 * 60 * 60 * 1000; // 6 Hours
 
-// Global Application State
+// RBAC & User Session Context
+let currentRole = 'Admin'; // 'Admin' | 'Cashier' | 'SalesGirl'
+let currentUserId = '';
+let currentEmployeeId = '';
+let currentDisplayName = '';
+let isAdmin = false;
+let isCashier = false;
+let isSalesGirl = false;
+
+// Global Data Sets
 let rawData = [];
 let rawAttendanceData = [];
 let bankAccountsList = [];
+let staffDirectory = [];
 let productsList = [];
 let agentsList = [];
 let selectedAgentDetail = null;
-let selectedChannel = "All";
-let selectedStore = "All";
-let selectedCategory = "All";
-let selectedAttendanceMonth = "All";
-let activeAnalysisAgent = "";
-let isAdmin = false;
 
 // Multi-Split Payment Tracking Maps
 let globalBillSplitsMap = {}; 
@@ -29,24 +33,61 @@ let globalBillBankMap = {};
 let agentBillsViewMode = 'summary'; // 'summary' | 'detailed'
 let currentSelectedBillData = null;
 
-// Weekly Distribution & Metrics
+// Cashier POS State
+let activePosMode = "Cash";
+let activePosBank = "Cash";
+let cashierShiftRecords = [];
+
+// Filter States & Settings
+let selectedStore = "All";
+let selectedCategory = "All";
+let selectedAttendanceMonth = "All";
+let selectedChannel = "All";
+let activeAnalysisAgent = "";
+let monthlyTarget = parseFloat(localStorage.getItem('kk_monthly_target')) || 1000000;
+let defaultCommissionPct = 1.0;
+
+// Metrics & Sorting States
 let currentDaySales = [0, 0, 0, 0, 0, 0, 0];
 let prodSortCol = 'qty', prodSortAsc = false;
 let agentSortCol = 'revenue', agentSortAsc = false;
 
-// Target & Commission Settings
-let monthlyTarget = parseFloat(localStorage.getItem('kk_monthly_target')) || 1000000;
-let defaultCommissionPct = 0.0;
-
-// Initialize Routing State
+// SPA Routing State
 if (history.state === null) history.replaceState({ view: 'home' }, '');
 window.addEventListener('popstate', e => applyState(e.state, true));
+
+// -------------------------------------------------------------
+// SAFE DOM MANIPULATION HELPERS
+// -------------------------------------------------------------
+function getEl(id) {
+  return document.getElementById(id);
+}
+
+function showEl(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('hidden');
+}
+
+function hideEl(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add('hidden');
+}
+
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+function setHTML(id, html) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = html;
+}
 
 // -------------------------------------------------------------
 // PDF EXPORT UTILITY
 // -------------------------------------------------------------
 function exportSectionToPDF(elementId, titleFilename) {
-  const element = document.getElementById(elementId);
+  const element = getEl(elementId);
   if (!element || typeof html2pdf === 'undefined') {
     alert("PDF Engine is loading or view element was not found.");
     return;
@@ -71,19 +112,30 @@ function exportSectionToPDF(elementId, titleFilename) {
 }
 
 // -------------------------------------------------------------
-// DATA PARSING & NORMALIZATION UTILITIES
+// COMPREHENSIVE DATA PARSING & NORMALIZATION UTILITIES
 // -------------------------------------------------------------
 function normalizeToDateString(dateVal) {
   if (!dateVal) return '';
   let strVal = dateVal.toString().trim();
   if (!strVal) return '';
 
+  // Already YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) return strVal;
 
-  const dMmmYyyyMatch = strVal.match(/^(\d{1,2})[-/ ]([A-Za-z]{3})[-/ ](\d{4})$/);
+  // DD/MM/YYYY or DD-MM-YYYY
+  const dmyMatch = strVal.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmyMatch) {
+    const day = String(dmyMatch[1]).padStart(2, '0');
+    const month = String(dmyMatch[2]).padStart(2, '0');
+    const year = dmyMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+
+  // DD-MMM-YYYY (e.g. 05-Jul-2026 or 5-July-2026)
+  const dMmmYyyyMatch = strVal.match(/^(\d{1,2})[-/ ]([A-Za-z]{3,9})[-/ ](\d{4})/);
   if (dMmmYyyyMatch) {
     const day = String(dMmmYyyyMatch[1]).padStart(2, '0');
-    const monthStr = dMmmYyyyMatch[2].toLowerCase();
+    const monthStr = dMmmYyyyMatch[2].substring(0, 3).toLowerCase();
     const year = dMmmYyyyMatch[3];
     const months = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
     if (months[monthStr]) {
@@ -98,7 +150,32 @@ function normalizeToDateString(dateVal) {
     const dd = String(parsed.getDate()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
   }
+
   return strVal.split('T')[0];
+}
+
+function getRowAmount(row) {
+  if (!row || typeof row !== 'object') return 0;
+  const directKeys = [
+    'Final Amount', 'FinalAmount', 'Total Value', 'TotalValue', 
+    'BillAmount', 'Bill Amount', 'Amount', 'Net Value', 'Net Invoice Value', 
+    'NetValue', 'Gross Value', 'Total', 'Invoice Value', 'Bill_Amount', 'Sale Amount'
+  ];
+  for (let k of directKeys) {
+    if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
+      const parsed = parseFloat(row[k].toString().replace(/[^0-9.-]+/g, ""));
+      if (!isNaN(parsed)) return parsed;
+    }
+  }
+
+  for (let key in row) {
+    const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (['finalamount', 'totalvalue', 'billamount', 'amount', 'netvalue', 'netinvoicevalue', 'total', 'saleamount'].includes(cleanKey)) {
+      const parsed = parseFloat((row[key] || '0').toString().replace(/[^0-9.-]+/g, ""));
+      if (!isNaN(parsed)) return parsed;
+    }
+  }
+  return 0;
 }
 
 function getBillNo(row) {
@@ -127,27 +204,13 @@ function getBillNo(row) {
       }
     }
   }
-
-  for (let key in row) {
-    const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (!cleanKey.includes('date') && (cleanKey.includes('bill') || cleanKey.includes('bil') || cleanKey.includes('invoice') || cleanKey.includes('voucher'))) {
-      const val = (row[key] || '').toString().trim();
-      if (val && val !== '0' && !val.includes('T') && !val.includes('Z') && val.toLowerCase() !== 'null' && val.toLowerCase() !== 'undefined') {
-        return val;
-      }
-    }
-  }
-
   return 'N/A';
 }
 
 function getRowBankDirect(row) {
   if (!row || typeof row !== 'object') return 'Not Defined';
-
-  // Specific ignored/placeholder words
   const ignoreKeywords = ['split payment', 'split', 'payment', 'not defined', 'not found', 'null', 'undefined', '-', '--', '0'];
 
-  // 1. Check specific Bank/Account Number columns first (Column G 'Acc No' in Sheets)
   const priorityKeys = [
     'Acc No', 'Acc No.', 'AccNo', 'Acc_No', 'A/c No', 'A/c No.', 'A/C No', 'A/C No.',
     'Ac No', 'Ac No.', 'Account No', 'Account No.', 'AccountNo', 'Account_No',
@@ -164,26 +227,10 @@ function getRowBankDirect(row) {
     }
   }
 
-  // 2. Check general Account Name keys (only if it's not "Split Payment")
   const secondaryKeys = ['Account Name', 'AccountName', 'Acc Name', 'AccName', 'Account Name.', 'Account', 'Bank Details'];
   for (let k of secondaryKeys) {
     if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
       const val = row[k].toString().trim();
-      if (val && !ignoreKeywords.includes(val.toLowerCase())) {
-        return val;
-      }
-    }
-  }
-
-  // 3. Fallback fuzzy search ignoring placeholder strings
-  for (let key in row) {
-    const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (
-      cleanKey === 'accno' || cleanKey === 'acno' || cleanKey === 'accountno' ||
-      cleanKey === 'bank' || cleanKey === 'bankname' || cleanKey === 'accname' ||
-      cleanKey === 'accountname'
-    ) {
-      const val = (row[key] || '').toString().trim();
       if (val && !ignoreKeywords.includes(val.toLowerCase())) {
         return val;
       }
@@ -256,34 +303,90 @@ function getItemCategory(itemName) {
   return 'General';
 }
 
+function getDayValue(emp, d) {
+  if (!emp || typeof emp !== 'object') return '';
+  const dStr = d.toString();
+  const dPad = d < 10 ? '0' + d : dStr;
+  const possibleKeys = [dStr, dPad, 'D' + dStr, 'D' + dPad, 'Day ' + dStr, 'Day' + dStr, 'Day ' + dPad];
+
+  for (let key of possibleKeys) {
+    if (emp[key] !== undefined && emp[key] !== null && emp[key] !== '') {
+      return emp[key].toString().trim();
+    }
+  }
+
+  for (let key in emp) {
+    const cleanK = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (cleanK === dStr || cleanK === dPad || cleanK === 'd' + dStr || cleanK === 'day' + dStr) {
+      const val = (emp[key] || '').toString().trim();
+      if (val) return val;
+    }
+  }
+  return '';
+}
+
+function getDayNote(emp, d) {
+  const notesMap = emp['_notes'] || {};
+  const dStr = d.toString();
+  const dPad = d < 10 ? '0' + d : dStr;
+  const possibleKeys = [dStr, dPad, 'D' + dStr, 'D' + dPad, 'Day ' + dStr, 'Day' + dPad];
+
+  for (let key of possibleKeys) {
+    if (notesMap[key]) return notesMap[key].toString().trim();
+  }
+  return '';
+}
+
+function getEmpProp(emp, targetKeys) {
+  if (!emp || typeof emp !== 'object') return "";
+  const empKeys = Object.keys(emp);
+  for (let target of targetKeys) {
+    const cleanTarget = target.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+    for (let k of empKeys) {
+      if (k.toString().toLowerCase().replace(/[^a-z0-9]/g, '') === cleanTarget && emp[k] !== undefined && emp[k] !== null && emp[k] !== "") {
+        return emp[k].toString().trim();
+      }
+    }
+  }
+  return "";
+}
+
+function formatPhoneForWhatsApp(phoneRaw) {
+  if (!phoneRaw) return "";
+  let digits = phoneRaw.toString().replace(/\D/g, '');
+  if (!digits) return "";
+  if (digits.length === 10) return `91${digits}`;
+  if (digits.length === 12 && digits.startsWith('91')) return digits;
+  return digits;
+}
+
 // -------------------------------------------------------------
 // AUTHENTICATION & SECURE POST DATA SYNC
 // -------------------------------------------------------------
 function checkSession() {
   const savedUser = localStorage.getItem('kk_user');
   const savedPass = localStorage.getItem('kk_pass');
+  const savedRole = localStorage.getItem('kk_role');
+  const savedEmpId = localStorage.getItem('kk_emp_id');
+  const savedDisplayName = localStorage.getItem('kk_display_name');
   const loginTime = localStorage.getItem('kk_login_time');
+
   if (!savedUser || !savedPass || !loginTime) return { valid: false };
   if (Date.now() - parseInt(loginTime, 10) > SESSION_TIMEOUT) {
     localStorage.clear();
     return { valid: false };
   }
-  const cleanUser = savedUser.trim().toLowerCase();
-  isAdmin = cleanUser === 'admin';
-  return { valid: true, user: cleanUser, pass: savedPass.trim() };
-}
 
-const loginForm = document.getElementById('login-form');
-if (loginForm) {
-  loginForm.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const user = document.getElementById('login-username').value.trim().toLowerCase();
-    const pass = document.getElementById('login-password').value.trim();
-    document.getElementById('login-error').classList.add('hidden');
-    document.getElementById('login-btn-text').classList.add('hidden');
-    document.getElementById('login-btn-spinner').classList.remove('hidden');
-    await fetchData(user, pass);
-  });
+  currentRole = savedRole || 'Admin';
+  currentUserId = savedUser;
+  currentEmployeeId = savedEmpId || savedUser;
+  currentDisplayName = savedDisplayName || savedUser;
+
+  isAdmin = currentRole === 'Admin' || currentUserId.toLowerCase() === 'admin';
+  isCashier = currentRole === 'Cashier';
+  isSalesGirl = currentRole === 'SalesGirl';
+
+  return { valid: true, user: savedUser, pass: savedPass, role: currentRole, empId: currentEmployeeId };
 }
 
 function handleLogout() {
@@ -295,18 +398,21 @@ async function fetchData(user, pass) {
   const cleanUser = (user || '').trim().toLowerCase();
   const cleanPass = (pass || '').trim();
 
-  document.getElementById('loader').classList.remove('hidden');
-  document.getElementById('standard-main').classList.add('hidden');
-  document.getElementById('login-screen').classList.add('hidden');
-  
+  showEl('loader');
+  hideEl('standard-main');
+  hideEl('cashier-view');
+  hideEl('agent-view');
+  hideEl('login-screen');
+
   try {
     globalBillSplitsMap = {};
     globalBillBankMap = {};
 
-    // SECURE POST REQUEST: Payload sent in request body, not exposed in query string
     const response = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
+      mode: 'cors',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: 'fetch_all',
         username: cleanUser,
@@ -315,21 +421,33 @@ async function fetchData(user, pass) {
     });
 
     if (!response.ok) throw new Error(`Server status ${response.status}`);
-    
     const data = await response.json();
+
     if (data && data.error) {
       showLoginError(data.error);
       return;
     }
 
+    currentRole = data.role || (cleanUser === 'admin' ? 'Admin' : 'SalesGirl');
+    currentEmployeeId = data.employee_id || cleanUser;
+    currentDisplayName = data.displayName || cleanUser;
+    currentUserId = cleanUser;
+
+    isAdmin = currentRole === 'Admin' || cleanUser === 'admin';
+    isCashier = currentRole === 'Cashier';
+    isSalesGirl = currentRole === 'SalesGirl';
+
     localStorage.setItem('kk_user', cleanUser);
     localStorage.setItem('kk_pass', cleanPass);
+    localStorage.setItem('kk_role', currentRole);
+    localStorage.setItem('kk_emp_id', currentEmployeeId);
+    localStorage.setItem('kk_display_name', currentDisplayName);
     localStorage.setItem('kk_login_time', Date.now().toString());
-    
-    isAdmin = cleanUser === 'admin';
+
     rawData = [];
     rawAttendanceData = [];
-    bankAccountsList = Array.isArray(data.banks) ? data.banks : [];
+    bankAccountsList = Array.isArray(data.banks) ? data.banks : ['Cash', '42441-TJ', 'KC'];
+    staffDirectory = Array.isArray(data.staffDirectory) ? data.staffDirectory : [];
 
     if (Array.isArray(data)) {
       rawData = data;
@@ -354,10 +472,7 @@ async function fetchData(user, pass) {
       receivablesSource.forEach(r => {
         const bNo = getBillNo(r);
         const bnk = getRowBankDirect(r);
-        const splitAmt = parseFloat((
-          r['Net Invoice Value'] || r['NetInvoiceValue'] || r['Amount'] || 
-          r['Received'] || r['Final Amount'] || r['Bill Amount'] || '0'
-        ).toString().replace(/[^0-9.-]+/g, "")) || 0;
+        const splitAmt = getRowAmount(r);
         const pMode = r['Acc No'] || r['Account Name'] || r['PayMode'] || bnk;
 
         if (bNo && bNo !== 'N/A') {
@@ -366,42 +481,89 @@ async function fetchData(user, pass) {
       });
     }
 
-    const targetEl = document.getElementById('target-input-field');
+    const targetEl = getEl('target-input-field');
     if (targetEl) targetEl.value = monthlyTarget;
 
-    updateRoleVisibility();
+    updateHeaderRoleBadges();
+    routeUserToRolePrimaryDashboard();
+
+  } catch (error) {
+    console.error("Fetch Data Error:", error);
+    showLoginError("Connection failed. Please check your credentials or network.");
+  } finally {
+    hideEl('loader');
+  }
+}
+
+function showLoginError(message) {
+  showEl('login-screen');
+  hideEl('loader');
+  const errEl = getEl('login-error');
+  if (errEl) {
+    errEl.textContent = message;
+    errEl.classList.remove('hidden');
+  }
+  showEl('login-btn-text');
+  hideEl('login-btn-spinner');
+}
+
+function updateHeaderRoleBadges() {
+  const badge = getEl('user-role-badge');
+  const nameEl = getEl('user-display-name');
+
+  if (badge) {
+    badge.textContent = currentRole.toUpperCase();
+    if (isAdmin) badge.className = "text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-[#DAA520] text-[#5C0612] tracking-wider font-sans";
+    else if (isCashier) badge.className = "text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-400 text-emerald-950 tracking-wider font-sans";
+    else badge.className = "text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-400 text-blue-950 tracking-wider font-sans";
+  }
+
+  if (nameEl) nameEl.textContent = `${currentDisplayName} (${currentEmployeeId})`;
+
+  document.querySelectorAll('.admin-only, .role-admin-only').forEach(el => {
+    if (isAdmin) el.classList.remove('hidden');
+    else el.classList.add('hidden');
+  });
+
+  if (!isAdmin && getEl('attendance-tab') && !getEl('attendance-tab').classList.contains('hidden')) {
+    switchTab('products-tab');
+  }
+}
+
+function routeUserToRolePrimaryDashboard() {
+  showEl('standard-header');
+  hideEl('login-screen');
+  hideEl('loader');
+
+  if (isCashier) {
+    showEl('cashier-view');
+    hideEl('standard-main');
+    hideEl('agent-view');
+    initCashierWorkspace();
+  } else if (isSalesGirl) {
+    showEl('agent-view');
+    hideEl('standard-main');
+    hideEl('cashier-view');
+    initAgentWorkspace();
+  } else {
+    showEl('standard-main');
+    hideEl('cashier-view');
+    hideEl('agent-view');
     detectDateRanges();
     detectAndPopulateStores();
     populateBankDropdown();
     populateAttendanceMonthDropdown();
     populateBillsDatalist();
     processData();
-
-    document.getElementById('loader').classList.add('hidden');
     applyState(history.state || { view: 'home' }, true);
-  } catch (error) {
-    console.error(error);
-    showLoginError("Connection failed. Please check your credentials or network.");
-  } finally {
-    document.getElementById('loader').classList.add('hidden');
   }
-}
-
-function showLoginError(message) {
-  document.getElementById('login-screen').classList.remove('hidden');
-  document.getElementById('loader').classList.add('hidden');
-  const errEl = document.getElementById('login-error');
-  errEl.textContent = message;
-  errEl.classList.remove('hidden');
-  document.getElementById('login-btn-text').classList.remove('hidden');
-  document.getElementById('login-btn-spinner').classList.add('hidden');
 }
 
 // -------------------------------------------------------------
 // FILTER POPULATION & METADATA DETECTION
 // -------------------------------------------------------------
 function detectAndPopulateStores() {
-  const storeSelect = document.getElementById('store-filter');
+  const storeSelect = getEl('store-filter');
   if (!storeSelect) return;
   const storeSet = new Set();
   rawData.forEach(row => {
@@ -417,7 +579,7 @@ function detectAndPopulateStores() {
 }
 
 function selectStoreFilter(storeName) {
-  const storeSelect = document.getElementById('store-filter');
+  const storeSelect = getEl('store-filter');
   if (storeSelect) {
     storeSelect.value = storeName;
     processData();
@@ -425,7 +587,7 @@ function selectStoreFilter(storeName) {
 }
 
 function populateBankDropdown() {
-  const bSelect = document.getElementById('bank-filter-select');
+  const bSelect = getEl('bank-filter-select');
   if (!bSelect) return;
 
   const bankSet = new Set();
@@ -451,15 +613,11 @@ function populateBankDropdown() {
     bSelect.innerHTML += `<option value="${bk}">${bk}</option>`;
   });
 
-  if (Array.from(bankSet).includes(currentSelection)) {
-    bSelect.value = currentSelection;
-  } else {
-    bSelect.value = 'All';
-  }
+  bSelect.value = bankSet.has(currentSelection) ? currentSelection : 'All';
 }
 
 function populateAttendanceMonthDropdown() {
-  const mSelect = document.getElementById('attendance-month-select');
+  const mSelect = getEl('attendance-month-select');
   if (!mSelect) return;
 
   const monthSet = new Set();
@@ -496,16 +654,6 @@ function populateAttendanceMonthDropdown() {
   mSelect.value = selectedAttendanceMonth;
 }
 
-function updateRoleVisibility() {
-  document.querySelectorAll('.admin-only').forEach(el => {
-    if (isAdmin) el.classList.remove('hidden');
-    else el.classList.add('hidden');
-  });
-  if (!isAdmin && document.getElementById('attendance-tab') && !document.getElementById('attendance-tab').classList.contains('hidden')) {
-    switchTab('products-tab');
-  }
-}
-
 // -------------------------------------------------------------
 // SPA NAVIGATION & STATE MANAGEMENT
 // -------------------------------------------------------------
@@ -513,13 +661,15 @@ function applyState(state, isPopState = false) {
   if (!state) state = { view: 'home' };
   const session = checkSession();
   if (!session.valid) {
-    document.getElementById('standard-header').classList.add('hidden');
-    document.getElementById('standard-main').classList.add('hidden');
-    document.getElementById('channel-view').classList.add('hidden');
-    document.getElementById('weekly-view').classList.add('hidden');
-    document.getElementById('agent-analysis-view').classList.add('hidden');
-    document.getElementById('login-screen').classList.remove('hidden');
-    document.getElementById('loader').classList.add('hidden');
+    hideEl('standard-header');
+    hideEl('standard-main');
+    hideEl('cashier-view');
+    hideEl('agent-view');
+    hideEl('channel-view');
+    hideEl('weekly-view');
+    hideEl('agent-analysis-view');
+    showEl('login-screen');
+    hideEl('loader');
     return;
   }
 
@@ -528,36 +678,36 @@ function applyState(state, isPopState = false) {
     return;
   }
 
-  document.getElementById('agent-detail-card').classList.add('hidden');
-  document.getElementById('product-detail-card').classList.add('hidden');
+  hideEl('agent-detail-card');
+  hideEl('product-detail-card');
 
-  document.getElementById('standard-header').classList.remove('hidden');
-  document.getElementById('standard-main').classList.add('hidden');
-  document.getElementById('channel-view').classList.add('hidden');
-  document.getElementById('weekly-view').classList.add('hidden');
-  document.getElementById('agent-analysis-view').classList.add('hidden');
+  showEl('standard-header');
+  hideEl('standard-main');
+  hideEl('channel-view');
+  hideEl('weekly-view');
+  hideEl('agent-analysis-view');
 
   if (state.view === 'home') {
     selectedChannel = 'All';
-    document.getElementById('standard-main').classList.remove('hidden');
+    showEl('standard-main');
     if (state.detail === 'agent') {
       selectedAgentDetail = state.name;
       if (populateAgentDetailsDOM(state.name)) {
-        document.getElementById('agent-detail-card').classList.remove('hidden');
+        showEl('agent-detail-card');
       }
     } else if (state.detail === 'product') {
       populateProductDetailsDOM(state.name, false);
-      document.getElementById('product-detail-card').classList.remove('hidden');
+      showEl('product-detail-card');
     }
   } else if (state.view === 'channel') {
     selectedChannel = state.channel;
-    document.getElementById('channel-view').classList.remove('hidden');
+    showEl('channel-view');
     populateChannelScreenDOM(state.channel);
   } else if (state.view === 'weekly') {
-    document.getElementById('weekly-view').classList.remove('hidden');
+    showEl('weekly-view');
     populateWeeklyScreenDOM();
   } else if (state.view === 'agent-analysis') {
-    document.getElementById('agent-analysis-view').classList.remove('hidden');
+    showEl('agent-analysis-view');
     populateAgentAnalysisScreenDOM(state.name);
   }
 
@@ -565,21 +715,33 @@ function applyState(state, isPopState = false) {
 }
 
 function detectDateRanges() {
-  if (rawData.length === 0) return;
-  const allDates = rawData.map(row => normalizeToDateString(row['Bill Date'])).filter(Boolean).sort();
+  if (!rawData || rawData.length === 0) return;
+  
+  const allDates = rawData
+    .map(row => normalizeToDateString(row['Bill Date'] || row['Date'] || row['Invoice Date'] || row['BillDate']))
+    .filter(Boolean)
+    .sort();
+
+  const fromEl = getEl('from-date');
+  const toEl = getEl('to-date');
+
   if (allDates.length > 0) {
-    const maxDateStr = allDates[allDates.length - 1];
-    const [yyyy, mm] = maxDateStr.split('-');
-    const firstDayOfMonth = `${yyyy}-${mm}-01`;
-    
-    document.getElementById('from-date').value = firstDayOfMonth;
-    document.getElementById('to-date').value = maxDateStr;
+    // Automatically set from earliest date in dataset to latest date
+    if (fromEl) fromEl.value = allDates[0];
+    if (toEl) toEl.value = allDates[allDates.length - 1];
+  } else {
+    if (fromEl) fromEl.value = '';
+    if (toEl) toEl.value = '';
   }
 }
 
 function setQuickDateRange(preset) {
   if (rawData.length === 0) return;
-  const allDates = rawData.map(row => normalizeToDateString(row['Bill Date'])).filter(Boolean).sort();
+  const allDates = rawData
+    .map(row => normalizeToDateString(row['Bill Date'] || row['Date'] || row['Invoice Date'] || row['BillDate']))
+    .filter(Boolean)
+    .sort();
+    
   const maxDateStr = allDates[allDates.length - 1] || new Date().toISOString().split('T')[0];
   const refDate = new Date(maxDateStr);
 
@@ -590,7 +752,10 @@ function setQuickDateRange(preset) {
 
   let fromDate = todayStr, toDate = todayStr;
 
-  if (preset === 'yesterday') {
+  if (preset === 'today') {
+    fromDate = todayStr;
+    toDate = todayStr;
+  } else if (preset === 'yesterday') {
     const yest = new Date(refDate);
     yest.setDate(refDate.getDate() - 1);
     fromDate = normalizeToDateString(yest);
@@ -612,8 +777,10 @@ function setQuickDateRange(preset) {
     toDate = normalizeToDateString(lastDayPrevMonth);
   }
 
-  document.getElementById('from-date').value = fromDate;
-  document.getElementById('to-date').value = toDate;
+  const fromEl = getEl('from-date');
+  const toEl = getEl('to-date');
+  if (fromEl) fromEl.value = fromDate;
+  if (toEl) toEl.value = toDate;
   processData();
 }
 
@@ -645,63 +812,44 @@ function getStaffSalesAmount(empName) {
   return match ? match.revenue : 0;
 }
 
-function getEmpProp(emp, targetKeys) {
-  if (!emp || typeof emp !== 'object') return "";
-  const empKeys = Object.keys(emp);
-  for (let target of targetKeys) {
-    const cleanTarget = target.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-    for (let k of empKeys) {
-      if (k.toString().toLowerCase().replace(/[^a-z0-9]/g, '') === cleanTarget && emp[k] !== undefined && emp[k] !== null && emp[k] !== "") {
-        return emp[k].toString().trim();
-      }
-    }
-  }
-  return "";
-}
-
-function formatPhoneForWhatsApp(phoneRaw) {
-  if (!phoneRaw) return "";
-  let digits = phoneRaw.toString().replace(/\D/g, '');
-  if (!digits) return "";
-  if (digits.length === 10) return `91${digits}`;
-  if (digits.length === 12 && digits.startsWith('91')) return digits;
-  return digits;
-}
-
 // -------------------------------------------------------------
 // CORE METRICS & ANALYTICS COMPUTATION ENGINE
 // -------------------------------------------------------------
 function processData() {
-  const fromDate = document.getElementById('from-date').value;
-  const toDate = document.getElementById('to-date').value;
-  const searchVal = document.getElementById('product-search').value.toLowerCase();
+  const fromDate = getEl('from-date') ? getEl('from-date').value : '';
+  const toDate = getEl('to-date') ? getEl('to-date').value : '';
+  const searchVal = getEl('product-search') ? getEl('product-search').value.toLowerCase() : '';
   
-  const storeSelectEl = document.getElementById('store-filter');
+  const storeSelectEl = getEl('store-filter');
   selectedStore = storeSelectEl ? storeSelectEl.value : 'All';
 
   let storeTotals = {};
   let accountTotals = {}; 
 
+  // 1. Calculate store totals across date range
   rawData.forEach(row => {
-    if (!row['Bill Date']) return;
-    const rDate = normalizeToDateString(row['Bill Date']);
+    const rawDate = row['Bill Date'] || row['Date'] || row['Invoice Date'] || row['BillDate'];
+    const rDate = normalizeToDateString(rawDate);
     let dateMatch = true;
-    if (fromDate) dateMatch = dateMatch && (rDate >= fromDate);
-    if (toDate) dateMatch = dateMatch && (rDate <= toDate);
+    if (fromDate && rDate) dateMatch = dateMatch && (rDate >= fromDate);
+    if (toDate && rDate) dateMatch = dateMatch && (rDate <= toDate);
 
     if (dateMatch) {
-      const amount = parseFloat((row['Final Amount'] || row['FinalAmount'] || row['Total Value'] || row['TotalValue'] || row['BillAmount'] || row['Bill Amount'] || row['Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
+      const amount = getRowAmount(row);
       const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Main Branch').toString().trim();
       storeTotals[storeName] = (storeTotals[storeName] || 0) + amount;
     }
   });
 
+  // 2. Filter raw rows based on date & store selection
   const filtered = rawData.filter(row => {
-    if (!row['Bill Date']) return false;
-    const rDate = normalizeToDateString(row['Bill Date']);
+    const rawDate = row['Bill Date'] || row['Date'] || row['Invoice Date'] || row['BillDate'];
+    const rDate = normalizeToDateString(rawDate);
+    
     let match = true;
-    if (fromDate) match = match && (rDate >= fromDate);
-    if (toDate) match = match && (rDate <= toDate);
+    if (fromDate && rDate) match = match && (rDate >= fromDate);
+    if (toDate && rDate) match = match && (rDate <= toDate);
+    
     const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Main Branch').toString().trim();
     if (selectedStore !== 'All' && storeName.toLowerCase() !== selectedStore.toLowerCase()) match = false;
     return match;
@@ -721,14 +869,15 @@ function processData() {
   const dayWiseObj = {}; 
 
   filtered.forEach(row => {
-    const amount = parseFloat((row['Final Amount'] || row['FinalAmount'] || row['Total Value'] || row['TotalValue'] || row['BillAmount'] || row['Bill Amount'] || row['Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
-    const qty = parseInt(row['Qty']) || parseInt(row['QTY']) || 0;
-    const item = (row['Item Name'] || row['ItemName'] || 'Unknown Item').toString().trim();
-    const agent = (row['SM Name'] || row['SMName'] || row['Agent'] || 'No Agent').toString().trim();
+    const amount = getRowAmount(row);
+    const qty = parseInt(row['Qty'] || row['QTY'] || row['Quantity'] || 1) || 1;
+    const item = (row['Item Name'] || row['ItemName'] || row['Item'] || row['Product'] || 'General Item').toString().trim();
+    const agent = (row['SM Name'] || row['SMName'] || row['Agent'] || row['Staff Name'] || row['Sales Staff'] || 'No Agent').toString().trim();
     const payMode = row['PayMode'] || row['Pay Mode'] || row['Paymode'] || row['Sale type'] || row['Sale Type'] || row['Saletype'] || '';
     
+    const rawDate = row['Bill Date'] || row['Date'] || row['Invoice Date'] || row['BillDate'];
+    const billDate = normalizeToDateString(rawDate);
     const billNo = getBillNo(row);
-    const billDate = normalizeToDateString(row['Bill Date']);
     const type = getSalesType(payMode);
 
     totalSales += amount;
@@ -797,9 +946,11 @@ function processData() {
 
     if (billDate) {
       dailyTotalObj[billDate] = (dailyTotalObj[billDate] || 0) + amount;
-      const [yyyy, mm, dd] = billDate.split('-').map(Number);
-      const dayOfWeek = new Date(yyyy, mm - 1, dd).getDay();
-      currentDaySales[dayOfWeek] += amount;
+      const parts = billDate.split('-').map(Number);
+      if (parts.length === 3) {
+        const dayOfWeek = new Date(parts[0], parts[1] - 1, parts[2]).getDay();
+        if (!isNaN(dayOfWeek)) currentDaySales[dayOfWeek] += amount;
+      }
 
       if (!dayWiseObj[billDate]) dayWiseObj[billDate] = { total: 0, agents: {} };
       dayWiseObj[billDate].total += amount;
@@ -842,14 +993,12 @@ function processData() {
     if (val > peakVal) { peakVal = val; peakDate = d; }
   });
 
-  document.getElementById('metric-total').textContent = `₹${totalSales.toLocaleString('en-IN')}`;
-  document.getElementById('metric-online').textContent = `₹${totalOnline.toLocaleString('en-IN')}`;
-  document.getElementById('metric-offline').textContent = `₹${totalOffline.toLocaleString('en-IN')}`;
-  
-  const wsEl = document.getElementById('metric-wholesale');
-  if (wsEl) wsEl.textContent = `₹${totalWholesale.toLocaleString('en-IN')}`;
+  setText('metric-total', `₹${totalSales.toLocaleString('en-IN')}`);
+  setText('metric-online', `₹${totalOnline.toLocaleString('en-IN')}`);
+  setText('metric-offline', `₹${totalOffline.toLocaleString('en-IN')}`);
+  setText('metric-wholesale', `₹${totalWholesale.toLocaleString('en-IN')}`);
 
-  const storeBreakdownContainer = document.getElementById('store-breakdown-container');
+  const storeBreakdownContainer = getEl('store-breakdown-container');
   if (storeBreakdownContainer) {
     const storeNames = Object.keys(storeTotals);
     if (storeNames.length <= 1) {
@@ -875,9 +1024,9 @@ function processData() {
     }
   }
 
-  const accContainer = document.getElementById('account-split-container');
+  const accContainer = getEl('account-split-container');
   if (accContainer) {
-    const accEntries = Object.entries(accountTotals).filter(([name, amt]) => amt > 0);
+    const accEntries = Object.entries(accountTotals).filter(([_, amt]) => amt > 0);
     accContainer.innerHTML = accEntries.length === 0 ? `
       <div class="bg-stone-50 p-2 rounded-xl border border-stone-200 col-span-2 sm:col-span-3">
         <span class="block text-[8px] font-bold text-stone-500 uppercase">General Credit</span>
@@ -894,39 +1043,40 @@ function processData() {
   const digitalAmount = payUpiStore + payUpiOnline + payCard;
   const digitalPct = totalSales > 0 ? ((digitalAmount / totalSales) * 100).toFixed(0) : 0;
 
-  document.getElementById('metric-asp').textContent = `₹${Math.round(asp).toLocaleString('en-IN')}`;
-  document.getElementById('metric-digital-pct').textContent = `${digitalPct}% Digital`;
+  setText('metric-asp', `₹${Math.round(asp).toLocaleString('en-IN')}`);
+  setText('metric-digital-pct', `${digitalPct}% Digital`);
 
   const targetPct = monthlyTarget > 0 ? Math.min(100, (totalSales / monthlyTarget) * 100) : 0;
-  document.getElementById('target-percent-text').textContent = `${targetPct.toFixed(1)}%`;
-  document.getElementById('target-progress-bar').style.width = `${targetPct}%`;
-  document.getElementById('target-achieved-text').textContent = `₹${totalSales.toLocaleString('en-IN')}`;
+  setText('target-percent-text', `${targetPct.toFixed(1)}%`);
+  const progBar = getEl('target-progress-bar');
+  if (progBar) progBar.style.width = `${targetPct}%`;
+  setText('target-achieved-text', `₹${totalSales.toLocaleString('en-IN')}`);
 
   const daysCount = Object.keys(dailyTotalObj).length || 1;
   const avgDailySales = totalSales / daysCount;
   const projectedMonthSales = Math.round(avgDailySales * 30);
-  const forecastEl = document.getElementById('target-forecast-text');
+  const forecastEl = getEl('target-forecast-text');
   if (forecastEl) {
     forecastEl.innerHTML = monthlyTarget > 0 ? `Pacing: <strong class="text-stone-800">₹${Math.round(avgDailySales).toLocaleString('en-IN')}/day</strong> • Projected: <strong class="text-[#5C0612]">₹${projectedMonthSales.toLocaleString('en-IN')}</strong> (${((projectedMonthSales / monthlyTarget) * 100).toFixed(0)}%)` : `Daily Average: <strong>₹${Math.round(avgDailySales).toLocaleString('en-IN')}/day</strong>`;
   }
 
-  document.getElementById('paymode-upi-store').textContent = `₹${Math.round(payUpiStore).toLocaleString('en-IN')}`;
-  document.getElementById('paymode-upi-onl').textContent = `₹${Math.round(payUpiOnline).toLocaleString('en-IN')}`;
-  document.getElementById('paymode-cash').textContent = `₹${Math.round(payCash).toLocaleString('en-IN')}`;
-  document.getElementById('paymode-card').textContent = `₹${Math.round(payCard).toLocaleString('en-IN')}`;
-  document.getElementById('paymode-hand').textContent = `₹${Math.round(payHand).toLocaleString('en-IN')}`;
+  setText('paymode-upi-store', `₹${Math.round(payUpiStore).toLocaleString('en-IN')}`);
+  setText('paymode-upi-onl', `₹${Math.round(payUpiOnline).toLocaleString('en-IN')}`);
+  setText('paymode-cash', `₹${Math.round(payCash).toLocaleString('en-IN')}`);
+  setText('paymode-card', `₹${Math.round(payCard).toLocaleString('en-IN')}`);
+  setText('paymode-hand', `₹${Math.round(payHand).toLocaleString('en-IN')}`);
 
-  document.getElementById('bucket-small').textContent = `${bucketSmall} Bills`;
-  document.getElementById('bucket-medium').textContent = `${bucketMedium} Bills`;
-  document.getElementById('bucket-high').textContent = `${bucketHigh} Bills`;
+  setText('bucket-small', `${bucketSmall} Bills`);
+  setText('bucket-medium', `${bucketMedium} Bills`);
+  setText('bucket-high', `${bucketHigh} Bills`);
 
-  document.getElementById('peak-sales-date').textContent = peakDate;
-  document.getElementById('peak-sales-amount').textContent = `₹${peakVal.toLocaleString('en-IN')}`;
+  setText('peak-sales-date', peakDate);
+  setText('peak-sales-amount', `₹${peakVal.toLocaleString('en-IN')}`);
 
   const totalTransactions = uniqueBills.size;
-  document.getElementById('metric-upt').textContent = (totalTransactions > 0 ? (totalUnits / totalTransactions) : 0).toFixed(2);
-  document.getElementById('metric-atv').textContent = `₹${Math.round(totalTransactions > 0 ? (totalSales / totalTransactions) : 0).toLocaleString('en-IN')}`;
-  document.getElementById('metric-auv').textContent = `₹${Math.round(totalUnits > 0 ? (totalSales / totalUnits) : 0).toLocaleString('en-IN')}`;
+  setText('metric-upt', (totalTransactions > 0 ? (totalUnits / totalTransactions) : 0).toFixed(2));
+  setText('metric-atv', `₹${Math.round(totalTransactions > 0 ? (totalSales / totalTransactions) : 0).toLocaleString('en-IN')}`);
+  setText('metric-auv', `₹${Math.round(totalUnits > 0 ? (totalSales / totalUnits) : 0).toLocaleString('en-IN')}`);
 
   productsList = Object.values(productsObj).map(p => {
     p.share = totalSales > 0 ? (p.revenue / totalSales) * 100 : 0;
@@ -955,7 +1105,7 @@ function processData() {
 function filterCategory(cat) {
   selectedCategory = cat;
   ['All', 'Sarees', 'Fabrics', 'Frames'].forEach(c => {
-    const btn = document.getElementById(`cat-btn-${c.toLowerCase()}`);
+    const btn = getEl(`cat-btn-${c.toLowerCase()}`);
     if (btn) {
       btn.className = c === cat ? "px-3 py-1 rounded-full bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-bold shadow-sm transition-all" : "px-3 py-1 rounded-full bg-[#FFFDF9] text-stone-600 border border-[#E5D5C6] hover:bg-stone-100 font-bold transition-all";
     }
@@ -974,7 +1124,7 @@ function renderProductsTable() {
     return prodSortAsc ? valA - valB : valB - valA;
   });
 
-  const tbody = document.getElementById('products-table-body');
+  const tbody = getEl('products-table-body');
   if (!tbody) return;
 
   if (displayList.length === 0) {
@@ -1014,7 +1164,7 @@ function renderAgentsTable() {
     return agentSortAsc ? valA - valB : valB - valA;
   });
 
-  const tbody = document.getElementById('agents-table-body');
+  const tbody = getEl('agents-table-body');
   if (!tbody) return;
 
   tbody.innerHTML = agentsList.map(a => `
@@ -1034,7 +1184,7 @@ function renderAgentsTable() {
 }
 
 function renderDayWiseSales(dayWiseObj) {
-  const container = document.getElementById('daywise-sales-container');
+  const container = getEl('daywise-sales-container');
   if (!container) return;
   const sortedDates = Object.keys(dayWiseObj).sort((a, b) => b.localeCompare(a));
 
@@ -1066,14 +1216,14 @@ function renderDayWiseSales(dayWiseObj) {
 }
 
 function renderBankLedgerModule() {
-  const selectEl = document.getElementById('bank-filter-select');
+  const selectEl = getEl('bank-filter-select');
   const selectedBank = selectEl ? selectEl.value : 'All';
-  const fromVal = document.getElementById('from-date').value;
-  const toVal = document.getElementById('to-date').value;
+  const fromVal = getEl('from-date') ? getEl('from-date').value : '';
+  const toVal = getEl('to-date') ? getEl('to-date').value : '';
 
-  const tbody = document.getElementById('bank-ledger-tbody');
-  const totalEl = document.getElementById('bank-selected-total');
-  const countEl = document.getElementById('bank-bills-count');
+  const tbody = getEl('bank-ledger-tbody');
+  const totalEl = getEl('bank-selected-total');
+  const countEl = getEl('bank-bills-count');
   if (!tbody) return;
 
   const ledgerRecords = [];
@@ -1081,8 +1231,9 @@ function renderBankLedgerModule() {
   const processedBills = new Set();
 
   rawData.forEach(r => {
-    if (!r['Bill Date']) return;
-    const rDate = normalizeToDateString(r['Bill Date']);
+    const rawDate = r['Bill Date'] || r['Date'] || r['Invoice Date'] || r['BillDate'];
+    if (!rawDate) return;
+    const rDate = normalizeToDateString(rawDate);
     if (fromVal && rDate < fromVal) return;
     if (toVal && rDate > toVal) return;
 
@@ -1094,8 +1245,8 @@ function renderBankLedgerModule() {
     if (processedBills.has(billKey)) return;
     processedBills.add(billKey);
 
-    const fullAmt = parseFloat((r['Final Amount'] || r['FinalAmount'] || r['Total Value'] || r['TotalValue'] || r['BillAmount'] || r['Bill Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
-    const agent = r['SM Name'] || r['Agent'] || 'No Agent';
+    const fullAmt = getRowAmount(r);
+    const agent = r['SM Name'] || r['SMName'] || r['Agent'] || r['Staff Name'] || 'No Agent';
     const splits = getBillSplits(bNo);
 
     if (splits.length > 0) {
@@ -1152,28 +1303,29 @@ function renderBankLedgerModule() {
 
 function backupBankStatementExcel() {
   if (!isAdmin || typeof XLSX === 'undefined') return;
-  const selectEl = document.getElementById('bank-filter-select');
+  const selectEl = getEl('bank-filter-select');
   const selectedBank = selectEl ? selectEl.value : 'All';
-  const fromVal = document.getElementById('from-date').value;
-  const toVal = document.getElementById('to-date').value;
+  const fromVal = getEl('from-date') ? getEl('from-date').value : '';
+  const toVal = getEl('to-date') ? getEl('to-date').value : '';
 
   const statementData = rawData.filter(row => {
-    if (!row['Bill Date']) return false;
-    const rDate = normalizeToDateString(row['Bill Date']);
+    const rawDate = row['Bill Date'] || row['Date'] || row['Invoice Date'] || row['BillDate'];
+    if (!rawDate) return false;
+    const rDate = normalizeToDateString(rawDate);
     if (fromVal && rDate < fromVal) return false;
     if (toVal && rDate > toVal) return false;
     const bAcc = getRowBank(row);
     if (selectedBank !== 'All' && bAcc.toLowerCase() !== selectedBank.toLowerCase()) return false;
     return true;
   }).map(r => ({
-    "Bill Date": normalizeToDateString(r['Bill Date']),
+    "Bill Date": normalizeToDateString(r['Bill Date'] || r['Date'] || r['Invoice Date']),
     "Bill No": getBillNo(r),
     "Store / Branch": r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Main Branch',
     "Item Name": r['Item Name'] || '',
-    "Staff Name": r['SM Name'] || 'No Agent',
+    "Staff Name": r['SM Name'] || r['SMName'] || r['Agent'] || 'No Agent',
     "Credited Bank Account": getRowBank(r),
     "Payment Mode": r['PayMode'] || r['Pay Mode'] || r['Sale type'] || r['Sale Type'] || '',
-    "Bill Amount": parseFloat((r['Final Amount'] || r['FinalAmount'] || r['Total Value'] || r['TotalValue'] || r['BillAmount'] || r['Bill Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0
+    "Bill Amount": getRowAmount(r)
   }));
 
   const workbook = XLSX.utils.book_new();
@@ -1187,48 +1339,12 @@ function backupBankStatementExcel() {
 // -------------------------------------------------------------
 function filterAttendanceMonth(mSheet) {
   selectedAttendanceMonth = mSheet;
-  renderAttendanceSalaryModule(parseFloat((document.getElementById('metric-total').textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
-}
-
-function getDayValue(emp, d) {
-  if (!emp || typeof emp !== 'object') return '';
-  const dStr = d.toString();
-  const dPad = d < 10 ? '0' + d : dStr;
-  
-  const possibleKeys = [dStr, dPad, 'D' + dStr, 'D' + dPad, 'Day ' + dStr, 'Day' + dStr, 'Day ' + dPad];
-
-  for (let key of possibleKeys) {
-    if (emp[key] !== undefined && emp[key] !== null && emp[key] !== '') {
-      return emp[key].toString().trim();
-    }
-  }
-
-  for (let key in emp) {
-    const cleanK = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (cleanK === dStr || cleanK === dPad || cleanK === 'd' + dStr || cleanK === 'day' + dStr) {
-      const val = (emp[key] || '').toString().trim();
-      if (val) return val;
-    }
-  }
-  return '';
-}
-
-function getDayNote(emp, d) {
-  const notesMap = emp['_notes'] || {};
-  const dStr = d.toString();
-  const dPad = d < 10 ? '0' + d : dStr;
-
-  const possibleKeys = [dStr, dPad, 'D' + dStr, 'D' + dPad, 'Day ' + dStr, 'Day ' + dPad];
-
-  for (let key of possibleKeys) {
-    if (notesMap[key]) return notesMap[key].toString().trim();
-  }
-  return '';
+  renderAttendanceSalaryModule(parseFloat((getEl('metric-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
 }
 
 function renderAttendanceSalaryModule(storeRevenue = 0) {
   if (!isAdmin) return; 
-  const container = document.getElementById('staff-salary-list');
+  const container = getEl('staff-salary-list');
   if (!container) return;
   container.innerHTML = '';
 
@@ -1245,8 +1361,8 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
 
   let totalStorePayroll = 0;
 
-  document.getElementById('payroll-staff-count').textContent = staffData.length;
-  document.getElementById('profit-store-sales').textContent = `₹${storeRevenue.toLocaleString('en-IN')}`;
+  setText('payroll-staff-count', staffData.length);
+  setText('profit-store-sales', `₹${storeRevenue.toLocaleString('en-IN')}`);
 
   staffData.forEach((emp, index) => {
     const empId = getEmpProp(emp, ['Emp ID', 'ID']) || `KS-${101 + index}`;
@@ -1301,9 +1417,7 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
       }
 
       let displayNote = note;
-      if (!displayNote && rawVal.length > 3) {
-        displayNote = rawVal;
-      }
+      if (!displayNote && rawVal.length > 3) displayNote = rawVal;
 
       gridDayBadges.push(`
         <div class="flex flex-col items-center justify-center border rounded-lg ${badgeBg} text-[8px] py-1 relative transition-all hover:scale-105 cursor-pointer" title="Day ${d}: ${statusCode || 'Unrecorded'}${displayNote ? ` | Reason: ${displayNote}` : ''}">
@@ -1383,10 +1497,9 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
     container.appendChild(card);
   });
 
-  const payTotalEl = document.getElementById('payroll-total-amount');
-  if (payTotalEl) payTotalEl.textContent = `₹${totalStorePayroll.toLocaleString('en-IN')}`;
+  setText('payroll-total-amount', `₹${totalStorePayroll.toLocaleString('en-IN')}`);
 
-  const grossProfitEl = document.getElementById('profit-gross-amount');
+  const grossProfitEl = getEl('profit-gross-amount');
   if (grossProfitEl) {
     const grossVal = storeRevenue - totalStorePayroll;
     grossProfitEl.textContent = `₹${grossVal.toLocaleString('en-IN')}`;
@@ -1400,14 +1513,14 @@ function updateStaffPayroll(index, field, val) {
   if (field === 'salary') emp['Monthly Salary'] = parseFloat(val) || 0;
   else if (field === 'commission') emp['Commission Pct'] = parseFloat(val) || 0;
   else if (field === 'advance') emp['Advance Taken'] = parseFloat(val) || 0;
-  renderAttendanceSalaryModule(parseFloat((document.getElementById('metric-total').textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
+  renderAttendanceSalaryModule(parseFloat((getEl('metric-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
 }
 
 function updateGlobalCommission(val) {
   if (!isAdmin) return;
   defaultCommissionPct = parseFloat(val) || 0;
   rawAttendanceData.forEach(emp => { emp['Commission Pct'] = defaultCommissionPct; });
-  renderAttendanceSalaryModule(parseFloat((document.getElementById('metric-total').textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
+  renderAttendanceSalaryModule(parseFloat((getEl('metric-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
 }
 
 function shareStaffPayslipWhatsApp(index) {
@@ -1561,7 +1674,7 @@ function exportSingleStaffPayslipPDF(index) {
     document.body.removeChild(payslipContainer);
   }).catch(err => {
     console.error(err);
-    if (document.getElementById('temp-payslip-pdf')) {
+    if (getEl('temp-payslip-pdf')) {
       document.body.removeChild(payslipContainer);
     }
   });
@@ -1569,8 +1682,8 @@ function exportSingleStaffPayslipPDF(index) {
 
 function shareAllPayslipsWhatsApp() {
   if (!isAdmin) return;
-  const modal = document.getElementById('whatsapp-bulk-modal');
-  const container = document.getElementById('whatsapp-bulk-list');
+  const modal = getEl('whatsapp-bulk-modal');
+  const container = getEl('whatsapp-bulk-list');
   if (!modal || !container) return;
 
   let staffData = Array.isArray(rawAttendanceData) ? rawAttendanceData.filter(emp => getEmpProp(emp, ['Employee Name', 'Name', 'Staff Name'])) : [];
@@ -1603,18 +1716,17 @@ function shareAllPayslipsWhatsApp() {
 }
 
 function closeWhatsAppBulkModal() {
-  const modal = document.getElementById('whatsapp-bulk-modal');
-  if (modal) modal.classList.add('hidden');
+  hideEl('whatsapp-bulk-modal');
 }
 
 function shareOwnerDailySummaryWhatsApp() {
   if (!isAdmin) return;
-  const fromVal = document.getElementById('from-date').value || 'Start';
-  const toVal = document.getElementById('to-date').value || 'End';
-  const totalSalesText = document.getElementById('metric-total').textContent || '₹0';
-  const onlineSalesText = document.getElementById('metric-online').textContent || '₹0';
-  const offlineSalesText = document.getElementById('metric-offline').textContent || '₹0';
-  const wholesaleSalesText = document.getElementById('metric-wholesale').textContent || '₹0';
+  const fromVal = getEl('from-date') ? getEl('from-date').value : 'Start';
+  const toVal = getEl('to-date') ? getEl('to-date').value : 'End';
+  const totalSalesText = getEl('metric-total') ? getEl('metric-total').textContent : '₹0';
+  const onlineSalesText = getEl('metric-online') ? getEl('metric-online').textContent : '₹0';
+  const offlineSalesText = getEl('metric-offline') ? getEl('metric-offline').textContent : '₹0';
+  const wholesaleSalesText = getEl('metric-wholesale') ? getEl('metric-wholesale').textContent : '₹0';
 
   let msg = `🌸 *KAILASH KALAMKARI - EXECUTIVE SUMMARY* 🌸\n\n`;
   msg += `📍 *Selected Store:* ${selectedStore}\n`;
@@ -1630,21 +1742,20 @@ function shareOwnerDailySummaryWhatsApp() {
 }
 
 function backupFullDatabaseExcel() {
-  if (!isAdmin) return;
-  if (typeof XLSX === 'undefined') {
+  if (!isAdmin || typeof XLSX === 'undefined') {
     alert("Excel library loading or unavailable.");
     return;
   }
   const workbook = XLSX.utils.book_new();
   const salesSheetData = rawData.map(r => ({
-    "Date": normalizeToDateString(r['Bill Date']),
+    "Date": normalizeToDateString(r['Bill Date'] || r['Date'] || r['Invoice Date']),
     "Store/Shop": r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Main Branch',
     "Bill No": getBillNo(r),
-    "Staff Name": r['SM Name'] || 'No Agent',
+    "Staff Name": r['SM Name'] || r['SMName'] || r['Agent'] || 'No Agent',
     "Item Name": r['Item Name'] || '',
     "Category": getItemCategory(r['Item Name']),
-    "Qty": parseInt(r['Qty']) || 0,
-    "Amount": parseFloat((r['Final Amount'] || r['FinalAmount'] || r['Total Value'] || r['TotalValue'] || r['BillAmount'] || r['Bill Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0,
+    "Qty": parseInt(r['Qty'] || 1) || 1,
+    "Amount": getRowAmount(r),
     "PayMode": r['PayMode'] || r['Pay Mode'] || r['Sale type'] || r['Sale Type'] || '',
     "Credited Bank Account": getRowBank(r),
     "Channel": getSalesType(r['PayMode'] || r['Pay Mode'] || r['Sale type'] || r['Sale Type'])
@@ -1666,7 +1777,9 @@ async function saveAttendanceData() {
   try {
     const response = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
+      mode: 'cors',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ 
         action: 'save_attendance',
         username: user, 
@@ -1702,15 +1815,15 @@ function showAgentDetails(agentName) { applyState({ view: 'agent-analysis', name
 function showProductDetails(productName) { applyState({ view: 'home', detail: 'product', name: productName }); }
 
 function populateProductDetailsDOM(productName, isChannel = false) {
-  const titleEl = document.getElementById('detail-product-name');
-  if (titleEl) titleEl.textContent = productName;
-  const fromVal = document.getElementById('from-date').value;
-  const toVal = document.getElementById('to-date').value;
+  setText('detail-product-name', productName);
+  const fromVal = getEl('from-date') ? getEl('from-date').value : '';
+  const toVal = getEl('to-date') ? getEl('to-date').value : '';
 
   const agentStats = {};
   rawData.forEach(row => {
-    if (!row['Bill Date']) return;
-    const rDate = normalizeToDateString(row['Bill Date']);
+    const rawDate = row['Bill Date'] || row['Date'] || row['Invoice Date'] || row['BillDate'];
+    if (!rawDate) return;
+    const rDate = normalizeToDateString(rawDate);
     if (fromVal && rDate < fromVal) return;
     if (toVal && rDate > toVal) return;
     const storeName = (row['Store'] || row['Shop'] || row['Branch Name'] || row['Branch'] || row['Location'] || row['Store Name'] || 'Main Branch').toString().trim();
@@ -1718,8 +1831,8 @@ function populateProductDetailsDOM(productName, isChannel = false) {
 
     if ((row['Item Name'] || row['ItemName']) !== productName) return;
 
-    const agent = row['SM Name'] || row['SMName'] || 'No Agent';
-    const amount = parseFloat((row['Final Amount'] || row['FinalAmount'] || row['Total Value'] || row['TotalValue'] || row['BillAmount'] || row['Bill Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
+    const agent = row['SM Name'] || row['SMName'] || row['Agent'] || 'No Agent';
+    const amount = getRowAmount(row);
     const type = getSalesType(row['PayMode'] || row['Pay Mode'] || row['Sale type'] || row['Sale Type']);
 
     if (!agentStats[agent]) agentStats[agent] = { online: 0, offline: 0, wholesale: 0, total: 0 };
@@ -1730,7 +1843,7 @@ function populateProductDetailsDOM(productName, isChannel = false) {
   });
 
   const sortedAgents = Object.entries(agentStats).sort((a, b) => b[1].total - a[1].total);
-  const tbody = document.getElementById('product-detail-table-body');
+  const tbody = getEl('product-detail-table-body');
   if (tbody) {
     tbody.innerHTML = sortedAgents.length === 0 ? `<tr><td colspan="5" class="p-3 text-center text-stone-400">No sales recorded</td></tr>` : sortedAgents.map(([agentName, stats]) => `
       <tr class="hover:bg-amber-50/20 transition-colors">
@@ -1745,8 +1858,8 @@ function populateProductDetailsDOM(productName, isChannel = false) {
 }
 
 function toggleAgentDetailView(view) {
-  const prodView = document.getElementById('agent-detail-product-view');
-  const billView = document.getElementById('agent-detail-bill-view');
+  const prodView = getEl('agent-detail-product-view');
+  const billView = getEl('agent-detail-bill-view');
   if (view === 'product') {
     if (prodView) prodView.classList.remove('hidden');
     if (billView) billView.classList.add('hidden');
@@ -1760,36 +1873,43 @@ function populateAgentDetailsDOM(agentName) {
   const agentObj = agentsList.find(a => a.name === agentName);
   if (!agentObj) return false;
 
-  document.getElementById('detail-agent-name').textContent = `${agentObj.name} Ledger`;
+  setText('detail-agent-name', `${agentObj.name} Ledger`);
   const sortedItems = Object.entries(agentObj.items).sort((a, b) => b[1].qty - a[1].qty);
-  document.getElementById('agent-detail-table-body').innerHTML = sortedItems.map(([itemName, values]) => `
-    <tr class="hover:bg-amber-50/20 transition-colors">
-      <td class="p-2.5 font-semibold text-stone-700">${itemName}</td>
-      <td class="p-2.5 text-center font-bold text-stone-500 font-numeric">${values.qty}</td>
-      <td class="p-2.5 text-right font-extrabold text-[#5C0612] font-numeric">₹${values.revenue.toLocaleString('en-IN')}</td>
-    </tr>
-  `).join('');
+  const tbody = getEl('agent-detail-table-body');
+  if (tbody) {
+    tbody.innerHTML = sortedItems.map(([itemName, values]) => `
+      <tr class="hover:bg-amber-50/20 transition-colors">
+        <td class="p-2.5 font-semibold text-stone-700">${itemName}</td>
+        <td class="p-2.5 text-center font-bold text-stone-500 font-numeric">${values.qty}</td>
+        <td class="p-2.5 text-right font-extrabold text-[#5C0612] font-numeric">₹${values.revenue.toLocaleString('en-IN')}</td>
+      </tr>
+    `).join('');
+  }
 
   const sortedBills = Object.values(agentObj.bills).sort((a, b) => b.amount - a.amount);
-  document.getElementById('agent-detail-bill-table-body').innerHTML = sortedBills.map(b => `
-    <tr class="hover:bg-amber-50/20 transition-colors">
-      <td class="p-2.5 font-semibold text-stone-700 font-numeric">${b.date || 'N/A'}</td>
-      <td class="p-2.5 text-center font-bold text-stone-500 font-numeric">${b.billNo || 'N/A'}</td>
-      <td class="p-2.5 text-center"><span class="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-bold px-2 py-0.5 rounded font-numeric">${b.bank || 'Not Defined'}</span></td>
-      <td class="p-2.5 text-right font-extrabold text-[#5C0612] font-numeric">₹${b.amount.toLocaleString('en-IN')}</td>
-    </tr>
-  `).join('');
+  const billTbody = getEl('agent-detail-bill-table-body');
+  if (billTbody) {
+    billTbody.innerHTML = sortedBills.map(b => `
+      <tr class="hover:bg-amber-50/20 transition-colors">
+        <td class="p-2.5 font-semibold text-stone-700 font-numeric">${b.date || 'N/A'}</td>
+        <td class="p-2.5 text-center font-bold text-stone-500 font-numeric">${b.billNo || 'N/A'}</td>
+        <td class="p-2.5 text-center"><span class="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-bold px-2 py-0.5 rounded font-numeric">${b.bank || 'Not Defined'}</span></td>
+        <td class="p-2.5 text-right font-extrabold text-[#5C0612] font-numeric">₹${b.amount.toLocaleString('en-IN')}</td>
+      </tr>
+    `).join('');
+  }
 
   toggleAgentDetailView('product');
   return true;
 }
 
 function populateChannelScreenDOM(channel) {
-  const fromVal = document.getElementById('from-date').value;
-  const toVal = document.getElementById('to-date').value;
+  const fromVal = getEl('from-date') ? getEl('from-date').value : '';
+  const toVal = getEl('to-date') ? getEl('to-date').value : '';
   const filtered = rawData.filter(row => {
-    if (!row['Bill Date']) return false;
-    const rDate = normalizeToDateString(row['Bill Date']);
+    const rawDate = row['Bill Date'] || row['Date'] || row['Invoice Date'] || row['BillDate'];
+    if (!rawDate) return false;
+    const rDate = normalizeToDateString(rawDate);
     let match = true;
     if (fromVal) match = match && (rDate >= fromVal);
     if (toVal) match = match && (rDate <= toVal);
@@ -1803,8 +1923,8 @@ function populateChannelScreenDOM(channel) {
   const agentsObj = {}, productsObj = {};
 
   filtered.forEach(row => {
-    const amount = parseFloat((row['Final Amount'] || row['FinalAmount'] || row['Total Value'] || row['TotalValue'] || row['BillAmount'] || row['Bill Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
-    const qty = parseInt(row['Qty']) || parseInt(row['QTY']) || 0;
+    const amount = getRowAmount(row);
+    const qty = parseInt(row['Qty'] || row['QTY'] || 1) || 1;
     const item = row['Item Name'] || 'Unknown Item';
     const agent = row['SM Name'] || 'No Agent';
 
@@ -1815,9 +1935,9 @@ function populateChannelScreenDOM(channel) {
     productsObj[item].revenue += amount;
   });
 
-  document.getElementById('channel-view-total').textContent = `₹${totalChannelRevenue.toLocaleString('en-IN')}`;
+  setText('channel-view-total', `₹${totalChannelRevenue.toLocaleString('en-IN')}`);
 
-  const agentTable = document.getElementById('channel-agents-table');
+  const agentTable = getEl('channel-agents-table');
   if (agentTable) {
     const sortedA = Object.entries(agentsObj).sort((a, b) => b[1] - a[1]);
     agentTable.innerHTML = sortedA.length === 0 ? `<tr><td colspan="2" class="p-4 text-center text-stone-400">No record</td></tr>` : sortedA.map(([aName, amt]) => `
@@ -1828,7 +1948,7 @@ function populateChannelScreenDOM(channel) {
     `).join('');
   }
 
-  const prodTable = document.getElementById('channel-products-table');
+  const prodTable = getEl('channel-products-table');
   if (prodTable) {
     const sortedP = Object.entries(productsObj).sort((a, b) => b[1].revenue - a[1].revenue);
     prodTable.innerHTML = sortedP.length === 0 ? `<tr><td colspan="3" class="p-4 text-center text-stone-400">No record</td></tr>` : sortedP.map(([pName, pObj]) => `
@@ -1844,7 +1964,7 @@ function populateChannelScreenDOM(channel) {
 function populateWeeklyScreenDOM() { renderWeeklyDistributionDOM(); }
 
 function renderWeeklyDistributionDOM() {
-  const container = document.getElementById('weekly-distribution-bars');
+  const container = getEl('weekly-distribution-bars');
   if (!container) return;
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const totalWeeklySales = currentDaySales.reduce((a, b) => a + b, 0);
@@ -1868,8 +1988,8 @@ function renderWeeklyDistributionDOM() {
 
 function setAgentBillsViewMode(mode) {
   agentBillsViewMode = mode;
-  const sumBtn = document.getElementById('btn-agent-mode-summary');
-  const detBtn = document.getElementById('btn-agent-mode-detailed');
+  const sumBtn = getEl('btn-agent-mode-summary');
+  const detBtn = getEl('btn-agent-mode-detailed');
   
   if (mode === 'summary') {
     if (sumBtn) sumBtn.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all bg-[#5C0612] text-[#EFE5C9] shadow-sm font-traditional flex items-center gap-1.5";
@@ -1886,17 +2006,16 @@ function setAgentBillsViewMode(mode) {
 
 function populateAgentAnalysisScreenDOM(agentName) {
   activeAnalysisAgent = agentName;
-  const fromVal = document.getElementById('from-date').value;
-  const toVal = document.getElementById('to-date').value;
+  const fromVal = getEl('from-date') ? getEl('from-date').value : '';
+  const toVal = getEl('to-date') ? getEl('to-date').value : '';
   
-  const titleEl = document.getElementById('agent-analysis-title');
-  const subEl = document.getElementById('agent-analysis-subtitle');
-  if (titleEl) titleEl.textContent = `${agentName} Ledger`;
-  if (subEl) subEl.textContent = `Period: ${fromVal || 'Start'} to ${toVal || 'End'}`;
+  setText('agent-analysis-title', `${agentName} Ledger`);
+  setText('agent-analysis-subtitle', `Period: ${fromVal || 'Start'} to ${toVal || 'End'}`);
 
   const filtered = rawData.filter(row => {
-    if (!row['Bill Date']) return false;
-    const rDate = normalizeToDateString(row['Bill Date']);
+    const rawDate = row['Bill Date'] || row['Date'] || row['Invoice Date'] || row['BillDate'];
+    if (!rawDate) return false;
+    const rDate = normalizeToDateString(rawDate);
     let match = true;
     if (fromVal) match = match && (rDate >= fromVal);
     if (toVal) match = match && (rDate <= toVal);
@@ -1918,9 +2037,10 @@ function populateAgentAnalysisScreenDOM(agentName) {
   const productSales = {};
 
   agentRows.forEach(row => {
-    const date = normalizeToDateString(row['Bill Date']);
-    const amount = parseFloat((row['Final Amount'] || row['FinalAmount'] || row['Total Value'] || row['TotalValue'] || row['BillAmount'] || row['Bill Amount'] || row['Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
-    const qty = parseInt(row['Qty']) || parseInt(row['QTY']) || 0;
+    const rawDate = row['Bill Date'] || row['Date'] || row['Invoice Date'] || row['BillDate'];
+    const date = normalizeToDateString(rawDate);
+    const amount = getRowAmount(row);
+    const qty = parseInt(row['Qty'] || row['QTY'] || 1) || 1;
     const item = row['Item Name'] || row['ItemName'] || 'Unknown Item';
     const payMode = row['PayMode'] || row['Pay Mode'] || row['Paymode'] || row['Sale type'] || row['Sale Type'] || '';
     const channel = getSalesType(payMode);
@@ -1953,31 +2073,24 @@ function populateAgentAnalysisScreenDOM(agentName) {
     else productSales[item].offlineQty += qty;
   });
 
-  const revEl = document.getElementById('agent-analysis-total-revenue');
-  const onlEl = document.getElementById('agent-analysis-online-sales');
-  const offEl = document.getElementById('agent-analysis-offline-sales');
-  const handEl = document.getElementById('agent-analysis-takebyhand-sales');
-
-  if (revEl) revEl.textContent = `₹${totalAgentRevenue.toLocaleString('en-IN')}`;
-  if (onlEl) onlEl.textContent = `₹${totalOnlineSales.toLocaleString('en-IN')}`;
-  if (offEl) offEl.textContent = `₹${totalOfflineSales.toLocaleString('en-IN')}`;
-  if (handEl) handEl.textContent = `₹${totalTakebyhandSales.toLocaleString('en-IN')}`;
+  setText('agent-analysis-total-revenue', `₹${totalAgentRevenue.toLocaleString('en-IN')}`);
+  setText('agent-analysis-online-sales', `₹${totalOnlineSales.toLocaleString('en-IN')}`);
+  setText('agent-analysis-offline-sales', `₹${totalOfflineSales.toLocaleString('en-IN')}`);
+  setText('agent-analysis-takebyhand-sales', `₹${totalTakebyhandSales.toLocaleString('en-IN')}`);
 
   const agentBillCount = Object.keys(dailyGroup).reduce((acc, date) => acc + Object.keys(dailyGroup[date].bills).length, 0);
   const agentATV = agentBillCount > 0 ? (totalAgentRevenue / agentBillCount) : 0;
   const agentAUV = totalAgentUnits > 0 ? (totalAgentRevenue / totalAgentUnits) : 0;
   
-  const atvEl = document.getElementById('agent-analysis-atv');
-  const auvEl = document.getElementById('agent-analysis-auv');
-  if (atvEl) atvEl.textContent = `₹${Math.round(agentATV).toLocaleString('en-IN')}`;
-  if (auvEl) auvEl.textContent = `₹${Math.round(agentAUV).toLocaleString('en-IN')}`;
+  setText('agent-analysis-atv', `₹${Math.round(agentATV).toLocaleString('en-IN')}`);
+  setText('agent-analysis-auv', `₹${Math.round(agentAUV).toLocaleString('en-IN')}`);
 
   const sortedProductSales = Object.values(productSales).map(p => {
     p.percent = totalAgentRevenue > 0 ? (p.revenue / totalAgentRevenue) * 100 : 0;
     return p;
   }).sort((a, b) => b.revenue - a.revenue);
 
-  const productShareContainer = document.getElementById('agent-analysis-product-share');
+  const productShareContainer = getEl('agent-analysis-product-share');
   if (productShareContainer) {
     productShareContainer.innerHTML = sortedProductSales.length === 0 ? `
       <p class="text-center text-stone-400 text-xs font-traditional py-4">No product sales recorded for this staff member in this date range.</p>
@@ -1995,7 +2108,7 @@ function populateAgentAnalysisScreenDOM(agentName) {
   }
 
   const sortedDates = Object.keys(dailyGroup).sort((a, b) => b.localeCompare(a));
-  const dailyListContainer = document.getElementById('agent-analysis-daily-list');
+  const dailyListContainer = getEl('agent-analysis-daily-list');
   
   if (dailyListContainer) {
     if (sortedDates.length === 0) {
@@ -2072,7 +2185,7 @@ function populateAgentAnalysisScreenDOM(agentName) {
 }
 
 function shareAgentSalesReportWhatsApp() {
-  const revEl = document.getElementById('agent-analysis-total-revenue');
+  const revEl = getEl('agent-analysis-total-revenue');
   let msg = `🌸 *KAILASH KALAMKARI - STAFF PERFORMANCE* 🌸\n\n👤 *Staff Member:* ${activeAnalysisAgent}\n💰 *Total Sales Revenue:* ${revEl ? revEl.textContent : '₹0'}\n`;
   window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
 }
@@ -2082,8 +2195,7 @@ function shareAgentSalesReportWhatsApp() {
 // -------------------------------------------------------------
 function switchTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-  const targetTab = document.getElementById(tabId);
-  if (targetTab) targetTab.classList.remove('hidden');
+  showEl(tabId);
 
   const btnMap = {
     'products-tab': 'btn-products-tab',
@@ -2095,7 +2207,7 @@ function switchTab(tabId) {
   };
 
   Object.entries(btnMap).forEach(([tId, bId]) => {
-    const btn = document.getElementById(bId);
+    const btn = getEl(bId);
     if (btn) {
       btn.className = (tId === tabId)
         ? "flex-1 min-w-[90px] text-center py-2 text-xs font-bold rounded-xl transition-all bg-white text-[#5C0612] shadow-sm font-traditional flex items-center justify-center gap-1"
@@ -2108,7 +2220,7 @@ function switchTab(tabId) {
 // PAYMENT SPLIT & MULTI-ACCOUNT RECORDING ENGINE (ADMIN ONLY)
 // -------------------------------------------------------------
 function populateBillsDatalist() {
-  const datalist = document.getElementById('bills-datalist');
+  const datalist = getEl('bills-datalist');
   if (!datalist) return;
   
   const billSet = new Set();
@@ -2121,7 +2233,7 @@ function populateBillsDatalist() {
 }
 
 function lookupBillDetails() {
-  const inputVal = (document.getElementById('split-bill-search').value || '').trim();
+  const inputVal = (getEl('split-bill-search')?.value || '').trim();
   if (!inputVal) {
     alert("Please enter a Bill Number.");
     return;
@@ -2135,40 +2247,38 @@ function lookupBillDetails() {
   }
 
   const firstRow = matchingRows[0];
-  const totalBillAmt = matchingRows.reduce((sum, r) => {
-    const amt = parseFloat((r['Final Amount'] || r['FinalAmount'] || r['Total Value'] || r['TotalValue'] || r['BillAmount'] || r['Bill Amount'] || r['Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
-    return sum + amt;
-  }, 0);
+  const totalBillAmt = matchingRows.reduce((sum, r) => sum + getRowAmount(r), 0);
 
   currentSelectedBillData = {
     billNo: getBillNo(firstRow),
-    date: normalizeToDateString(firstRow['Bill Date']),
+    date: normalizeToDateString(firstRow['Bill Date'] || firstRow['Date'] || firstRow['Invoice Date']),
     store: firstRow['Store'] || firstRow['Shop'] || 'Main Branch',
-    agent: firstRow['SM Name'] || firstRow['Agent'] || 'No Agent',
+    agent: firstRow['SM Name'] || firstRow['SMName'] || firstRow['Agent'] || 'No Agent',
     totalAmount: totalBillAmt
   };
 
-  document.getElementById('info-bill-date').textContent = currentSelectedBillData.date;
-  document.getElementById('info-bill-store').textContent = currentSelectedBillData.store;
-  document.getElementById('info-bill-agent').textContent = currentSelectedBillData.agent;
-  document.getElementById('info-bill-total').textContent = `₹${totalBillAmt.toLocaleString('en-IN')}`;
-  document.getElementById('bill-info-box').classList.remove('hidden');
+  setText('info-bill-date', currentSelectedBillData.date);
+  setText('info-bill-store', currentSelectedBillData.store);
+  setText('info-bill-agent', currentSelectedBillData.agent);
+  setText('info-bill-total', `₹${totalBillAmt.toLocaleString('en-IN')}`);
+  showEl('bill-info-box');
 
-  const container = document.getElementById('split-rows-container');
-  container.innerHTML = '';
-
-  const existingSplits = getBillSplits(currentSelectedBillData.billNo);
-  if (existingSplits.length > 0) {
-    existingSplits.forEach(s => addSplitRow(s.bank, s.amount));
-  } else {
-    addSplitRow('Cash', '');
-    addSplitRow('42441-TJ', '');
+  const container = getEl('split-rows-container');
+  if (container) {
+    container.innerHTML = '';
+    const existingSplits = getBillSplits(currentSelectedBillData.billNo);
+    if (existingSplits.length > 0) {
+      existingSplits.forEach(s => addSplitRow(s.bank, s.amount));
+    } else {
+      addSplitRow('Cash', '');
+      addSplitRow('42441-TJ', '');
+    }
+    calculateSplitTotals();
   }
-  calculateSplitTotals();
 }
 
 function addSplitRow(selectedBank = '', amount = '') {
-  const container = document.getElementById('split-rows-container');
+  const container = getEl('split-rows-container');
   if (!container) return;
 
   const rowId = `split-row-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
@@ -2198,7 +2308,7 @@ function addSplitRow(selectedBank = '', amount = '') {
 }
 
 function removeSplitRow(rowId) {
-  const rowEl = document.getElementById(rowId);
+  const rowEl = getEl(rowId);
   if (rowEl) rowEl.remove();
   calculateSplitTotals();
 }
@@ -2214,36 +2324,39 @@ function calculateSplitTotals() {
   const totalBill = currentSelectedBillData ? currentSelectedBillData.totalAmount : 0;
   const remaining = totalBill - allocatedTotal;
 
-  document.getElementById('split-allocated-total').textContent = `₹${allocatedTotal.toLocaleString('en-IN')}`;
-  document.getElementById('split-remaining-balance').textContent = `₹${remaining.toLocaleString('en-IN')}`;
+  setText('split-allocated-total', `₹${allocatedTotal.toLocaleString('en-IN')}`);
+  setText('split-remaining-balance', `₹${remaining.toLocaleString('en-IN')}`);
 
-  const statusBadge = document.getElementById('split-status-badge');
-  if (!currentSelectedBillData) {
-    statusBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-stone-200 text-stone-600";
-    statusBadge.textContent = "Select Bill";
-  } else if (remaining === 0 && allocatedTotal > 0) {
-    statusBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300";
-    statusBadge.textContent = "Matched ✅";
-  } else if (remaining > 0) {
-    statusBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-amber-100 text-amber-800 border border-amber-300";
-    statusBadge.textContent = `₹${remaining} Remaining`;
-  } else {
-    statusBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-rose-100 text-rose-800 border border-rose-300";
-    statusBadge.textContent = `Exceeded by ₹${Math.abs(remaining)}`;
+  const statusBadge = getEl('split-status-badge');
+  if (statusBadge) {
+    if (!currentSelectedBillData) {
+      statusBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-stone-200 text-stone-600";
+      statusBadge.textContent = "Select Bill";
+    } else if (remaining === 0 && allocatedTotal > 0) {
+      statusBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300";
+      statusBadge.textContent = "Matched ✅";
+    } else if (remaining > 0) {
+      statusBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-amber-100 text-amber-800 border border-amber-300";
+      statusBadge.textContent = `₹${remaining} Remaining`;
+    } else {
+      statusBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-rose-100 text-rose-800 border border-rose-300";
+      statusBadge.textContent = `Exceeded by ₹${Math.abs(remaining)}`;
+    }
   }
 }
 
 function openNewAccountModal() {
-  document.getElementById('new-account-name-input').value = '';
-  document.getElementById('new-account-modal').classList.remove('hidden');
+  const inp = getEl('new-account-name-input');
+  if (inp) inp.value = '';
+  showEl('new-account-modal');
 }
 
 function closeNewAccountModal() {
-  document.getElementById('new-account-modal').classList.add('hidden');
+  hideEl('new-account-modal');
 }
 
 async function saveNewAccountType() {
-  const name = (document.getElementById('new-account-name-input').value || '').trim();
+  const name = (getEl('new-account-name-input')?.value || '').trim();
   if (!name) {
     alert("Please enter a valid Account Name or Code.");
     return;
@@ -2272,7 +2385,9 @@ async function saveNewAccountType() {
   try {
     await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
+      mode: 'cors',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: 'save_new_account',
         username: user,
@@ -2296,8 +2411,8 @@ async function submitSplitPayment() {
   const splitsPayload = [];
 
   rows.forEach(r => {
-    const account = r.querySelector('.split-account-select').value.trim();
-    const amount = parseFloat(r.querySelector('.split-amount-input').value) || 0;
+    const account = (r.querySelector('.split-account-select')?.value || '').trim();
+    const amount = parseFloat(r.querySelector('.split-amount-input')?.value) || 0;
     if (account && amount > 0) {
       splitsPayload.push({ account: account, amount: amount });
     }
@@ -2308,8 +2423,8 @@ async function submitSplitPayment() {
     return;
   }
 
-  const btnText = document.getElementById('save-split-text');
-  btnText.textContent = "Recording to Google Sheets...";
+  const btnText = getEl('save-split-text');
+  if (btnText) btnText.textContent = "Recording to Google Sheets...";
 
   const user = localStorage.getItem('kk_user') || 'admin';
   const pass = localStorage.getItem('kk_pass') || '';
@@ -2317,7 +2432,9 @@ async function submitSplitPayment() {
   try {
     const response = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
+      mode: 'cors',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: 'save_payment_splits',
         username: user,
@@ -2333,8 +2450,6 @@ async function submitSplitPayment() {
     const result = await response.json();
     if (result.status === 'success') {
       alert(`✅ Bill ${currentSelectedBillData.billNo} payment settlement saved cleanly!`);
-      
-      // Update in-memory state
       delete globalBillSplitsMap[currentSelectedBillData.billNo];
       splitsPayload.forEach(s => {
         registerBillSplit(currentSelectedBillData.billNo, s.account, s.amount, s.account);
@@ -2350,45 +2465,451 @@ async function submitSplitPayment() {
     processData();
     alert(`✅ Recorded locally for Bill ${currentSelectedBillData.billNo}!`);
   } finally {
-    btnText.textContent = "Save Settlement to Google Sheet";
+    if (btnText) btnText.textContent = "Save Settlement to Google Sheet";
   }
+}
+
+// -------------------------------------------------------------
+// 1. CASHIER WORKSPACE & TOUCHSCREEN POS ENGINE
+// -------------------------------------------------------------
+function initCashierWorkspace() {
+  setText('cashier-current-date-badge', `Shift Date: ${new Date().toLocaleDateString('en-IN')}`);
+
+  const staffSet = new Set();
+  staffDirectory.forEach(s => staffSet.add(`${s.name} (${s.empId})`));
+  rawData.forEach(r => {
+    const sm = r['SM Name'] || r['Agent'];
+    if (sm) staffSet.add(sm.toString().trim());
+  });
+
+  const dl = getEl('pos-agents-datalist');
+  if (dl) {
+    dl.innerHTML = Array.from(staffSet).map(s => `<option value="${s}">`).join('');
+  }
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  cashierShiftRecords = rawData.filter(r => {
+    const rawDate = r['Bill Date'] || r['Date'] || r['Invoice Date'];
+    return normalizeToDateString(rawDate) === todayStr;
+  });
+  renderCashierShiftFeed();
+}
+
+function setPosPaymentMode(mode, bank) {
+  activePosMode = mode;
+  activePosBank = bank;
+
+  document.querySelectorAll('.pos-mode-btn').forEach(btn => {
+    btn.className = "pos-mode-btn py-3 px-2 rounded-2xl border border-stone-200 bg-white text-stone-700 font-bold text-xs flex flex-col items-center gap-1 active:scale-95 transition-all shadow-sm";
+  });
+
+  if (window.event && window.event.currentTarget) {
+    window.event.currentTarget.className = "pos-mode-btn py-3 px-2 rounded-2xl border-2 border-[#5C0612] bg-amber-50 text-[#5C0612] font-black text-xs flex flex-col items-center gap-1 active:scale-95 transition-all shadow-sm ring-1 ring-[#5C0612]";
+  }
+
+  const splitBox = getEl('pos-split-subcontainer');
+  if (mode === 'Split') {
+    showEl('pos-split-subcontainer');
+    const splitLines = getEl('pos-split-lines');
+    if (splitLines && splitLines.children.length === 0) {
+      addPosSplitLine('Cash', '');
+      addPosSplitLine('42441-TJ', '');
+    }
+    calculatePosSplits();
+  } else {
+    hideEl('pos-split-subcontainer');
+  }
+}
+
+function addPosSplitLine(acc = 'Cash', amt = '') {
+  const container = getEl('pos-split-lines');
+  if (!container) return;
+  const lineId = `pos-split-${Date.now()}-${Math.random().toString(36).substr(2,3)}`;
+  const div = document.createElement('div');
+  div.id = lineId;
+  div.className = "flex items-center gap-2";
+  div.innerHTML = `
+    <select class="pos-split-acc text-xs font-bold bg-white border border-[#E5D5C6] rounded-xl p-2 flex-1 font-sans">
+      <option value="Cash" ${acc === 'Cash' ? 'selected' : ''}>Cash</option>
+      <option value="42441-TJ" ${acc === '42441-TJ' ? 'selected' : ''}>42441-TJ (UPI)</option>
+      <option value="KC" ${acc === 'KC' ? 'selected' : ''}>KC (Card)</option>
+    </select>
+    <input type="number" step="any" placeholder="Amount (₹)" value="${amt}" oninput="calculatePosSplits()" class="pos-split-amt w-28 text-xs font-bold font-numeric bg-white border border-[#E5D5C6] rounded-xl p-2 text-[#5C0612]">
+    <button type="button" onclick="document.getElementById('${lineId}').remove(); calculatePosSplits();" class="text-stone-400 hover:text-rose-600 p-1">
+      <i class="fa-solid fa-trash-can text-xs"></i>
+    </button>
+  `;
+  container.appendChild(div);
+  calculatePosSplits();
+}
+
+function calculatePosSplits() {
+  const totalBillInput = getEl('pos-total-amount');
+  const totalBill = totalBillInput ? (parseFloat(totalBillInput.value) || 0) : 0;
+  let splitTotal = 0;
+  document.querySelectorAll('.pos-split-amt').forEach(inp => splitTotal += parseFloat(inp.value) || 0);
+
+  const rem = totalBill - splitTotal;
+  const badge = getEl('pos-split-calc-balance');
+  if (badge) {
+    if (rem === 0 && totalBill > 0) {
+      badge.className = "text-emerald-700 font-bold font-numeric";
+      badge.textContent = "Exact Match ✅";
+    } else {
+      badge.className = "text-rose-700 font-bold font-numeric";
+      badge.textContent = `Rem: ₹${rem.toLocaleString('en-IN')}`;
+    }
+  }
+}
+
+function handlePosAmountChange(val) {
+  if (activePosMode === 'Split') calculatePosSplits();
+}
+
+async function handleCashierTransactionSubmit(e) {
+  if (e) e.preventDefault();
+  const billNo = (getEl('pos-bill-no')?.value || '').trim();
+  const store = getEl('pos-store-name')?.value || 'Main Branch';
+  const agent = (getEl('pos-agent-name')?.value || '').trim();
+  const itemName = (getEl('pos-item-name')?.value || '').trim() || 'Kalamkari Product';
+  const qty = parseInt(getEl('pos-qty')?.value) || 1;
+  const amount = parseFloat(getEl('pos-total-amount')?.value) || 0;
+  const channel = getEl('pos-channel-type')?.value || 'Offline';
+
+  if (!billNo || amount <= 0 || !agent) {
+    alert("Please fill in valid Bill No, Sales Staff ID, and Total Amount.");
+    return;
+  }
+
+  const splitsPayload = [];
+  if (activePosMode === 'Split') {
+    document.querySelectorAll('#pos-split-lines > div').forEach(row => {
+      const acc = row.querySelector('.pos-split-acc').value;
+      const amt = parseFloat(row.querySelector('.pos-split-amt').value) || 0;
+      if (amt > 0) splitsPayload.push({ account: acc, amount: amt });
+    });
+  }
+
+  const submitBtn = getEl('pos-submit-btn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> Logging Transaction...`;
+  }
+
+  const session = checkSession();
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      mode: 'cors',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'save_pos_transaction',
+        username: session.user,
+        password: session.pass,
+        billNo: billNo,
+        store: store,
+        agent: agent,
+        itemName: itemName,
+        qty: qty,
+        amount: amount,
+        payMode: activePosMode,
+        bankAccount: activePosBank,
+        channel: channel,
+        splits: splitsPayload
+      })
+    });
+
+    const res = await response.json();
+    if (res.status === 'success') {
+      alert(`✅ Transaction ${billNo} saved cleanly!`);
+
+      const newRecord = {
+        'Bill No': billNo,
+        'Bill Date': new Date().toISOString().split('T')[0],
+        'Store': store,
+        'SM Name': agent,
+        'Item Name': itemName,
+        'Qty': qty,
+        'Final Amount': amount,
+        'PayMode': activePosMode,
+        'Acc No': activePosBank
+      };
+
+      cashierShiftRecords.unshift(newRecord);
+      rawData.unshift(newRecord);
+      renderCashierShiftFeed();
+
+      if (getEl('pos-bill-no')) getEl('pos-bill-no').value = '';
+      if (getEl('pos-total-amount')) getEl('pos-total-amount').value = '';
+      if (getEl('pos-item-name')) getEl('pos-item-name').value = '';
+    } else {
+      alert("Error logging transaction: " + (res.error || "Unknown error"));
+    }
+  } catch (err) {
+    alert("Logged locally in active shift session!");
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `<i class="fa-solid fa-check-circle text-base text-[#DAA520]"></i> <span>Save & Log Transaction</span>`;
+    }
+  }
+}
+
+function renderCashierShiftFeed() {
+  const tbody = getEl('pos-today-table-body');
+  if (!tbody) return;
+
+  let shiftCash = 0, shiftUpi = 0, shiftTotal = 0;
+
+  cashierShiftRecords.forEach(r => {
+    const amt = getRowAmount(r);
+    const pm = (r['PayMode'] || '').toLowerCase();
+    shiftTotal += amt;
+    if (pm.includes('cash')) shiftCash += amt;
+    else shiftUpi += amt;
+  });
+
+  setText('cashier-today-count', `${cashierShiftRecords.length} Bills`);
+  setText('cashier-today-cash', `₹${shiftCash.toLocaleString('en-IN')}`);
+  setText('cashier-today-upi', `₹${shiftUpi.toLocaleString('en-IN')}`);
+  setText('cashier-today-total', `₹${shiftTotal.toLocaleString('en-IN')}`);
+  setText('pos-verified-count', `${cashierShiftRecords.length} Entries`);
+
+  if (cashierShiftRecords.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-stone-400 font-traditional">No transactions logged in today's active shift yet.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = cashierShiftRecords.map(r => `
+    <tr class="hover:bg-amber-50/20">
+      <td class="p-3 font-bold text-stone-800 font-numeric">${getBillNo(r)}</td>
+      <td class="p-3 text-stone-700 font-sans font-medium">${r['SM Name'] || r['SMName'] || r['Agent'] || 'No Staff'}</td>
+      <td class="p-3 text-stone-600 font-sans">${r['Item Name'] || 'Product'} (x${r['Qty'] || 1})</td>
+      <td class="p-3"><span class="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-bold px-2 py-0.5 rounded font-numeric">${r['PayMode'] || 'Cash'}</span></td>
+      <td class="p-3 text-right font-black text-[#5C0612] font-numeric">₹${getRowAmount(r).toLocaleString('en-IN')}</td>
+      <td class="p-3 text-center"><span class="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded uppercase">Logged ✅</span></td>
+    </tr>
+  `).join('');
+}
+
+// -------------------------------------------------------------
+// 2. SALES STAFF / SALES GIRL ISOLATED WORKSPACE
+// -------------------------------------------------------------
+function initAgentWorkspace() {
+  setText('agent-portal-name', currentDisplayName);
+  setText('agent-portal-id', `Employee ID: ${currentEmployeeId}`);
+
+  let myTotalSales = 0;
+  let myUnitCount = 0;
+  const myProductMap = {};
+  const myBillsMap = {};
+
+  rawData.forEach(r => {
+    const amt = getRowAmount(r);
+    const qty = parseInt(r['Qty'] || 1) || 1;
+    const item = r['Item Name'] || 'Kalamkari Saree';
+    const bNo = getBillNo(r);
+    const date = normalizeToDateString(r['Bill Date'] || r['Date'] || r['Invoice Date']);
+
+    myTotalSales += amt;
+    myUnitCount += qty;
+
+    if (!myProductMap[item]) myProductMap[item] = { qty: 0, revenue: 0 };
+    myProductMap[item].qty += qty;
+    myProductMap[item].revenue += amt;
+
+    if (!myBillsMap[bNo]) myBillsMap[bNo] = { billNo: bNo, date: date, amount: 0, items: [] };
+    myBillsMap[bNo].amount += amt;
+    myBillsMap[bNo].items.push({ item: item, qty: qty, amount: amt });
+  });
+
+  const billCount = Object.keys(myBillsMap).length;
+  const myUPT = billCount > 0 ? (myUnitCount / billCount) : 0;
+  const myATV = billCount > 0 ? (myTotalSales / billCount) : 0;
+  const earnedIncentive = Math.round(myTotalSales * (defaultCommissionPct / 100));
+
+  setText('agent-my-sales', `₹${myTotalSales.toLocaleString('en-IN')}`);
+  setText('agent-my-incentive', `₹${earnedIncentive.toLocaleString('en-IN')}`);
+  setText('agent-my-upt', myUPT.toFixed(1));
+  setText('agent-my-atv', `₹${Math.round(myATV).toLocaleString('en-IN')}`);
+
+  renderAgentPersonalAttendance();
+
+  const prodContainer = getEl('agent-product-breakdown');
+  if (prodContainer) {
+    const sortedProds = Object.entries(myProductMap).sort((a,b) => b[1].revenue - a[1].revenue);
+    prodContainer.innerHTML = sortedProds.length === 0 ? `<p class="text-xs text-stone-400 p-3 text-center">No sales logged under your Employee ID yet.</p>` : sortedProds.map(([name, data]) => `
+      <div class="flex justify-between items-center bg-[#FAF6EE] p-2.5 rounded-xl border border-[#E5D5C6]">
+        <div>
+          <strong class="text-xs text-stone-800 font-sans block">${name}</strong>
+          <span class="text-[9px] text-stone-500 font-numeric">Quantity Sold: <strong>${data.qty}</strong></span>
+        </div>
+        <span class="text-xs font-black text-[#5C0612] font-numeric">₹${data.revenue.toLocaleString('en-IN')}</span>
+      </div>
+    `).join('');
+  }
+
+  const billsContainer = getEl('agent-bills-breakdown');
+  if (billsContainer) {
+    const sortedBills = Object.values(myBillsMap).sort((a,b) => b.amount - a.amount);
+    billsContainer.innerHTML = sortedBills.length === 0 ? `<p class="text-xs text-stone-400 p-3 text-center">No bill records found.</p>` : sortedBills.map(b => `
+      <div class="flex justify-between items-center bg-[#FAF6EE] p-2.5 rounded-xl border border-[#E5D5C6]">
+        <div>
+          <span class="text-xs font-bold text-stone-800 font-numeric">${b.billNo}</span>
+          <span class="text-[9px] text-stone-500 block font-numeric">${b.date} • ${b.items.length} items</span>
+        </div>
+        <span class="text-xs font-black text-[#5C0612] font-numeric">₹${b.amount.toLocaleString('en-IN')}</span>
+      </div>
+    `).join('');
+  }
+}
+
+function renderAgentPersonalAttendance() {
+  const grid = getEl('agent-personal-attendance-grid');
+  if (!grid) return;
+
+  const empRecord = rawAttendanceData[0] || {};
+  let countP = 0, countHD = 0, countA = 0, countPL = 0;
+  const badges = [];
+  const notesList = [];
+
+  for (let d = 1; d <= 31; d++) {
+    const rawVal = getDayValue(empRecord, d);
+    const note = getDayNote(empRecord, d);
+    const upperVal = rawVal.toUpperCase().trim();
+
+    let badgeBg = 'bg-stone-50 text-stone-300 border-stone-200';
+    let displayText = '-';
+    let statusCode = upperVal;
+
+    if (upperVal === 'P' || upperVal === 'WO' || upperVal === 'PRESENT') {
+      countP++;
+      badgeBg = 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+      displayText = upperVal === 'WO' ? 'WO' : 'P';
+      statusCode = 'P';
+    } else if (upperVal === 'HD' || upperVal === 'HALF DAY') {
+      countHD++;
+      badgeBg = 'bg-amber-100 text-amber-800 border-amber-300 font-bold';
+      displayText = 'HD';
+      statusCode = 'HD';
+    } else if (upperVal === 'A' || upperVal === 'ABSENT') {
+      countA++;
+      badgeBg = 'bg-rose-100 text-rose-800 border-rose-300 font-bold';
+      displayText = 'A';
+      statusCode = 'A';
+    } else if (upperVal === 'PL' || upperVal === 'SL' || upperVal === 'LEAVE') {
+      countPL++;
+      badgeBg = 'bg-blue-100 text-blue-800 border-blue-300 font-bold';
+      displayText = upperVal;
+      statusCode = upperVal;
+    }
+
+    badges.push(`
+      <div class="flex flex-col items-center justify-center border rounded-xl ${badgeBg} text-[8px] py-1.5 font-numeric">
+        <span class="text-[7px] text-stone-400 font-normal">D${d}</span>
+        <span class="text-[10px] font-black leading-none mt-0.5">${displayText}</span>
+      </div>
+    `);
+
+    if (note) {
+      notesList.push(`<div class="text-[10px] bg-amber-50 p-1.5 rounded-lg border border-amber-200"><strong>Day ${d} (${statusCode}):</strong> ${note}</div>`);
+    }
+  }
+
+  const payableDays = countP + (countHD * 0.5) + countPL;
+  setText('agent-payable-days-badge', `${payableDays} Days Payable (P:${countP} | HD:${countHD} | A:${countA})`);
+  grid.innerHTML = badges.join('');
+
+  const notesBox = getEl('agent-leave-notes-container');
+  if (notesBox) {
+    if (notesList.length > 0) {
+      notesBox.classList.remove('hidden');
+      setHTML('agent-leave-notes-list', notesList.join(''));
+    } else {
+      notesBox.classList.add('hidden');
+    }
+  }
+}
+
+function exportAgentPersonalPDF() {
+  exportSectionToPDF('agent-view', `Payslip_${currentDisplayName}_${currentEmployeeId}`);
 }
 
 // -------------------------------------------------------------
 // MODAL & SCREEN CLOSE HANDLERS
 // -------------------------------------------------------------
-function closeProductDetail() { document.getElementById('product-detail-card').classList.add('hidden'); }
-function closeAgentDetail() { document.getElementById('agent-detail-card').classList.add('hidden'); }
+function closeProductDetail() { hideEl('product-detail-card'); }
+function closeAgentDetail() { hideEl('agent-detail-card'); }
 function closeChannelScreen() { applyState({ view: 'home' }); }
 function closeAgentAnalysisScreen() { applyState({ view: 'home' }); }
 function openWeeklyScreen() { applyState({ view: 'weekly' }); }
 function closeWeeklyScreen() { applyState({ view: 'home' }); }
 
 // -------------------------------------------------------------
-// EVENT LISTENERS & BOOTSTRAP
+// EVENT LISTENERS & DOM BOOTSTRAP
 // -------------------------------------------------------------
-document.getElementById('from-date').addEventListener('change', processData);
-document.getElementById('to-date').addEventListener('change', processData);
+document.addEventListener('DOMContentLoaded', () => {
+  // 1. Login Form Submission Handler
+  const loginForm = getEl('login-form');
+  if (loginForm) {
+    loginForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const user = (getEl('login-username')?.value || '').trim();
+      const pass = (getEl('login-password')?.value || '').trim();
+      
+      const errEl = getEl('login-error');
+      if (errEl) errEl.classList.add('hidden');
+      
+      hideEl('login-btn-text');
+      showEl('login-btn-spinner');
+      
+      await fetchData(user, pass);
+    });
+  }
 
-// Debounced product search
-let searchTimer = null;
-document.getElementById('product-search').addEventListener('input', () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(processData, 200);
-});
+  // 2. Date Filter Listeners
+  const fromDateEl = getEl('from-date');
+  const toDateEl = getEl('to-date');
+  if (fromDateEl) fromDateEl.addEventListener('change', processData);
+  if (toDateEl) toDateEl.addEventListener('change', processData);
 
-const storeFilter = document.getElementById('store-filter');
-if (storeFilter) storeFilter.addEventListener('change', processData);
+  // 3. Debounced Product Search
+  let searchTimer = null;
+  const searchInputEl = getEl('product-search');
+  if (searchInputEl) {
+    searchInputEl.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(processData, 200);
+    });
+  }
 
-document.getElementById('refresh-btn').addEventListener('click', () => {
+  // 4. Store Filter Dropdown
+  const storeFilterEl = getEl('store-filter');
+  if (storeFilterEl) storeFilterEl.addEventListener('change', processData);
+
+  // 5. Refresh Button
+  const refreshBtn = getEl('refresh-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      const session = checkSession();
+      if (session.valid) fetchData(session.user, session.pass);
+    });
+  }
+
+  // 6. Cashier POS Form
+  const cashierForm = getEl('cashier-pos-form');
+  if (cashierForm) {
+    cashierForm.addEventListener('submit', handleCashierTransactionSubmit);
+  }
+
+  // 7. Automatic Session Verification & Auto-login
   const session = checkSession();
-  if (session.valid) fetchData(session.user, session.pass);
+  if (session.valid) {
+    fetchData(session.user, session.pass);
+  } else {
+    showEl('login-screen');
+    hideEl('loader');
+  }
 });
-
-// Auto-login session verification
-const session = checkSession();
-if (session.valid) {
-  fetchData(session.user, session.pass);
-} else {
-  document.getElementById('login-screen').classList.remove('hidden');
-}
