@@ -1470,7 +1470,7 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
     const phone = getEmpProp(emp, ['Phone Number', 'Phone', 'Mobile']) || '';
     const mSheetName = emp['Month_Sheet'] || 'attendance';
     
-    let fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Salary'])) || 0;
+    let fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Salary'])) || 10000;
     let commPct = parseFloat(getEmpProp(emp, ['Commission Pct', 'Commission %'])) || 0;
     let advance = parseFloat(getEmpProp(emp, ['Advance Taken', 'Advance'])) || 0;
 
