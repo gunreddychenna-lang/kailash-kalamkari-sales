@@ -1,8 +1,9 @@
+
 /**
  * =========================================================================
  * KAILASH KALAMKARI - MULTI-ROLE EXECUTIVE PORTAL CLIENT ENGINE (app.js)
- * Enterprise-grade client script with multi-date format detection,
- * automatic date range calibration, split-bill tracking, and payroll engine.
+ * Enterprise client script with multi-date format detection,
+ * automatic date calibration, split-bill tracking, POS, and payroll engine.
  * =========================================================================
  */
 
@@ -31,6 +32,7 @@ let selectedAgentDetail = null;
 let globalBillSplitsMap = {}; 
 let globalBillBankMap = {};
 let agentBillsViewMode = 'summary'; // 'summary' | 'detailed'
+let attendanceViewMode = 'grid';    // 'grid' | 'summary'
 let currentSelectedBillData = null;
 
 // Cashier POS State
@@ -112,17 +114,15 @@ function exportSectionToPDF(elementId, titleFilename) {
 }
 
 // -------------------------------------------------------------
-// COMPREHENSIVE DATA PARSING & NORMALIZATION UTILITIES
+// DATA PARSING & NORMALIZATION UTILITIES
 // -------------------------------------------------------------
 function normalizeToDateString(dateVal) {
   if (!dateVal) return '';
   let strVal = dateVal.toString().trim();
   if (!strVal) return '';
 
-  // Already YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) return strVal;
 
-  // DD/MM/YYYY or DD-MM-YYYY
   const dmyMatch = strVal.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
   if (dmyMatch) {
     const day = String(dmyMatch[1]).padStart(2, '0');
@@ -131,7 +131,6 @@ function normalizeToDateString(dateVal) {
     return `${year}-${month}-${day}`;
   }
 
-  // DD-MMM-YYYY (e.g. 05-Jul-2026 or 5-July-2026)
   const dMmmYyyyMatch = strVal.match(/^(\d{1,2})[-/ ]([A-Za-z]{3,9})[-/ ](\d{4})/);
   if (dMmmYyyyMatch) {
     const day = String(dMmmYyyyMatch[1]).padStart(2, '0');
@@ -152,6 +151,83 @@ function normalizeToDateString(dateVal) {
   }
 
   return strVal.split('T')[0];
+}
+
+function getMonthYearContext(monthStr) {
+  let year = new Date().getFullYear();
+  let monthIndex = new Date().getMonth();
+
+  if (monthStr && monthStr !== 'All') {
+    const yMatch = monthStr.match(/\b(20\d\d)\b/);
+    if (yMatch) year = parseInt(yMatch[1], 10);
+
+    const monthMap = {
+      jan: 0, january: 0,
+      feb: 1, february: 1,
+      mar: 2, march: 2,
+      apr: 3, april: 3,
+      may: 4,
+      jun: 5, june: 5,
+      jul: 6, july: 6,
+      aug: 7, august: 7,
+      sep: 8, sept: 8, september: 8,
+      oct: 9, october: 9,
+      nov: 10, november: 10,
+      dec: 11, december: 11
+    };
+
+    const cleanM = monthStr.toLowerCase();
+    for (let key in monthMap) {
+      if (cleanM.includes(key)) {
+        monthIndex = monthMap[key];
+        break;
+      }
+    }
+  } else {
+    const fromVal = getEl('from-date') ? getEl('from-date').value : '';
+    if (fromVal && /^\d{4}-\d{2}/.test(fromVal)) {
+      const parts = fromVal.split('-');
+      year = parseInt(parts[0], 10);
+      monthIndex = parseInt(parts[1], 10) - 1;
+    }
+  }
+
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  const dayInfo = [];
+  let totalSundaysInMonth = 0;
+  for (let d = 1; d <= 31; d++) {
+    if (d <= daysInMonth) {
+      const dt = new Date(year, monthIndex, d);
+      const dayOfWeek = dt.getDay();
+      const isSunday = dayOfWeek === 0;
+      if (isSunday) totalSundaysInMonth++;
+      dayInfo[d] = {
+        valid: true,
+        weekday: dayNames[dayOfWeek],
+        isSunday: isSunday,
+        label: `${d < 10 ? '0' + d : d} ${dayNames[dayOfWeek]}`
+      };
+    } else {
+      dayInfo[d] = {
+        valid: false,
+        weekday: '',
+        isSunday: false,
+        label: `${d < 10 ? '0' + d : d}`
+      };
+    }
+  }
+
+  return {
+    year,
+    monthIndex,
+    monthName: monthNames[monthIndex],
+    daysInMonth,
+    dayInfo,
+    totalSundaysInMonth
+  };
 }
 
 function getRowAmount(row) {
@@ -726,7 +802,6 @@ function detectDateRanges() {
   const toEl = getEl('to-date');
 
   if (allDates.length > 0) {
-    // Automatically set from earliest date in dataset to latest date
     if (fromEl) fromEl.value = allDates[0];
     if (toEl) toEl.value = allDates[allDates.length - 1];
   } else {
@@ -826,7 +901,6 @@ function processData() {
   let storeTotals = {};
   let accountTotals = {}; 
 
-  // 1. Calculate store totals across date range
   rawData.forEach(row => {
     const rawDate = row['Bill Date'] || row['Date'] || row['Invoice Date'] || row['BillDate'];
     const rDate = normalizeToDateString(rawDate);
@@ -841,7 +915,6 @@ function processData() {
     }
   });
 
-  // 2. Filter raw rows based on date & store selection
   const filtered = rawData.filter(row => {
     const rawDate = row['Bill Date'] || row['Date'] || row['Invoice Date'] || row['BillDate'];
     const rDate = normalizeToDateString(rawDate);
@@ -1337,6 +1410,24 @@ function backupBankStatementExcel() {
 // -------------------------------------------------------------
 // ATTENDANCE, PAYROLL & COMMISSIONS MODULE
 // -------------------------------------------------------------
+function setAttendanceViewMode(mode) {
+  attendanceViewMode = mode;
+  const gridBtn = getEl('btn-attendance-mode-grid');
+  const sumBtn = getEl('btn-attendance-mode-summary');
+
+  if (mode === 'grid') {
+    if (gridBtn) gridBtn.className = "px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all bg-[#5C0612] text-[#EFE5C9] shadow-sm font-traditional flex items-center gap-1.5 border border-[#DAA520]";
+    if (sumBtn) sumBtn.className = "px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all bg-white text-stone-600 hover:text-stone-900 border border-[#E5D5C6] font-traditional flex items-center gap-1.5";
+    showEl('staff-salary-list');
+    hideEl('staff-salary-summary-view');
+  } else {
+    if (gridBtn) gridBtn.className = "px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all bg-white text-stone-600 hover:text-stone-900 border border-[#E5D5C6] font-traditional flex items-center gap-1.5";
+    if (sumBtn) sumBtn.className = "px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all bg-[#5C0612] text-[#EFE5C9] shadow-sm font-traditional flex items-center gap-1.5 border border-[#DAA520]";
+    hideEl('staff-salary-list');
+    showEl('staff-salary-summary-view');
+  }
+}
+
 function filterAttendanceMonth(mSheet) {
   selectedAttendanceMonth = mSheet;
   renderAttendanceSalaryModule(parseFloat((getEl('metric-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
@@ -1345,8 +1436,12 @@ function filterAttendanceMonth(mSheet) {
 function renderAttendanceSalaryModule(storeRevenue = 0) {
   if (!isAdmin) return; 
   const container = getEl('staff-salary-list');
+  const summaryTbody = getEl('staff-salary-summary-tbody');
   if (!container) return;
   container.innerHTML = '';
+  if (summaryTbody) summaryTbody.innerHTML = '';
+
+  const monthContext = getMonthYearContext(selectedAttendanceMonth);
 
   let staffData = Array.isArray(rawAttendanceData) ? rawAttendanceData.filter(emp => {
     const hasName = getEmpProp(emp, ['Employee Name', 'Name', 'Staff Name']);
@@ -1360,9 +1455,13 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
   }) : [];
 
   let totalStorePayroll = 0;
+  let totalPayableDaysAccumulator = 0;
+  let totalSundaysWorkedAccumulator = 0;
 
   setText('payroll-staff-count', staffData.length);
   setText('profit-store-sales', `₹${storeRevenue.toLocaleString('en-IN')}`);
+
+  const summaryRowsHTML = [];
 
   staffData.forEach((emp, index) => {
     const empId = getEmpProp(emp, ['Emp ID', 'ID']) || `KS-${101 + index}`;
@@ -1371,7 +1470,7 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
     const phone = getEmpProp(emp, ['Phone Number', 'Phone', 'Mobile']) || '';
     const mSheetName = emp['Month_Sheet'] || 'attendance';
     
-    let fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Salary'])) || 12000;
+    let fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Salary'])) || 0;
     let commPct = parseFloat(getEmpProp(emp, ['Commission Pct', 'Commission %'])) || 0;
     let advance = parseFloat(getEmpProp(emp, ['Advance Taken', 'Advance'])) || 0;
 
@@ -1379,28 +1478,38 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
     const calculatedIncentive = (commPct > 0) ? Math.round(totalSold * (commPct / 100)) : 0;
 
     let countP = 0, countHD = 0, countA = 0, countPL = 0;
+    let sundaysWorked = 0;
     const gridDayBadges = [];
     const leaveReasonsList = [];
 
     for (let d = 1; d <= 31; d++) {
+      const dayData = monthContext.dayInfo[d];
+      const isDateValid = dayData.valid;
       const rawVal = getDayValue(emp, d);
       const note = getDayNote(emp, d);
       const upperVal = rawVal.toUpperCase().trim();
 
-      let badgeBg = 'bg-stone-50 text-stone-300 border-stone-200';
+      let badgeBg = 'bg-stone-50 text-stone-300 border-stone-200 opacity-60';
       let displayText = '-';
       let statusCode = upperVal;
 
-      if (upperVal === 'P' || upperVal === 'WO' || upperVal === 'PRESENT') {
+      if (!isDateValid) {
+        badgeBg = 'bg-stone-100/40 text-stone-300 border-stone-200/40 opacity-30 cursor-not-allowed';
+        displayText = '•';
+      } else if (upperVal === 'P' || upperVal === 'WO' || upperVal === 'PRESENT') {
         countP++;
-        badgeBg = 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+        badgeBg = dayData.isSunday 
+          ? 'bg-amber-100 text-amber-900 border-amber-300 font-black ring-1 ring-amber-400' 
+          : 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
         displayText = upperVal === 'WO' ? 'WO' : 'P';
         statusCode = 'P';
+        if (dayData.isSunday) sundaysWorked++;
       } else if (upperVal === 'HD' || upperVal === 'HALF DAY' || upperVal === 'HALF') {
         countHD++;
         badgeBg = 'bg-amber-100 text-amber-800 border-amber-300 font-bold';
         displayText = 'HD';
         statusCode = 'HD';
+        if (dayData.isSunday) sundaysWorked += 0.5;
       } else if (upperVal === 'A' || upperVal === 'ABSENT' || upperVal.startsWith('A ')) {
         countA++;
         badgeBg = 'bg-rose-100 text-rose-800 border-rose-300 font-bold';
@@ -1420,9 +1529,9 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
       if (!displayNote && rawVal.length > 3) displayNote = rawVal;
 
       gridDayBadges.push(`
-        <div class="flex flex-col items-center justify-center border rounded-lg ${badgeBg} text-[8px] py-1 relative transition-all hover:scale-105 cursor-pointer" title="Day ${d}: ${statusCode || 'Unrecorded'}${displayNote ? ` | Reason: ${displayNote}` : ''}">
-          <span class="text-[7px] text-stone-400 font-normal">D${d}</span>
-          <span class="text-[9px] font-extrabold leading-none mt-0.5">${displayText}</span>
+        <div class="flex flex-col items-center justify-center border rounded-xl ${badgeBg} text-[8px] py-1.5 relative transition-all ${isDateValid ? 'hover:scale-105 cursor-pointer shadow-xs' : ''}" title="${dayData.label}: ${statusCode || 'Unrecorded'}${displayNote ? ` | Note: ${displayNote}` : ''}">
+          <span class="text-[7px] ${dayData.isSunday ? 'text-amber-700 font-black uppercase' : 'text-stone-400 font-semibold'}">${dayData.label}</span>
+          <span class="text-[10px] font-black leading-none mt-1">${displayText}</span>
           ${displayNote ? `<span class="absolute -top-1 -right-1 text-[8px]" title="Reason: ${displayNote}">📝</span>` : ''}
         </div>
       `);
@@ -1430,49 +1539,74 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
       if (displayNote) {
         leaveReasonsList.push(`
           <div class="text-[10px] bg-amber-50 text-amber-900 border border-amber-200 p-1.5 rounded-lg flex justify-between items-center font-numeric">
-            <span><strong>Day ${d} (${statusCode || 'Leave'}):</strong> ${displayNote}</span>
+            <span><strong>${dayData.label} (${statusCode || 'Leave'}):</strong> ${displayNote}</span>
           </div>
         `);
       }
     }
 
     const payableDays = countP + (countHD * 0.5) + countPL;
-    const baseEarned = Math.round(payableDays * (fullSalary / 31));
+    const baseEarned = Math.round(payableDays * (fullSalary / monthContext.daysInMonth));
     const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
     totalStorePayroll += netSalary;
+    totalPayableDaysAccumulator += payableDays;
+    totalSundaysWorkedAccumulator += sundaysWorked;
 
+    // View Mode 1: Grid Cards
     const card = document.createElement('div');
-    card.className = "bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] warm-shadow p-4 space-y-3";
+    card.className = "bg-[#FFFDF9] rounded-3xl border border-[#E5D5C6] warm-shadow p-5 space-y-4 relative overflow-hidden";
     card.innerHTML = `
-      <div class="flex justify-between items-start border-b border-[#E5D5C6]/60 pb-2">
+      <div class="zari-border absolute top-0 left-0 right-0"></div>
+      <div class="flex justify-between items-start border-b border-[#E5D5C6]/60 pb-3">
         <div>
           <div class="flex items-center gap-1.5">
-            <span class="text-[9px] font-bold text-[#5C0612] bg-[#EFE5C9] px-2 py-0.5 rounded font-numeric">${empId}</span>
-            <span class="text-[8px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded uppercase font-traditional">${mSheetName}</span>
+            <span class="text-[9px] font-bold text-[#5C0612] bg-[#EFE5C9] px-2.5 py-0.5 rounded-full font-numeric border border-[#DAA520]">${empId}</span>
+            <span class="text-[8px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full uppercase font-traditional">${mSheetName}</span>
           </div>
-          <h4 class="font-bold text-stone-800 text-sm font-sans mt-1">${name}</h4>
+          <h4 class="font-bold text-stone-800 text-sm font-sans mt-1.5">${name}</h4>
           <p class="text-[10px] text-stone-500 font-traditional">${role} ${phone ? `• 📞 ${phone}` : ''}</p>
         </div>
         <div class="text-right font-numeric">
-          <p class="text-[9px] text-stone-500">Net Salary</p>
-          <p class="text-base font-black text-[#5C0612]">₹${netSalary.toLocaleString('en-IN')}</p>
-          <div class="flex gap-1.5 mt-1 justify-end export-ignore">
-            <button onclick="shareStaffPayslipWhatsApp(${index})" class="text-[8px] bg-[#25D366] hover:bg-[#128C7E] text-white px-2 py-1 rounded-lg font-bold uppercase flex items-center gap-1 shadow-sm active:scale-95 transition-all">
-              <i class="fa-brands fa-whatsapp"></i> WhatsApp
+          <p class="text-[9px] text-stone-500 uppercase font-traditional">Net Payable Salary</p>
+          <p class="text-lg font-black text-[#5C0612]">₹${netSalary.toLocaleString('en-IN')}</p>
+          <div class="flex gap-1.5 mt-1.5 justify-end export-ignore">
+            <button onclick="shareStaffPayslipWhatsApp(${index})" class="text-[9px] bg-[#25D366] hover:bg-[#128C7E] text-white px-2.5 py-1 rounded-xl font-bold uppercase flex items-center gap-1 shadow-sm active:scale-95 transition-all">
+              <i class="fa-brands fa-whatsapp text-xs"></i> WhatsApp
             </button>
-            <button onclick="exportSingleStaffPayslipPDF(${index})" class="text-[8px] bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] px-2 py-1 rounded-lg font-bold uppercase flex items-center gap-1 border border-[#DAA520] shadow-sm active:scale-95 transition-all">
+            <button onclick="exportSingleStaffPayslipPDF(${index})" class="text-[9px] bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] px-2.5 py-1 rounded-xl font-bold uppercase flex items-center gap-1 border border-[#DAA520] shadow-sm active:scale-95 transition-all">
               <i class="fa-solid fa-file-pdf text-[#DAA520]"></i> PDF Payslip
             </button>
           </div>
         </div>
       </div>
 
-      <div class="space-y-1">
-        <div class="flex justify-between items-center">
-          <span class="text-[9px] font-bold uppercase text-stone-500 font-traditional">31-Day Attendance Grid (${payableDays} Days Payable)</span>
-          <span class="text-[8px] font-bold text-stone-600 font-numeric">P:${countP} | HD:${countHD} | A:${countA} | PL:${countPL}</span>
+      <!-- ATTENDANCE & SUNDAY STATS SUMMARY BAR -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-[#FAF6EE] p-2.5 rounded-2xl border border-[#E5D5C6] text-center font-numeric text-xs">
+        <div class="border-r border-[#E5D5C6]/60 pr-1">
+          <span class="block text-[8px] font-bold text-emerald-800 uppercase font-traditional">Payable Days</span>
+          <strong class="text-emerald-900 text-sm font-black">${payableDays} / ${monthContext.daysInMonth}</strong>
         </div>
-        <div class="grid grid-cols-7 sm:grid-cols-11 gap-1 pt-1">
+        <div class="border-r border-[#E5D5C6]/60 pr-1">
+          <span class="block text-[8px] font-bold text-amber-800 uppercase font-traditional">☀️ Sundays Worked</span>
+          <strong class="text-amber-900 text-sm font-black">${sundaysWorked} / ${monthContext.totalSundaysInMonth}</strong>
+        </div>
+        <div class="border-r border-[#E5D5C6]/60 pr-1">
+          <span class="block text-[8px] font-bold text-rose-800 uppercase font-traditional">Absent (A)</span>
+          <strong class="text-rose-900 text-sm font-black">${countA} Days</strong>
+        </div>
+        <div>
+          <span class="block text-[8px] font-bold text-blue-800 uppercase font-traditional">Half Days (HD)</span>
+          <strong class="text-blue-900 text-sm font-black">${countHD} (PL: ${countPL})</strong>
+        </div>
+      </div>
+
+      <!-- 31-DAY ATTENDANCE GRID -->
+      <div class="space-y-1.5">
+        <div class="flex justify-between items-center text-[10px]">
+          <span class="font-bold uppercase text-stone-600 font-traditional">31-Day Date & Weekday Calendar</span>
+          <span class="font-bold text-stone-500 font-numeric">${monthContext.monthName} ${monthContext.year}</span>
+        </div>
+        <div class="grid grid-cols-7 sm:grid-cols-11 gap-1 pt-1 font-numeric">
           ${gridDayBadges.join('')}
         </div>
       </div>
@@ -1482,20 +1616,74 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
           <p class="text-[9px] font-bold text-amber-900 uppercase font-traditional flex items-center gap-1">
             <span>📝 Recorded Leave Reasons</span>
           </p>
-          <div class="space-y-1">
+          <div class="space-y-1 max-h-24 overflow-y-auto">
             ${leaveReasonsList.join('')}
           </div>
         </div>
       ` : ''}
 
-      <div class="grid grid-cols-3 gap-2 bg-[#FAF6EE] p-2 rounded-xl text-xs font-numeric">
-        <div><label class="block text-[8px] text-stone-500 uppercase">Base Salary (₹)</label><input type="number" value="${fullSalary}" oninput="updateStaffPayroll(${index}, 'salary', this.value)" class="w-full text-xs font-bold border rounded p-1"></div>
-        <div><label class="block text-[8px] text-stone-500 uppercase">Incentive %</label><input type="number" value="${commPct}" step="0.1" oninput="updateStaffPayroll(${index}, 'commission', this.value)" class="w-full text-xs font-bold border rounded p-1"></div>
-        <div><label class="block text-[8px] text-stone-500 uppercase">Advance (₹)</label><input type="number" value="${advance}" oninput="updateStaffPayroll(${index}, 'advance', this.value)" class="w-full text-xs font-bold border rounded p-1"></div>
+      <!-- SALARY EDITABLE INPUTS -->
+      <div class="grid grid-cols-3 gap-2 bg-[#FAF6EE] p-3 rounded-2xl border border-[#E5D5C6] text-xs font-numeric">
+        <div>
+          <label class="block text-[8px] font-bold text-stone-500 uppercase font-traditional mb-1">Base Salary (₹)</label>
+          <input type="number" value="${fullSalary}" oninput="updateStaffPayroll(${index}, 'salary', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-xl p-2 text-stone-800 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-[8px] font-bold text-stone-500 uppercase font-traditional mb-1">Incentive Rate (%)</label>
+          <input type="number" value="${commPct}" step="0.1" oninput="updateStaffPayroll(${index}, 'commission', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-xl p-2 text-stone-800 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-[8px] font-bold text-stone-500 uppercase font-traditional mb-1">Advance (₹)</label>
+          <input type="number" value="${advance}" oninput="updateStaffPayroll(${index}, 'advance', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-xl p-2 text-stone-800 focus:outline-none">
+        </div>
       </div>
     `;
     container.appendChild(card);
+
+    // View Mode 2: Summary Row
+    summaryRowsHTML.push(`
+      <tr class="hover:bg-amber-50/20 transition-colors">
+        <td class="p-3">
+          <span class="text-[9px] font-bold text-[#5C0612] bg-[#EFE5C9] px-2 py-0.5 rounded font-numeric">${empId}</span>
+          <div class="font-bold text-stone-800 font-sans mt-0.5">${name}</div>
+          <div class="text-[9px] text-stone-400 font-traditional">${role}</div>
+        </td>
+        <td class="p-3 text-center">
+          <strong class="text-emerald-800 font-black text-xs">${payableDays}</strong> / ${monthContext.daysInMonth}
+          <div class="text-[8px] text-rose-700 font-bold">Absent: ${countA} | HD: ${countHD}</div>
+        </td>
+        <td class="p-3 text-center">
+          <span class="inline-flex items-center gap-1 font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full text-[10px]">
+            ☀️ ${sundaysWorked} / ${monthContext.totalSundaysInMonth}
+          </span>
+        </td>
+        <td class="p-3 text-right font-bold text-stone-700">₹${totalSold.toLocaleString('en-IN')}</td>
+        <td class="p-3 text-right">
+          <div class="font-bold text-stone-800">₹${fullSalary.toLocaleString('en-IN')}</div>
+          <div class="text-[9px] text-stone-500">Earned: ₹${baseEarned.toLocaleString('en-IN')}</div>
+        </td>
+        <td class="p-3 text-right text-emerald-800 font-bold">+₹${calculatedIncentive.toLocaleString('en-IN')} <span class="text-[8px] text-stone-400">(${commPct}%)</span></td>
+        <td class="p-3 text-right text-rose-700 font-bold">-₹${advance.toLocaleString('en-IN')}</td>
+        <td class="p-3 text-right font-black text-[#5C0612] text-sm">₹${netSalary.toLocaleString('en-IN')}</td>
+        <td class="p-3 text-center export-ignore">
+          <div class="flex items-center justify-center gap-1.5">
+            <button onclick="shareStaffPayslipWhatsApp(${index})" class="p-1.5 bg-[#25D366] text-white rounded-lg hover:bg-[#128C7E] transition-all shadow-xs" title="WhatsApp Payslip">
+              <i class="fa-brands fa-whatsapp text-xs"></i>
+            </button>
+            <button onclick="exportSingleStaffPayslipPDF(${index})" class="p-1.5 bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] rounded-lg hover:bg-[#4A030D] transition-all shadow-xs" title="PDF Payslip">
+              <i class="fa-solid fa-file-pdf text-xs text-[#DAA520]"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `);
   });
+
+  if (summaryTbody) {
+    summaryTbody.innerHTML = summaryRowsHTML.length === 0 ? `
+      <tr><td colspan="9" class="p-8 text-center text-stone-400 font-traditional">No staff records found for this month</td></tr>
+    ` : summaryRowsHTML.join('');
+  }
 
   setText('payroll-total-amount', `₹${totalStorePayroll.toLocaleString('en-IN')}`);
 
@@ -1505,6 +1693,8 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
     grossProfitEl.textContent = `₹${grossVal.toLocaleString('en-IN')}`;
     grossProfitEl.className = grossVal >= 0 ? "text-base font-black text-emerald-700 font-numeric" : "text-base font-black text-rose-700 font-numeric";
   }
+
+  setAttendanceViewMode(attendanceViewMode);
 }
 
 function updateStaffPayroll(index, field, val) {
@@ -1528,6 +1718,8 @@ function shareStaffPayslipWhatsApp(index) {
   const emp = rawAttendanceData[index];
   if (!emp) return;
 
+  const monthContext = getMonthYearContext(selectedAttendanceMonth);
+
   const name = getEmpProp(emp, ['Employee Name', 'Name']) || 'Staff';
   const empId = getEmpProp(emp, ['Emp ID', 'ID']) || `KS-${101 + index}`;
   const fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Salary'])) || 0;
@@ -1537,31 +1729,53 @@ function shareStaffPayslipWhatsApp(index) {
   const totalSold = getStaffSalesAmount(name);
   const calculatedIncentive = commPct > 0 ? Math.round(totalSold * (commPct / 100)) : 0;
 
-  let countP = 0, countHD = 0;
+  let countP = 0, countHD = 0, countA = 0, countPL = 0, sundaysWorked = 0;
   for (let d = 1; d <= 31; d++) {
-    const val = getDayValue(emp, d).toUpperCase();
-    if (val === 'P' || val === 'WO' || val === 'PL' || val === 'PRESENT') countP++;
-    else if (val === 'HD' || val === 'HALF DAY' || val === 'HALF') countHD++;
+    const dayData = monthContext.dayInfo[d];
+    if (!dayData.valid) continue;
+    const val = getDayValue(emp, d).toUpperCase().trim();
+    if (val === 'P' || val === 'WO' || val === 'PRESENT') {
+      countP++;
+      if (dayData.isSunday) sundaysWorked++;
+    } else if (val === 'HD' || val === 'HALF DAY' || val === 'HALF') {
+      countHD++;
+      if (dayData.isSunday) sundaysWorked += 0.5;
+    } else if (val === 'A' || val === 'ABSENT') {
+      countA++;
+    } else if (val === 'PL' || val === 'SL' || val === 'LEAVE' || val === 'CL') {
+      countPL++;
+    }
   }
 
-  const payableDays = countP + (countHD * 0.5);
-  const baseEarned = Math.round(payableDays * (fullSalary / 31));
+  const payableDays = countP + (countHD * 0.5) + countPL;
+  const baseEarned = Math.round(payableDays * (fullSalary / monthContext.daysInMonth));
   const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
 
-  let msg = `🌸 *KAILASH KALAMKARI - MONTHLY PAYSLIP* 🌸\n\n`;
+  let msg = `🌸 *KAILASH KALAMKARI - OFFICIAL MONTHLY PAYSLIP* 🌸\n\n`;
   msg += `🆔 *Staff ID:* ${empId}\n`;
   msg += `👤 *Staff Name:* ${name}\n`;
-  msg += `🗓️ *Payable Days:* ${payableDays} / 31 Days\n`;
-  msg += `💵 *Base Monthly Salary:* ₹${fullSalary.toLocaleString('en-IN')}\n`;
-  msg += `🛍️ *Total Sales Achieved:* ₹${totalSold.toLocaleString('en-IN')}\n`;
+  msg += `📅 *Month / Period:* ${monthContext.monthName} ${monthContext.year}\n`;
+  msg += `--------------------------------------\n`;
+  msg += `🗓️ *Payable Days:* ${payableDays} / ${monthContext.daysInMonth} Days\n`;
+  msg += `☀️ *Sundays Present:* ${sundaysWorked} / ${monthContext.totalSundaysInMonth} Sundays\n`;
+  msg += `🚫 *Absent Days (A):* ${countA} Days\n`;
+  msg += `🌓 *Half Days (HD):* ${countHD} | *Paid Leaves (PL):* ${countPL}\n`;
+  msg += `--------------------------------------\n`;
+  msg += `💵 *Monthly Base Salary:* ₹${fullSalary.toLocaleString('en-IN')}\n`;
+  msg += `🧾 *Earned Base Salary:* ₹${baseEarned.toLocaleString('en-IN')}\n`;
+  msg += `🛍️ *Store Sales Achieved:* ₹${totalSold.toLocaleString('en-IN')}\n`;
   
   if (calculatedIncentive > 0) {
-    msg += `🎁 *SALES INCENTIVE (${commPct}%):* +₹${calculatedIncentive.toLocaleString('en-IN')}\n`;
+    msg += `🎁 *Sales Incentive (${commPct}%):* +₹${calculatedIncentive.toLocaleString('en-IN')}\n`;
   }
   
-  if (advance > 0) msg += `📉 *Advance Deducted:* -₹${advance.toLocaleString('en-IN')}\n`;
-  msg += `\n💰 *FINAL NET PAYABLE SALARY:* ₹${netSalary.toLocaleString('en-IN')}\n\n`;
-  msg += `_Thank you for your dedicated service at Kailash Kalamkari!_`;
+  if (advance > 0) {
+    msg += `📉 *Advance Deducted:* -₹${advance.toLocaleString('en-IN')}\n`;
+  }
+
+  msg += `--------------------------------------\n`;
+  msg += `💰 *FINAL NET PAYABLE SALARY:* ₹${netSalary.toLocaleString('en-IN')}\n\n`;
+  msg += `_Thank you for your valuable dedication to Kailash Kalamkari!_`;
 
   const phone = formatPhoneForWhatsApp(getEmpProp(emp, ['Phone Number', 'Phone', 'Mobile']));
   if (phone) window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`, '_blank');
@@ -1573,6 +1787,8 @@ function exportSingleStaffPayslipPDF(index) {
   const emp = rawAttendanceData[index];
   if (!emp) return;
 
+  const monthContext = getMonthYearContext(selectedAttendanceMonth);
+
   const name = getEmpProp(emp, ['Employee Name', 'Name']) || 'Staff Member';
   const empId = getEmpProp(emp, ['Emp ID', 'ID']) || `KS-${101 + index}`;
   const role = getEmpProp(emp, ['Designation', 'Role']) || 'Sales Executive';
@@ -1583,15 +1799,26 @@ function exportSingleStaffPayslipPDF(index) {
   const totalSold = getStaffSalesAmount(name);
   const calculatedIncentive = commPct > 0 ? Math.round(totalSold * (commPct / 100)) : 0;
 
-  let countP = 0, countHD = 0;
+  let countP = 0, countHD = 0, countA = 0, countPL = 0, sundaysWorked = 0;
   for (let d = 1; d <= 31; d++) {
-    const val = getDayValue(emp, d).toUpperCase();
-    if (val === 'P' || val === 'WO' || val === 'PL' || val === 'PRESENT') countP++;
-    else if (val === 'HD' || val === 'HALF DAY' || val === 'HALF') countHD++;
+    const dayData = monthContext.dayInfo[d];
+    if (!dayData.valid) continue;
+    const val = getDayValue(emp, d).toUpperCase().trim();
+    if (val === 'P' || val === 'WO' || val === 'PRESENT') {
+      countP++;
+      if (dayData.isSunday) sundaysWorked++;
+    } else if (val === 'HD' || val === 'HALF DAY' || val === 'HALF') {
+      countHD++;
+      if (dayData.isSunday) sundaysWorked += 0.5;
+    } else if (val === 'A' || val === 'ABSENT') {
+      countA++;
+    } else if (val === 'PL' || val === 'SL' || val === 'LEAVE' || val === 'CL') {
+      countPL++;
+    }
   }
 
-  const payableDays = countP + (countHD * 0.5);
-  const baseEarned = Math.round(payableDays * (fullSalary / 31));
+  const payableDays = countP + (countHD * 0.5) + countPL;
+  const baseEarned = Math.round(payableDays * (fullSalary / monthContext.daysInMonth));
   const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
 
   const payslipContainer = document.createElement('div');
@@ -1602,6 +1829,7 @@ function exportSingleStaffPayslipPDF(index) {
     <div class="text-center border-b-2 border-[#DAA520] pb-4">
       <h2 class="text-2xl font-bold font-traditional text-[#5C0612]">KAILASH KALAMKARI</h2>
       <p class="text-[10px] text-stone-600 uppercase font-semibold">Official Staff Salary Slip & Performance Voucher</p>
+      <p class="text-[9px] text-[#DAA520] font-bold uppercase mt-0.5">${monthContext.monthName} ${monthContext.year}</p>
     </div>
 
     <div class="grid grid-cols-2 gap-4 text-xs border-b border-[#E5D5C6] pb-3">
@@ -1615,7 +1843,22 @@ function exportSingleStaffPayslipPDF(index) {
         <p class="text-stone-500 text-[10px] uppercase">Designation</p>
         <p class="font-bold text-stone-800">${role}</p>
         <p class="text-stone-500 text-[10px] uppercase mt-2">Payable Days</p>
-        <p class="font-bold text-stone-800">${payableDays} / 31 Days</p>
+        <p class="font-bold text-emerald-800">${payableDays} / ${monthContext.daysInMonth} Days</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-2 bg-[#FAF6EE] p-3 rounded-2xl border border-[#E5D5C6] text-center text-xs">
+      <div>
+        <span class="block text-[8px] text-stone-500 uppercase">Sundays Worked</span>
+        <strong class="text-amber-900 font-black">☀️ ${sundaysWorked} / ${monthContext.totalSundaysInMonth}</strong>
+      </div>
+      <div>
+        <span class="block text-[8px] text-stone-500 uppercase">Absent Days</span>
+        <strong class="text-rose-800 font-black">${countA} Days</strong>
+      </div>
+      <div>
+        <span class="block text-[8px] text-stone-500 uppercase">Half Days / Leaves</span>
+        <strong class="text-blue-900 font-black">${countHD} HD / ${countPL} PL</strong>
       </div>
     </div>
 
@@ -1649,7 +1892,7 @@ function exportSingleStaffPayslipPDF(index) {
       <span class="text-xl font-black">₹${netSalary.toLocaleString('en-IN')}</span>
     </div>
 
-    <div class="flex justify-between items-end pt-8 text-[9px] text-stone-500 font-traditional">
+    <div class="flex justify-between items-end pt-6 text-[9px] text-stone-500 font-traditional">
       <div>
         <p>Employee Signature: __________________</p>
       </div>
@@ -1906,6 +2149,10 @@ function populateAgentDetailsDOM(agentName) {
 function populateChannelScreenDOM(channel) {
   const fromVal = getEl('from-date') ? getEl('from-date').value : '';
   const toVal = getEl('to-date') ? getEl('to-date').value : '';
+
+  setText('channel-view-title', `${channel} Channel Sales`);
+  setText('channel-view-subtitle', `Period: ${fromVal || 'Start'} to ${toVal || 'End'}`);
+
   const filtered = rawData.filter(row => {
     const rawDate = row['Bill Date'] || row['Date'] || row['Invoice Date'] || row['BillDate'];
     if (!rawDate) return false;
@@ -1961,7 +2208,12 @@ function populateChannelScreenDOM(channel) {
   }
 }
 
-function populateWeeklyScreenDOM() { renderWeeklyDistributionDOM(); }
+function populateWeeklyScreenDOM() { 
+  const fromVal = getEl('from-date') ? getEl('from-date').value : '';
+  const toVal = getEl('to-date') ? getEl('to-date').value : '';
+  setText('weekly-view-subtitle', `Period: ${fromVal || 'Start'} to ${toVal || 'End'}`);
+  renderWeeklyDistributionDOM(); 
+}
 
 function renderWeeklyDistributionDOM() {
   const container = getEl('weekly-distribution-bars');
@@ -2322,7 +2574,7 @@ function calculateSplitTotals() {
   });
 
   const totalBill = currentSelectedBillData ? currentSelectedBillData.totalAmount : 0;
-  const remaining = totalBill - allocatedTotal;
+  const remaining = Math.round((totalBill - allocatedTotal) * 100) / 100;
 
   setText('split-allocated-total', `₹${allocatedTotal.toLocaleString('en-IN')}`);
   setText('split-remaining-balance', `₹${remaining.toLocaleString('en-IN')}`);
@@ -2332,7 +2584,7 @@ function calculateSplitTotals() {
     if (!currentSelectedBillData) {
       statusBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-stone-200 text-stone-600";
       statusBadge.textContent = "Select Bill";
-    } else if (remaining === 0 && allocatedTotal > 0) {
+    } else if (Math.abs(remaining) < 0.01 && allocatedTotal > 0) {
       statusBadge.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300";
       statusBadge.textContent = "Matched ✅";
     } else if (remaining > 0) {
@@ -2500,14 +2752,13 @@ function setPosPaymentMode(mode, bank) {
   activePosBank = bank;
 
   document.querySelectorAll('.pos-mode-btn').forEach(btn => {
-    btn.className = "pos-mode-btn py-3 px-2 rounded-2xl border border-stone-200 bg-white text-stone-700 font-bold text-xs flex flex-col items-center gap-1 active:scale-95 transition-all shadow-sm";
+    btn.className = "pos-mode-btn py-2 px-1 rounded-xl border border-stone-200 bg-white text-stone-700 font-bold text-[10px] flex flex-col items-center";
   });
 
   if (window.event && window.event.currentTarget) {
-    window.event.currentTarget.className = "pos-mode-btn py-3 px-2 rounded-2xl border-2 border-[#5C0612] bg-amber-50 text-[#5C0612] font-black text-xs flex flex-col items-center gap-1 active:scale-95 transition-all shadow-sm ring-1 ring-[#5C0612]";
+    window.event.currentTarget.className = "pos-mode-btn py-2 px-1 rounded-xl border-2 border-[#5C0612] bg-amber-50 text-[#5C0612] font-black text-[10px] flex flex-col items-center ring-1 ring-[#5C0612]";
   }
 
-  const splitBox = getEl('pos-split-subcontainer');
   if (mode === 'Split') {
     showEl('pos-split-subcontainer');
     const splitLines = getEl('pos-split-lines');
@@ -2549,10 +2800,10 @@ function calculatePosSplits() {
   let splitTotal = 0;
   document.querySelectorAll('.pos-split-amt').forEach(inp => splitTotal += parseFloat(inp.value) || 0);
 
-  const rem = totalBill - splitTotal;
+  const rem = Math.round((totalBill - splitTotal) * 100) / 100;
   const badge = getEl('pos-split-calc-balance');
   if (badge) {
-    if (rem === 0 && totalBill > 0) {
+    if (Math.abs(rem) < 0.01 && totalBill > 0) {
       badge.className = "text-emerald-700 font-bold font-numeric";
       badge.textContent = "Exact Match ✅";
     } else {
@@ -2770,30 +3021,40 @@ function renderAgentPersonalAttendance() {
   const grid = getEl('agent-personal-attendance-grid');
   if (!grid) return;
 
+  const monthContext = getMonthYearContext(selectedAttendanceMonth);
   const empRecord = rawAttendanceData[0] || {};
-  let countP = 0, countHD = 0, countA = 0, countPL = 0;
+  let countP = 0, countHD = 0, countA = 0, countPL = 0, sundaysWorked = 0;
   const badges = [];
   const notesList = [];
 
   for (let d = 1; d <= 31; d++) {
+    const dayData = monthContext.dayInfo[d];
+    const isDateValid = dayData.valid;
     const rawVal = getDayValue(empRecord, d);
     const note = getDayNote(empRecord, d);
     const upperVal = rawVal.toUpperCase().trim();
 
-    let badgeBg = 'bg-stone-50 text-stone-300 border-stone-200';
+    let badgeBg = 'bg-stone-50 text-stone-300 border-stone-200 opacity-60';
     let displayText = '-';
     let statusCode = upperVal;
 
-    if (upperVal === 'P' || upperVal === 'WO' || upperVal === 'PRESENT') {
+    if (!isDateValid) {
+      badgeBg = 'bg-stone-100/40 text-stone-300 border-stone-200/40 opacity-30';
+      displayText = '•';
+    } else if (upperVal === 'P' || upperVal === 'WO' || upperVal === 'PRESENT') {
       countP++;
-      badgeBg = 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+      badgeBg = dayData.isSunday 
+        ? 'bg-amber-100 text-amber-900 border-amber-300 font-black' 
+        : 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
       displayText = upperVal === 'WO' ? 'WO' : 'P';
       statusCode = 'P';
+      if (dayData.isSunday) sundaysWorked++;
     } else if (upperVal === 'HD' || upperVal === 'HALF DAY') {
       countHD++;
       badgeBg = 'bg-amber-100 text-amber-800 border-amber-300 font-bold';
       displayText = 'HD';
       statusCode = 'HD';
+      if (dayData.isSunday) sundaysWorked += 0.5;
     } else if (upperVal === 'A' || upperVal === 'ABSENT') {
       countA++;
       badgeBg = 'bg-rose-100 text-rose-800 border-rose-300 font-bold';
@@ -2808,18 +3069,18 @@ function renderAgentPersonalAttendance() {
 
     badges.push(`
       <div class="flex flex-col items-center justify-center border rounded-xl ${badgeBg} text-[8px] py-1.5 font-numeric">
-        <span class="text-[7px] text-stone-400 font-normal">D${d}</span>
+        <span class="text-[7px] ${dayData.isSunday ? 'text-amber-700 font-black' : 'text-stone-400 font-normal'}">${dayData.label}</span>
         <span class="text-[10px] font-black leading-none mt-0.5">${displayText}</span>
       </div>
     `);
 
     if (note) {
-      notesList.push(`<div class="text-[10px] bg-amber-50 p-1.5 rounded-lg border border-amber-200"><strong>Day ${d} (${statusCode}):</strong> ${note}</div>`);
+      notesList.push(`<div class="text-[10px] bg-amber-50 p-1.5 rounded-lg border border-amber-200"><strong>${dayData.label} (${statusCode}):</strong> ${note}</div>`);
     }
   }
 
   const payableDays = countP + (countHD * 0.5) + countPL;
-  setText('agent-payable-days-badge', `${payableDays} Days Payable (P:${countP} | HD:${countHD} | A:${countA})`);
+  setText('agent-payable-days-badge', `${payableDays} Days Payable (P:${countP} | ☀️ Sun:${sundaysWorked}/${monthContext.totalSundaysInMonth} | A:${countA})`);
   grid.innerHTML = badges.join('');
 
   const notesBox = getEl('agent-leave-notes-container');
@@ -2851,7 +3112,6 @@ function closeWeeklyScreen() { applyState({ view: 'home' }); }
 // EVENT LISTENERS & DOM BOOTSTRAP
 // -------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. Login Form Submission Handler
   const loginForm = getEl('login-form');
   if (loginForm) {
     loginForm.addEventListener('submit', async function(e) {
@@ -2869,13 +3129,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 2. Date Filter Listeners
   const fromDateEl = getEl('from-date');
   const toDateEl = getEl('to-date');
   if (fromDateEl) fromDateEl.addEventListener('change', processData);
   if (toDateEl) toDateEl.addEventListener('change', processData);
 
-  // 3. Debounced Product Search
   let searchTimer = null;
   const searchInputEl = getEl('product-search');
   if (searchInputEl) {
@@ -2885,11 +3143,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 4. Store Filter Dropdown
   const storeFilterEl = getEl('store-filter');
   if (storeFilterEl) storeFilterEl.addEventListener('change', processData);
 
-  // 5. Refresh Button
   const refreshBtn = getEl('refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', () => {
@@ -2898,13 +3154,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 6. Cashier POS Form
   const cashierForm = getEl('cashier-pos-form');
   if (cashierForm) {
     cashierForm.addEventListener('submit', handleCashierTransactionSubmit);
   }
 
-  // 7. Automatic Session Verification & Auto-login
   const session = checkSession();
   if (session.valid) {
     fetchData(session.user, session.pass);
@@ -2913,3 +3167,5 @@ document.addEventListener('DOMContentLoaded', () => {
     hideEl('loader');
   }
 });
+
+
