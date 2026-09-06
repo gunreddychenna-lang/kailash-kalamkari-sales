@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kailash Kalamkari - Live Multi-Store Analytics</title>
+  <title>Kailash Kalamkari - Executive Analytics & Payroll Portal</title>
   
   <link rel="icon" href="data:;base64,iVBORw0KGgo=">
 
@@ -29,24 +29,26 @@
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
 </head>
-<body class="text-stone-800 pb-16 min-h-screen">
+<body class="text-stone-800 pb-16 min-h-screen bg-[#FAF6EE]">
 
-  <!-- LOGIN SCREEN -->
+  <!-- =========================================================================
+       1. LOGIN SCREEN
+       ========================================================================= -->
   <div id="login-screen" class="hidden min-h-screen flex items-center justify-center px-4 relative">
     <div class="max-w-md w-full bg-[#FFFDF9] rounded-3xl border border-[#E5D5C6] warm-shadow-lg overflow-hidden relative">
       <div class="zari-border absolute top-0 left-0 right-0"></div>
       
       <div class="p-6 bg-[#5C0612] text-center border-b border-[#DAA520]">
         <h2 class="text-2xl font-bold font-traditional text-[#EFE5C9]">Kailash Kalamkari</h2>
-        <p class="text-[10px] text-stone-300 font-medium tracking-wider uppercase mt-1">Multi-Store Executive Analytics Portal</p>
+        <p class="text-[10px] text-stone-300 font-medium tracking-wider uppercase mt-1">Executive Analytics, POS & Payroll Portal</p>
       </div>
 
       <form id="login-form" class="p-6 space-y-4">
         <div id="login-error" class="hidden text-xs bg-red-50 border border-red-200 text-[#5C0612] p-3.5 rounded-xl font-semibold leading-relaxed"></div>
 
         <div>
-          <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">Username</label>
-          <input type="text" id="login-username" required placeholder="Enter username" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-3 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] font-sans">
+          <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">Username / Staff ID</label>
+          <input type="text" id="login-username" required placeholder="Enter username (e.g. admin, cashier, staff)" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-3 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] font-sans">
         </div>
 
         <div>
@@ -62,44 +64,45 @@
     </div>
   </div>
 
-  <!-- DASHBOARD HEADER -->
+  <!-- =========================================================================
+       2. DASHBOARD HEADER
+       ========================================================================= -->
   <header id="standard-header" class="hidden bg-[#5C0612] text-white shadow-md sticky top-0 z-50 border-b-2 border-[#DAA520]">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
-      <div class="flex items-center gap-3">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row justify-between items-center gap-3">
+      <div class="flex items-center gap-3 w-full sm:w-auto">
         <div class="w-9 h-9 rounded-xl bg-[#EFE5C9] text-[#5C0612] flex items-center justify-center font-bold text-lg font-traditional border border-[#DAA520] shrink-0">
           KK
         </div>
         <div>
           <h1 class="text-xl sm:text-2xl font-bold tracking-wide font-traditional text-[#EFE5C9]">Kailash Kalamkari</h1>
-          <p class="text-[9px] sm:text-xs text-stone-300 font-medium tracking-wider uppercase">Multi-Store Executive Analytics</p>
+          <div class="flex items-center gap-2 mt-0.5">
+            <span id="user-display-name" class="text-xs font-semibold text-[#EFE5C9]"></span>
+            <span id="user-role-badge" class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full"></span>
+          </div>
         </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        <!-- USER PROFILE BADGE -->
-        <div class="hidden sm:flex flex-col items-end mr-1 text-right">
-          <span id="user-display-name" class="text-xs font-bold text-[#EFE5C9] font-sans leading-tight">Admin</span>
-          <span id="user-role-badge" class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-[#DAA520] text-[#5C0612] tracking-wider font-sans mt-0.5">ADMIN</span>
-        </div>
-
-        <a href="entry.html" target="_blank" class="admin-only hidden bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#B38F4D] active:scale-95 duration-100" title="Open Easy Data Entry in New Tab">
+      <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+        <a href="entry.html" target="_blank" class="admin-only bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#B38F4D] active:scale-95 duration-100" title="Open Settlement Entry in New Tab">
           <i class="fa-solid fa-up-right-from-square text-xs"></i> <span class="hidden md:inline">Data Entry Portal ↗</span>
         </a>
 
-        <button onclick="exportSectionToPDF('standard-main', 'Kailash_Kalamkari_Full_Dashboard')" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md border border-rose-700 active:scale-95 duration-100" title="Export Full Dashboard PDF">
+        <button onclick="exportSectionToPDF('standard-main', 'Kailash_Kalamkari_Full_Dashboard')" class="admin-only bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md border border-rose-700 active:scale-95 duration-100" title="Export Dashboard PDF">
           <i class="fa-solid fa-file-pdf text-xs text-[#DAA520]"></i> <span class="hidden md:inline">Export PDF</span>
         </button>
 
-        <button onclick="shareOwnerDailySummaryWhatsApp()" class="admin-only hidden bg-[#25D366] hover:bg-[#128C7E] text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md active:scale-95 duration-100" title="Send Daily WhatsApp Summary">
+        <button onclick="shareOwnerDailySummaryWhatsApp()" class="admin-only bg-[#25D366] hover:bg-[#128C7E] text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md active:scale-95 duration-100" title="Send Daily WhatsApp Summary">
           <i class="fa-brands fa-whatsapp text-sm"></i> <span class="hidden md:inline">Owner Summary</span>
         </button>
-        <button onclick="backupFullDatabaseExcel()" class="admin-only hidden bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md border border-emerald-500 active:scale-95 duration-100" title="Backup Database to Excel">
+        
+        <button onclick="backupFullDatabaseExcel()" class="admin-only bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md border border-emerald-500 active:scale-95 duration-100" title="Backup Database to Excel">
           <i class="fa-solid fa-file-excel text-xs text-emerald-300"></i> <span class="hidden md:inline">Backup Excel</span>
         </button>
 
         <button id="refresh-btn" class="bg-[#DAA520] hover:bg-[#C59B27] text-white font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md font-traditional border border-[#B38F4D] active:scale-95 duration-100">
           <i class="fa-solid fa-arrows-rotate text-[10px]"></i> <span class="hidden sm:inline">Refresh</span>
         </button>
+        
         <button onclick="handleLogout()" class="bg-transparent border border-[#EFE5C9]/30 hover:bg-white/10 text-white rounded-xl p-2 transition-all shadow-md active:scale-95 duration-100" title="Logout">
           <i class="fa-solid fa-right-from-bracket text-xs"></i>
         </button>
@@ -108,131 +111,132 @@
     <div class="zari-line"></div>
   </header>
 
-  <!-- LOADING SPINNER -->
+  <!-- =========================================================================
+       3. LOADING SPINNER
+       ========================================================================= -->
   <div id="loader" class="text-center py-24">
     <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-[#5C0612] mx-auto"></div>
-    <p class="mt-4 text-xs text-stone-600 font-semibold tracking-wide font-traditional">Synchronizing live multi-store analytics & database...</p>
+    <p class="mt-4 text-xs text-stone-600 font-semibold tracking-wide font-traditional">Synchronizing live portal analytics & database...</p>
   </div>
 
-  <!-- CASHIER VIEW & TOUCHSCREEN POS ENGINE -->
+  <!-- =========================================================================
+       4. CASHIER WORKSPACE (POS COUNTER)
+       ========================================================================= -->
   <div id="cashier-view" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
-    <div class="bg-[#FFFDF9] p-5 rounded-3xl border border-[#E5D5C6] warm-shadow flex flex-col sm:flex-row justify-between items-center gap-3">
+    <div class="bg-[#FFFDF9] p-5 rounded-3xl border border-[#E5D5C6] warm-shadow flex flex-col md:flex-row justify-between items-center gap-4 relative overflow-hidden">
+      <div class="zari-border absolute top-0 left-0 right-0"></div>
       <div>
-        <h2 class="text-lg font-bold font-traditional text-[#5C0612]">Cashier POS & Shift Terminal</h2>
-        <p class="text-xs text-stone-500 font-traditional">Log retail transactions, record split payments, and balance the active cash shift.</p>
+        <h2 class="text-xl font-bold font-traditional text-[#5C0612]">Touchscreen Cashier POS Terminal</h2>
+        <p id="cashier-current-date-badge" class="text-xs text-stone-500 font-numeric mt-0.5"></p>
       </div>
-      <span id="cashier-current-date-badge" class="text-xs font-bold bg-[#FAF6EE] text-[#5C0612] border border-[#E5D5C6] px-3.5 py-1.5 rounded-xl font-numeric">Shift Date: Today</span>
-    </div>
-
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow text-center">
-        <span class="block text-[9px] font-bold text-stone-500 uppercase font-traditional">Shift Bills</span>
-        <strong id="cashier-today-count" class="text-xl font-black text-stone-800 font-numeric">0 Bills</strong>
-      </div>
-      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow text-center">
-        <span class="block text-[9px] font-bold text-emerald-700 uppercase font-traditional">Cash Collected</span>
-        <strong id="cashier-today-cash" class="text-xl font-black text-emerald-800 font-numeric">₹0</strong>
-      </div>
-      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow text-center">
-        <span class="block text-[9px] font-bold text-blue-700 uppercase font-traditional">Digital / UPI</span>
-        <strong id="cashier-today-upi" class="text-xl font-black text-blue-800 font-numeric">₹0</strong>
-      </div>
-      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow text-center">
-        <span class="block text-[9px] font-bold text-[#5C0612] uppercase font-traditional">Total Shift Revenue</span>
-        <strong id="cashier-today-total" class="text-xl font-black text-[#5C0612] font-numeric">₹0</strong>
+      <div class="flex gap-2 font-numeric text-xs">
+        <div class="bg-[#FAF6EE] px-3 py-2 rounded-xl border border-[#E5D5C6]"><span class="text-[8px] font-bold text-stone-500 uppercase block">Shift Bills</span><strong id="cashier-today-count" class="text-stone-800">0 Bills</strong></div>
+        <div class="bg-[#FAF6EE] px-3 py-2 rounded-xl border border-[#E5D5C6]"><span class="text-[8px] font-bold text-amber-800 uppercase block">Cash Total</span><strong id="cashier-today-cash" class="text-amber-900">₹0</strong></div>
+        <div class="bg-[#FAF6EE] px-3 py-2 rounded-xl border border-[#E5D5C6]"><span class="text-[8px] font-bold text-blue-800 uppercase block">UPI Total</span><strong id="cashier-today-upi" class="text-blue-900">₹0</strong></div>
+        <div class="bg-[#5C0612] text-[#EFE5C9] px-3 py-2 rounded-xl border border-[#DAA520]"><span class="text-[8px] font-bold text-stone-200 uppercase block">Shift Revenue</span><strong id="cashier-today-total" class="text-sm">₹0</strong></div>
       </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="bg-[#FFFDF9] p-6 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-4 relative overflow-hidden lg:col-span-1">
+      <!-- POS Transaction Form -->
+      <div class="bg-[#FFFDF9] p-6 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-4 relative overflow-hidden">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
-        <h3 class="text-xs font-bold uppercase tracking-wider text-stone-700 font-traditional flex items-center gap-1.5 border-b border-[#E5D5C6]/60 pb-2">
-          <i class="fa-solid fa-cash-register text-[#5C0612]"></i> New Sale Entry
-        </h3>
+        <h3 class="text-xs font-bold uppercase text-stone-700 font-traditional border-b border-[#E5D5C6] pb-2">Log New Bill Transaction</h3>
 
-        <form id="cashier-pos-form" class="space-y-3 font-sans text-xs">
+        <form id="cashier-pos-form" class="space-y-3 font-sans">
           <div>
-            <label class="block text-[10px] font-bold text-stone-500 uppercase mb-1 font-traditional">Bill / Invoice No *</label>
-            <input type="text" id="pos-bill-no" required placeholder="e.g. 111BN0540" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-bold font-numeric focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
+            <label class="block text-[10px] font-bold text-stone-500 uppercase font-traditional mb-1">Bill / Invoice Number</label>
+            <input type="text" id="pos-bill-no" required placeholder="e.g. 111BN0540" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-numeric font-bold text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
           </div>
 
           <div class="grid grid-cols-2 gap-2">
             <div>
-              <label class="block text-[10px] font-bold text-stone-500 uppercase mb-1 font-traditional">Store / Shop</label>
-              <input type="text" id="pos-store-name" value="Main Branch" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
+              <label class="block text-[10px] font-bold text-stone-500 uppercase font-traditional mb-1">Branch / Store</label>
+              <select id="pos-store-name" class="w-full text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 focus:outline-none">
+                <option value="Main Branch">Main Branch</option>
+                <option value="Shop 1">Shop 1</option>
+                <option value="Shop 2">Shop 2</option>
+              </select>
             </div>
             <div>
-              <label class="block text-[10px] font-bold text-stone-500 uppercase mb-1 font-traditional">Channel</label>
-              <select id="pos-channel-type" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-bold focus:outline-none">
+              <label class="block text-[10px] font-bold text-stone-500 uppercase font-traditional mb-1">Channel</label>
+              <select id="pos-channel-type" class="w-full text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 focus:outline-none">
                 <option value="Offline">Offline Store</option>
-                <option value="Online">Online</option>
+                <option value="Online">Online Web</option>
                 <option value="Wholesale">Takebyhand</option>
               </select>
             </div>
           </div>
 
           <div>
-            <label class="block text-[10px] font-bold text-stone-500 uppercase mb-1 font-traditional">Sales Staff / Agent *</label>
-            <input type="text" id="pos-agent-name" list="pos-agents-datalist" required placeholder="Staff Name" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
+            <label class="block text-[10px] font-bold text-stone-500 uppercase font-traditional mb-1">Sales Staff / Agent</label>
+            <input type="text" id="pos-agent-name" list="pos-agents-datalist" required placeholder="Select Staff ID / Name" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-bold text-stone-800 focus:outline-none">
             <datalist id="pos-agents-datalist"></datalist>
           </div>
 
           <div>
-            <label class="block text-[10px] font-bold text-stone-500 uppercase mb-1 font-traditional">Product / Item Name</label>
-            <input type="text" id="pos-item-name" placeholder="Kalamkari Saree / Fabric" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-sans focus:outline-none">
+            <label class="block text-[10px] font-bold text-stone-500 uppercase font-traditional mb-1">Item Description</label>
+            <input type="text" id="pos-item-name" placeholder="e.g. Kanchi Silk Saree" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 focus:outline-none">
           </div>
 
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-2 gap-2">
             <div>
-              <label class="block text-[10px] font-bold text-stone-500 uppercase mb-1 font-traditional">Qty</label>
-              <input type="number" id="pos-qty" value="1" min="1" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-bold font-numeric focus:outline-none">
+              <label class="block text-[10px] font-bold text-stone-500 uppercase font-traditional mb-1">Quantity</label>
+              <input type="number" id="pos-qty" value="1" min="1" class="w-full text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-numeric text-stone-800 focus:outline-none">
             </div>
-            <div class="col-span-2">
-              <label class="block text-[10px] font-bold text-stone-500 uppercase mb-1 font-traditional">Total Amount (₹) *</label>
-              <input type="number" id="pos-total-amount" required step="any" oninput="handlePosAmountChange(this.value)" placeholder="₹0" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-black text-[#5C0612] font-numeric focus:outline-none">
+            <div>
+              <label class="block text-[10px] font-bold text-stone-500 uppercase font-traditional mb-1">Bill Amount (₹)</label>
+              <input type="number" id="pos-total-amount" required step="any" placeholder="₹ Total" oninput="handlePosAmountChange(this.value)" class="w-full text-xs font-black bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-numeric text-[#5C0612] focus:outline-none">
             </div>
           </div>
 
           <div>
-            <label class="block text-[10px] font-bold text-stone-500 uppercase mb-1 font-traditional">Payment Settlement</label>
-            <div class="grid grid-cols-4 gap-1.5">
-              <button type="button" onclick="setPosPaymentMode('Cash', 'Cash')" class="pos-mode-btn py-2 px-1 rounded-xl border-2 border-[#5C0612] bg-amber-50 text-[#5C0612] font-black text-[10px] flex flex-col items-center">Cash</button>
-              <button type="button" onclick="setPosPaymentMode('UPI', '42441-TJ')" class="pos-mode-btn py-2 px-1 rounded-xl border border-stone-200 bg-white text-stone-700 font-bold text-[10px] flex flex-col items-center">UPI</button>
-              <button type="button" onclick="setPosPaymentMode('Card', 'KC')" class="pos-mode-btn py-2 px-1 rounded-xl border border-stone-200 bg-white text-stone-700 font-bold text-[10px] flex flex-col items-center">Card</button>
-              <button type="button" onclick="setPosPaymentMode('Split', 'Split')" class="pos-mode-btn py-2 px-1 rounded-xl border border-stone-200 bg-white text-stone-700 font-bold text-[10px] flex flex-col items-center">Split</button>
+            <label class="block text-[10px] font-bold text-stone-500 uppercase font-traditional mb-1">Payment Settlement Mode</label>
+            <div class="grid grid-cols-4 gap-1">
+              <button type="button" onclick="setPosPaymentMode('Cash', 'Cash')" class="pos-mode-btn py-2 px-1 rounded-xl border-2 border-[#5C0612] bg-amber-50 text-[#5C0612] font-black text-[10px] flex flex-col items-center ring-1 ring-[#5C0612]">
+                <i class="fa-solid fa-money-bill-wave mb-1"></i> Cash
+              </button>
+              <button type="button" onclick="setPosPaymentMode('UPI', '42441-TJ')" class="pos-mode-btn py-2 px-1 rounded-xl border border-stone-200 bg-white text-stone-700 font-bold text-[10px] flex flex-col items-center">
+                <i class="fa-solid fa-qrcode mb-1"></i> UPI
+              </button>
+              <button type="button" onclick="setPosPaymentMode('Card', 'KC')" class="pos-mode-btn py-2 px-1 rounded-xl border border-stone-200 bg-white text-stone-700 font-bold text-[10px] flex flex-col items-center">
+                <i class="fa-regular fa-credit-card mb-1"></i> Card
+              </button>
+              <button type="button" onclick="setPosPaymentMode('Split', 'Split')" class="pos-mode-btn py-2 px-1 rounded-xl border border-stone-200 bg-white text-stone-700 font-bold text-[10px] flex flex-col items-center">
+                <i class="fa-solid fa-code-fork mb-1"></i> Split
+              </button>
             </div>
           </div>
 
           <div id="pos-split-subcontainer" class="hidden bg-[#FAF6EE] p-3 rounded-2xl border border-[#E5D5C6] space-y-2">
             <div class="flex justify-between items-center text-[10px]">
-              <span class="font-bold text-stone-600 font-traditional">Split Allocations</span>
-              <button type="button" onclick="addPosSplitLine()" class="text-[#5C0612] font-bold hover:underline">+ Add Line</button>
+              <span class="font-bold text-stone-700 uppercase font-traditional">Multi-Account Distribution</span>
+              <span id="pos-split-calc-balance" class="font-numeric font-bold text-rose-700">Rem: ₹0</span>
             </div>
             <div id="pos-split-lines" class="space-y-1.5"></div>
-            <div class="text-right text-[10px]">
-              <span id="pos-split-calc-balance" class="font-bold font-numeric text-rose-700">Rem: ₹0</span>
-            </div>
+            <button type="button" onclick="addPosSplitLine()" class="text-[9px] font-bold text-[#5C0612] uppercase tracking-wider hover:underline font-traditional">+ Add Another Bank</button>
           </div>
 
-          <button type="submit" id="pos-submit-btn" class="w-full bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs py-3 rounded-xl transition-all shadow-md font-traditional border border-[#DAA520] tracking-wider uppercase flex items-center justify-center gap-1.5 active:scale-95 duration-100 mt-2">
-            <i class="fa-solid fa-check-circle text-[#DAA520]"></i> Save & Log Transaction
+          <button type="submit" id="pos-submit-btn" class="w-full bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs py-3 rounded-xl shadow-md font-traditional border border-[#DAA520] tracking-wider uppercase flex items-center justify-center gap-2">
+            <i class="fa-solid fa-check-circle text-base text-[#DAA520]"></i> <span>Save & Log Transaction</span>
           </button>
         </form>
       </div>
 
-      <div class="bg-[#FFFDF9] rounded-3xl border border-[#E5D5C6] overflow-hidden warm-shadow lg:col-span-2 flex flex-col justify-between">
+      <!-- POS Shift Activity Log -->
+      <div class="bg-[#FFFDF9] rounded-3xl border border-[#E5D5C6] warm-shadow overflow-hidden lg:col-span-2 flex flex-col justify-between">
         <div>
           <div class="p-4 bg-[#F3EFE9] border-b border-[#E5D5C6] flex justify-between items-center">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-stone-700 font-traditional">Today's Shift Transactions</h3>
-            <span id="pos-verified-count" class="text-[10px] font-numeric font-bold bg-[#5C0612] text-white px-2.5 py-0.5 rounded-full">0 Entries</span>
+            <h3 class="font-bold text-xs uppercase font-traditional text-stone-800">Today's Shift Feed</h3>
+            <span id="pos-verified-count" class="text-[10px] font-bold bg-[#EFE5C9] text-[#5C0612] px-2.5 py-0.5 rounded-full font-numeric border border-[#DAA520]">0 Entries</span>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs font-numeric">
               <thead>
-                <tr class="bg-stone-100 text-stone-600 uppercase text-[9px] font-extrabold border-b border-[#E5D5C6]">
+                <tr class="bg-[#FAF6EE] text-stone-600 uppercase text-[9px] font-extrabold border-b border-[#E5D5C6]">
                   <th class="p-3 font-traditional">Bill No</th>
-                  <th class="p-3 font-traditional">Sales Staff</th>
-                  <th class="p-3 font-traditional">Product</th>
+                  <th class="p-3 font-traditional">Staff</th>
+                  <th class="p-3 font-traditional">Item</th>
                   <th class="p-3 font-traditional">Mode</th>
                   <th class="p-3 text-right font-traditional">Amount</th>
                   <th class="p-3 text-center font-traditional">Status</th>
@@ -246,73 +250,68 @@
     </div>
   </div>
 
-  <!-- SALES STAFF / SALES GIRL ISOLATED WORKSPACE -->
-  <div id="agent-view" class="hidden max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
-    <div class="bg-[#FFFDF9] p-6 rounded-3xl border border-[#E5D5C6] warm-shadow flex flex-col sm:flex-row justify-between items-center gap-3 relative overflow-hidden">
+  <!-- =========================================================================
+       5. SALES STAFF / SALESGIRL WORKSPACE
+       ========================================================================= -->
+  <div id="agent-view" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
+    <div class="bg-[#FFFDF9] p-6 rounded-3xl border border-[#E5D5C6] warm-shadow flex flex-col sm:flex-row justify-between items-center gap-4 relative overflow-hidden">
       <div class="zari-border absolute top-0 left-0 right-0"></div>
       <div>
-        <span class="text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300 tracking-wider font-sans">Sales Staff Portal</span>
-        <h2 id="agent-portal-name" class="text-2xl font-bold font-traditional text-[#5C0612] mt-1">Staff Member</h2>
-        <p id="agent-portal-id" class="text-xs text-stone-500 font-numeric">Employee ID: KS-101</p>
+        <h2 id="agent-portal-name" class="text-xl sm:text-2xl font-bold font-traditional text-[#5C0612]">Staff Member</h2>
+        <p id="agent-portal-id" class="text-xs text-stone-500 font-numeric font-medium"></p>
       </div>
-      <div class="flex gap-2">
-        <button onclick="exportAgentPersonalPDF()" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md font-traditional border border-[#DAA520] flex items-center gap-1.5 active:scale-95">
-          <i class="fa-solid fa-file-pdf text-[#DAA520]"></i> Download Payslip PDF
-        </button>
-      </div>
+      <button onclick="exportAgentPersonalPDF()" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs px-4 py-2.5 rounded-xl border border-[#DAA520] shadow-sm font-traditional flex items-center gap-1.5 active:scale-95">
+        <i class="fa-solid fa-file-pdf text-[#DAA520]"></i> Download My Slip (PDF)
+      </button>
     </div>
 
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow text-center">
-        <span class="block text-[9px] font-bold text-stone-500 uppercase font-traditional">Total Sold</span>
-        <strong id="agent-my-sales" class="text-xl font-black text-[#5C0612] font-numeric">₹0</strong>
-      </div>
-      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow text-center">
-        <span class="block text-[9px] font-bold text-emerald-700 uppercase font-traditional">Sales Incentive</span>
-        <strong id="agent-my-incentive" class="text-xl font-black text-emerald-800 font-numeric">₹0</strong>
-      </div>
-      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow text-center">
-        <span class="block text-[9px] font-bold text-stone-500 uppercase font-traditional">Avg Basket (UPT)</span>
-        <strong id="agent-my-upt" class="text-xl font-black text-stone-800 font-numeric">0.0</strong>
-      </div>
-      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow text-center">
-        <span class="block text-[9px] font-bold text-stone-500 uppercase font-traditional">Avg Ticket (ATV)</span>
-        <strong id="agent-my-atv" class="text-xl font-black text-stone-800 font-numeric">₹0</strong>
-      </div>
+    <!-- Personal Metrics Bar -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-numeric text-center">
+      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow"><span class="text-[8px] font-bold text-stone-500 uppercase block font-traditional">My Sales Revenue</span><strong id="agent-my-sales" class="text-xl font-black text-[#5C0612]">₹0</strong></div>
+      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow"><span class="text-[8px] font-bold text-emerald-800 uppercase block font-traditional">Estimated Incentive</span><strong id="agent-my-incentive" class="text-xl font-black text-emerald-700">₹0</strong></div>
+      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow"><span class="text-[8px] font-bold text-stone-500 uppercase block font-traditional">Basket Size (UPT)</span><strong id="agent-my-upt" class="text-xl font-black text-stone-800">0.0</strong></div>
+      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow"><span class="text-[8px] font-bold text-stone-500 uppercase block font-traditional">Average Ticket (ATV)</span><strong id="agent-my-atv" class="text-xl font-black text-stone-800">₹0</strong></div>
     </div>
 
-    <div class="bg-[#FFFDF9] p-5 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-3">
-      <div class="flex justify-between items-center border-b border-[#E5D5C6]/60 pb-2">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-stone-700 font-traditional">Monthly Attendance Record</h3>
-        <span id="agent-payable-days-badge" class="text-[10px] font-bold font-numeric text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">0 Days Payable</span>
+    <!-- Personal 31-Day Attendance Calendar -->
+    <div class="bg-[#FFFDF9] p-5 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-3 relative overflow-hidden">
+      <div class="zari-border absolute top-0 left-0 right-0"></div>
+      <div class="flex justify-between items-center border-b border-[#E5D5C6] pb-2">
+        <h3 class="text-xs font-bold uppercase text-stone-700 font-traditional">My Monthly Attendance Calendar</h3>
+        <span id="agent-payable-days-badge" class="text-[10px] font-bold text-emerald-900 bg-emerald-100 px-3 py-1 rounded-full font-numeric border border-emerald-300"></span>
       </div>
-      <div id="agent-personal-attendance-grid" class="grid grid-cols-7 sm:grid-cols-11 gap-1.5 pt-1"></div>
-      <div id="agent-leave-notes-container" class="hidden space-y-1 pt-2 border-t border-[#E5D5C6]/40">
-        <p class="text-[9px] font-bold uppercase text-amber-900 font-traditional">Leave Explanations:</p>
+      <div id="agent-personal-attendance-grid" class="grid grid-cols-7 sm:grid-cols-11 gap-1 pt-1 font-numeric"></div>
+      <div id="agent-leave-notes-container" class="hidden space-y-1 border-t border-[#E5D5C6]/40 pt-2 font-numeric text-xs">
+        <p class="text-[9px] font-bold text-amber-900 uppercase font-traditional">📝 My Leave Records & Reasons:</p>
         <div id="agent-leave-notes-list" class="space-y-1"></div>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div class="bg-[#FFFDF9] p-4 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-2">
-        <h4 class="text-xs font-bold uppercase text-stone-700 font-traditional border-b border-[#E5D5C6]/60 pb-2">Top Sold Products</h4>
-        <div id="agent-product-breakdown" class="space-y-2"></div>
+    <!-- Personal Sales Breakdown -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="bg-[#FFFDF9] p-4 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-3">
+        <h3 class="text-xs font-bold uppercase text-stone-700 font-traditional border-b border-[#E5D5C6] pb-2">Top Sold Products</h3>
+        <div id="agent-product-breakdown" class="space-y-2 max-h-80 overflow-y-auto"></div>
       </div>
-      <div class="bg-[#FFFDF9] p-4 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-2">
-        <h4 class="text-xs font-bold uppercase text-stone-700 font-traditional border-b border-[#E5D5C6]/60 pb-2">Recent Invoices</h4>
+      <div class="bg-[#FFFDF9] p-4 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-3">
+        <h3 class="text-xs font-bold uppercase text-stone-700 font-traditional border-b border-[#E5D5C6] pb-2">Recent Invoices Billed</h3>
         <div id="agent-bills-breakdown" class="space-y-2 max-h-80 overflow-y-auto"></div>
       </div>
     </div>
   </div>
 
-  <!-- MAIN CONTAINER (ADMIN DASHBOARD) -->
+  <!-- =========================================================================
+       6. MAIN ADMIN EXECUTIVE ANALYTICS DASHBOARD
+       ========================================================================= -->
   <main id="standard-main" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
+    
+    <!-- TOP CONTROLS: FILTERS & TARGET -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow space-y-3 relative overflow-hidden lg:col-span-2">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
         <div class="flex justify-between items-center border-b border-[#E5D5C6]/60 pb-1.5">
           <h2 class="text-xs font-bold uppercase tracking-wider text-stone-600 font-traditional flex items-center gap-1.5">
-            <i class="fa-solid fa-store text-[#5C0612]"></i> Multi-Store & Date Filter
+            <i class="fa-solid fa-store text-[#5C0612]"></i> Store & Date Filter
           </h2>
           <button onclick="selectStoreFilter('All')" class="text-[10px] font-bold text-[#5C0612] hover:underline uppercase tracking-wider font-traditional">Reset to All Stores</button>
         </div>
@@ -349,7 +348,8 @@
         </div>
       </div>
 
-      <div id="target-progress-card" class="admin-only hidden bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow space-y-2 relative overflow-hidden flex flex-col justify-between">
+      <!-- Target Progress -->
+      <div id="target-progress-card" class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow space-y-2 relative overflow-hidden flex flex-col justify-between">
         <div class="zari-border absolute top-0 left-0 right-0"></div>
         <div>
           <div class="flex justify-between items-center text-xs mb-1">
@@ -418,7 +418,7 @@
         <p id="metric-wholesale" class="text-lg sm:text-xl font-extrabold text-[#5C0612] mt-2 font-numeric">₹0</p>
       </div>
 
-      <div id="card-weekly-patterns" onclick="openWeeklyScreen()" class="admin-only hidden bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow cursor-pointer transition-all hover:scale-[1.01] hover:border-[#DAA520]">
+      <div id="card-weekly-patterns" onclick="openWeeklyScreen()" class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow cursor-pointer transition-all hover:scale-[1.01] hover:border-[#DAA520]">
         <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between font-traditional">
           <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-[#DAA520] inline-block"></span> Weekly Pattern</span>
           <span class="text-[8px] text-[#DAA520] font-extrabold uppercase">Explore →</span>
@@ -426,6 +426,7 @@
         <p class="text-lg sm:text-xl font-extrabold text-stone-800 mt-2 font-traditional">Day Distribution</p>
       </div>
 
+      <!-- Payment Modes Breakdown -->
       <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow sm:col-span-2 space-y-2">
         <div class="flex justify-between items-center">
           <p class="text-[10px] font-bold text-stone-600 uppercase tracking-wider font-traditional flex items-center gap-1"><i class="fa-solid fa-wallet text-[#5C0612]"></i> Payment Modes</p>
@@ -440,6 +441,7 @@
         </div>
       </div>
 
+      <!-- Bank Ledger Split -->
       <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow sm:col-span-2 space-y-2">
         <div class="flex justify-between items-center">
           <p class="text-[10px] font-bold text-stone-600 uppercase tracking-wider font-traditional flex items-center gap-1"><i class="fa-solid fa-building-columns text-[#5C0612]"></i> Bank Ledger Split</p>
@@ -454,9 +456,9 @@
       <button onclick="switchTab('products-tab')" id="btn-products-tab" class="flex-1 min-w-[80px] py-2 text-xs font-bold rounded-xl bg-white text-[#5C0612] font-traditional">Products</button>
       <button onclick="switchTab('agents-tab')" id="btn-agents-tab" class="flex-1 min-w-[80px] py-2 text-xs font-bold rounded-xl text-stone-500 font-traditional">Staff Sales</button>
       <button onclick="switchTab('daywise-tab')" id="btn-daywise-tab" class="flex-1 min-w-[80px] py-2 text-xs font-bold rounded-xl text-stone-500 font-traditional">Day-Wise</button>
-      <button onclick="switchTab('payments-tab')" id="btn-payments-tab" class="admin-only hidden flex-1 min-w-[120px] py-2 text-xs font-bold rounded-xl text-stone-500 font-traditional"><i class="fa-solid fa-money-bill-transfer text-[10px]"></i> Record Payment</button>
-      <button onclick="switchTab('banks-tab')" id="btn-banks-tab" class="admin-only hidden flex-1 min-w-[110px] py-2 text-xs font-bold rounded-xl text-stone-500 font-traditional"><i class="fa-solid fa-building-columns text-[10px]"></i> Bank Ledgers</button>
-      <button onclick="switchTab('attendance-tab')" id="btn-attendance-tab" class="admin-only hidden flex-1 min-w-[110px] py-2 text-xs font-bold rounded-xl text-stone-500 font-traditional"><i class="fa-solid fa-user-check text-[10px]"></i> Attendance & Payroll</button>
+      <button onclick="switchTab('payments-tab')" id="btn-payments-tab" class="flex-1 min-w-[120px] py-2 text-xs font-bold rounded-xl text-stone-500 font-traditional"><i class="fa-solid fa-money-bill-transfer text-[10px]"></i> Record Payment</button>
+      <button onclick="switchTab('banks-tab')" id="btn-banks-tab" class="flex-1 min-w-[110px] py-2 text-xs font-bold rounded-xl text-stone-500 font-traditional"><i class="fa-solid fa-building-columns text-[10px]"></i> Bank Ledgers</button>
+      <button onclick="switchTab('attendance-tab')" id="btn-attendance-tab" class="flex-1 min-w-[140px] py-2 text-xs font-bold rounded-xl text-stone-500 font-traditional"><i class="fa-solid fa-user-check text-[10px]"></i> Attendance & Sunday Pay</button>
     </div>
 
     <!-- TAB 1: PRODUCTS -->
@@ -579,7 +581,7 @@
     </div>
 
     <!-- TAB 4: PAYMENT SPLIT -->
-    <div id="payments-tab" class="tab-content admin-only hidden space-y-4">
+    <div id="payments-tab" class="tab-content hidden space-y-4">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow space-y-3 relative overflow-hidden">
           <div class="zari-border absolute top-0 left-0 right-0"></div>
@@ -620,7 +622,7 @@
     </div>
 
     <!-- TAB 5: BANKS -->
-    <div id="banks-tab" class="tab-content admin-only hidden space-y-4">
+    <div id="banks-tab" class="tab-content hidden space-y-4">
       <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex flex-col sm:flex-row justify-between items-center gap-3">
         <div class="w-full sm:w-auto flex-1 max-w-xs">
           <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">Credited Bank Account</label>
@@ -628,9 +630,14 @@
             <option value="All">All Bank Accounts</option>
           </select>
         </div>
-        <div class="text-right font-numeric">
-          <span class="block text-[9px] text-stone-500 uppercase font-traditional">Bank Total</span>
-          <strong id="bank-selected-total" class="text-xl font-black text-[#5C0612]">₹0</strong>
+        <div class="text-right font-numeric flex items-center gap-4">
+          <div>
+            <span class="block text-[9px] text-stone-500 uppercase font-traditional">Bank Total</span>
+            <strong id="bank-selected-total" class="text-xl font-black text-[#5C0612]">₹0</strong>
+          </div>
+          <button onclick="backupBankStatementExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs px-3 py-2 rounded-xl font-bold font-traditional flex items-center gap-1">
+            <i class="fa-solid fa-file-excel"></i> Export Ledger
+          </button>
         </div>
       </div>
       <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden warm-shadow">
@@ -652,9 +659,9 @@
       </div>
     </div>
 
-    <!-- TAB 6: ATTENDANCE & PAYROLL -->
-    <div id="attendance-tab" class="tab-content admin-only hidden space-y-4">
-      <!-- HEADER CONTROLS & VIEW MODE TOGGLE -->
+    <!-- TAB 6: ATTENDANCE & PAYROLL (WITH SUNDAY EXTRA PAY) -->
+    <div id="attendance-tab" class="tab-content hidden space-y-4">
+      <!-- HEADER CONTROLS & 2 VIEW MODES -->
       <div class="bg-[#FFFDF9] p-4 rounded-3xl border border-[#E5D5C6] warm-shadow flex flex-col md:flex-row justify-between items-center gap-3">
         <div class="flex items-center gap-2 w-full md:w-auto">
           <label class="text-xs font-bold text-stone-700 font-traditional whitespace-nowrap">Month Sheet:</label>
@@ -663,7 +670,7 @@
           </select>
         </div>
 
-        <!-- 2 VIEW MODES BUTTONS -->
+        <!-- 2 View Mode Toggle Buttons -->
         <div class="flex bg-[#EFE5C9]/50 rounded-2xl p-1 border border-[#E5D5C6] gap-1 w-full md:w-auto">
           <button onclick="setAttendanceViewMode('grid')" id="btn-attendance-mode-grid" class="flex-1 md:flex-initial px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all bg-[#5C0612] text-[#EFE5C9] shadow-sm font-traditional flex items-center justify-center gap-1.5 border border-[#DAA520]">
             <i class="fa-solid fa-calendar-days text-xs text-[#DAA520]"></i> <span>31-Day Attendance Grid</span>
@@ -677,7 +684,7 @@
           <button onclick="shareAllPayslipsWhatsApp()" class="bg-[#25D366] hover:bg-[#128C7E] text-white font-bold text-xs px-3 py-2 rounded-xl transition-all shadow-sm font-traditional flex items-center gap-1.5 active:scale-95" title="Bulk Send All Payslips on WhatsApp">
             <i class="fa-brands fa-whatsapp text-sm"></i> Bulk WhatsApp
           </button>
-          <button onclick="saveAttendanceData()" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs px-3.5 py-2 rounded-xl border border-[#DAA520] shadow-sm font-traditional active:scale-95 transition-all">
+          <button onclick="saveAttendanceData()" id="btn-save-attendance-sheet" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs px-3.5 py-2 rounded-xl border border-[#DAA520] shadow-sm font-traditional active:scale-95 transition-all">
             Save to Sheet
           </button>
         </div>
@@ -703,12 +710,23 @@
         </div>
       </div>
 
-      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex justify-between items-center">
-        <div>
-          <label class="block text-[8px] font-bold uppercase text-stone-500 font-traditional">Global Incentive Rate (%)</label>
-          <input type="number" id="global-commission-input" value="1.0" step="0.1" onchange="updateGlobalCommission(this.value)" class="w-28 text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2 font-numeric">
+      <!-- GLOBAL SALARY & SUNDAY SEPARATE ALLOWANCE CONTROLLER -->
+      <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex flex-wrap gap-4 justify-between items-center">
+        <div class="flex flex-wrap items-center gap-4">
+          <div>
+            <label class="block text-[8px] font-bold uppercase text-stone-500 font-traditional mb-0.5">Base Standard Salary (₹)</label>
+            <input type="number" id="global-standard-salary-input" value="12000" onchange="updateGlobalStandardSalary(this.value)" class="w-32 text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2 font-numeric">
+          </div>
+          <div>
+            <label class="block text-[8px] font-bold uppercase text-amber-800 font-traditional mb-0.5">☀️ Sunday Extra Rate (₹/Sun)</label>
+            <input type="number" id="global-sunday-rate-input" value="500" onchange="updateGlobalSundayRate(this.value)" class="w-32 text-xs font-bold bg-[#FAF6EE] border border-amber-300 text-amber-900 rounded-xl p-2 font-numeric">
+          </div>
+          <div>
+            <label class="block text-[8px] font-bold uppercase text-stone-500 font-traditional mb-0.5">Global Incentive Rate (%)</label>
+            <input type="number" id="global-commission-input" value="1.0" step="0.1" onchange="updateGlobalCommission(this.value)" class="w-24 text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2 font-numeric">
+          </div>
         </div>
-        <span class="text-[10px] text-stone-500 font-traditional">Individual staff rates can be overridden in the cards below.</span>
+        <span class="text-[10px] text-stone-500 font-traditional">Sundays worked are calculated separately and added to Net Pay.</span>
       </div>
 
       <!-- VIEW 1: 31-DAY ATTENDANCE GRID CARDS -->
@@ -732,8 +750,8 @@
                 <th class="p-3 font-traditional">Staff Member</th>
                 <th class="p-3 font-traditional text-center">Payable Days</th>
                 <th class="p-3 font-traditional text-center">Sundays Worked</th>
-                <th class="p-3 font-traditional text-right">Store Sales</th>
                 <th class="p-3 font-traditional text-right">Base Salary</th>
+                <th class="p-3 font-traditional text-right text-amber-900 font-black">Sunday Extra</th>
                 <th class="p-3 font-traditional text-right">Incentive</th>
                 <th class="p-3 font-traditional text-right">Advance</th>
                 <th class="p-3 font-traditional text-right">Net Payable</th>
@@ -747,17 +765,20 @@
     </div>
   </main>
 
-  <!-- MODAL: ADD ACCOUNT -->
+  <!-- =========================================================================
+       7. MODALS (ADD ACCOUNT & BULK WHATSAPP)
+       ========================================================================= -->
+  <!-- Modal: Add Account -->
   <div id="new-account-modal" class="hidden fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-[#FFFDF9] rounded-3xl border-2 border-[#5C0612] max-w-sm w-full p-5 space-y-3">
       <h3 class="font-bold text-xs uppercase font-traditional text-[#5C0612]">Add Account / Bank</h3>
-      <input type="text" id="new-account-name-input" placeholder="e.g. 42441-TJ, KC" class="w-full text-xs bg-[#FAF6EE] border rounded-xl p-2.5 font-bold">
-      <button onclick="saveNewAccountType()" class="w-full bg-[#5C0612] text-[#EFE5C9] font-bold text-xs py-2.5 rounded-xl border border-[#DAA520]">Save</button>
+      <input type="text" id="new-account-name-input" placeholder="e.g. 42441-TJ, KC" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-bold focus:outline-none">
+      <button onclick="saveNewAccountType()" class="w-full bg-[#5C0612] text-[#EFE5C9] font-bold text-xs py-2.5 rounded-xl border border-[#DAA520]">Save Account</button>
       <button onclick="closeNewAccountModal()" class="w-full text-stone-500 text-xs py-1">Cancel</button>
     </div>
   </div>
 
-  <!-- MODAL: BULK WHATSAPP PAYSLIPS -->
+  <!-- Modal: Bulk WhatsApp Payslips -->
   <div id="whatsapp-bulk-modal" class="hidden fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-[#FFFDF9] rounded-3xl border-2 border-[#5C0612] max-w-lg w-full overflow-hidden warm-shadow-lg relative">
       <div class="zari-border absolute top-0 left-0 right-0"></div>
@@ -774,66 +795,73 @@
     </div>
   </div>
 
-  <!-- CHANNEL VIEW -->
+  <!-- =========================================================================
+       8. SPA DRILL-DOWN FULL SCREENS
+       ========================================================================= -->
+  <!-- Channel View -->
   <div id="channel-view" class="hidden min-h-screen bg-[#FAF6EE] pb-16">
     <div class="bg-[#5C0612] text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50">
       <div class="flex items-center gap-3">
         <button onclick="closeChannelScreen()" class="text-white text-base"><i class="fa-solid fa-arrow-left"></i> Back</button>
         <div>
           <h2 id="channel-view-title" class="text-sm font-bold uppercase font-traditional text-[#EFE5C9]">Channel Sales</h2>
-          <p id="channel-view-subtitle" class="text-[9px] text-stone-200 uppercase"></p>
+          <p id="channel-view-subtitle" class="text-[9px] text-stone-200 uppercase font-numeric"></p>
         </div>
       </div>
     </div>
     <div class="max-w-7xl mx-auto px-4 mt-6 space-y-4">
-      <div class="bg-[#FFFDF9] p-5 rounded-2xl border text-center max-w-md mx-auto">
+      <div class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] text-center max-w-md mx-auto">
         <p class="text-[10px] font-bold text-stone-500 uppercase font-traditional">Channel Revenue</p>
         <p id="channel-view-total" class="text-3xl font-black mt-1 text-[#5C0612] font-numeric">₹0</p>
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div class="bg-[#FFFDF9] rounded-2xl border overflow-hidden">
+        <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden">
           <div class="p-3 bg-stone-100 font-bold text-xs uppercase font-traditional">Staff Breakdown</div>
-          <table class="w-full text-left text-xs"><tbody id="channel-agents-table" class="divide-y"></tbody></table>
+          <table class="w-full text-left text-xs font-numeric"><tbody id="channel-agents-table" class="divide-y divide-stone-200"></tbody></table>
         </div>
-        <div class="bg-[#FFFDF9] rounded-2xl border overflow-hidden">
+        <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden">
           <div class="p-3 bg-stone-100 font-bold text-xs uppercase font-traditional">Product Ranking</div>
-          <table class="w-full text-left text-xs"><tbody id="channel-products-table" class="divide-y"></tbody></table>
+          <table class="w-full text-left text-xs font-numeric"><tbody id="channel-products-table" class="divide-y divide-stone-200"></tbody></table>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- WEEKLY VIEW -->
+  <!-- Weekly View -->
   <div id="weekly-view" class="hidden min-h-screen bg-[#FAF6EE] pb-16">
     <div class="bg-[#5C0612] text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50">
       <button onclick="closeWeeklyScreen()" class="text-white text-base"><i class="fa-solid fa-arrow-left"></i> Back</button>
       <h2 class="text-sm font-bold uppercase font-traditional text-[#EFE5C9]">Weekly Sales Distribution</h2>
     </div>
     <div class="max-w-xl mx-auto px-4 mt-6 space-y-4">
-      <div class="bg-[#FFFDF9] p-5 rounded-2xl border space-y-3.5" id="weekly-distribution-bars"></div>
+      <div class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] space-y-3.5" id="weekly-distribution-bars"></div>
     </div>
   </div>
 
-  <!-- AGENT ANALYSIS VIEW -->
+  <!-- Agent Analysis View -->
   <div id="agent-analysis-view" class="hidden min-h-screen bg-[#FAF6EE] pb-16">
     <div class="bg-[#5C0612] text-white px-5 py-4 flex items-center justify-between sticky top-0 z-50">
       <button onclick="closeAgentAnalysisScreen()" class="text-white text-base"><i class="fa-solid fa-arrow-left"></i> Back</button>
       <div>
         <h2 id="agent-analysis-title" class="text-sm font-bold uppercase font-traditional text-[#EFE5C9]">Staff Performance Ledger</h2>
-        <p id="agent-analysis-subtitle" class="text-[9px] text-stone-200 uppercase"></p>
+        <p id="agent-analysis-subtitle" class="text-[9px] text-stone-200 uppercase font-numeric"></p>
+      </div>
+      <div class="flex items-center gap-1 bg-[#EFE5C9]/40 p-1 rounded-xl border border-[#DAA520]">
+        <button onclick="setAgentBillsViewMode('summary')" id="btn-agent-mode-summary" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-[#5C0612] text-[#EFE5C9]">Summary</button>
+        <button onclick="setAgentBillsViewMode('detailed')" id="btn-agent-mode-detailed" class="px-3 py-1.5 text-xs font-bold rounded-lg text-stone-600">Detailed</button>
       </div>
     </div>
     <div class="max-w-4xl mx-auto px-4 mt-6 space-y-4">
-      <div class="bg-[#FFFDF9] rounded-2xl border p-5 text-center">
+      <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] p-5 text-center">
         <p class="text-[10px] font-bold text-stone-500 uppercase font-traditional">Total Revenue Sold</p>
         <p id="agent-analysis-total-revenue" class="text-3xl font-black mt-1 text-[#5C0612] font-numeric">₹0</p>
-        <div class="mt-3 pt-3 border-t grid grid-cols-3 gap-1 text-center text-xs font-numeric">
+        <div class="mt-3 pt-3 border-t border-[#E5D5C6] grid grid-cols-3 gap-1 text-center text-xs font-numeric">
           <div><p class="text-[9px] text-stone-500">Online</p><p id="agent-analysis-online-sales" class="font-black text-blue-600">₹0</p></div>
           <div><p class="text-[9px] text-stone-500">Offline</p><p id="agent-analysis-offline-sales" class="font-black text-orange-600">₹0</p></div>
           <div><p class="text-[9px] text-stone-500">Takebyhand</p><p id="agent-analysis-takebyhand-sales" class="font-black text-purple-600">₹0</p></div>
         </div>
       </div>
-      <div class="bg-[#FFFDF9] p-5 rounded-2xl border space-y-3.5" id="agent-analysis-product-share"></div>
+      <div class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] space-y-3.5" id="agent-analysis-product-share"></div>
       <div class="space-y-3.5" id="agent-analysis-daily-list"></div>
     </div>
   </div>

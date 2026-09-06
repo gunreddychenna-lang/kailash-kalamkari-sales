@@ -2,8 +2,12 @@
 /**
  * =========================================================================
  * KAILASH KALAMKARI - MULTI-ROLE EXECUTIVE PORTAL CLIENT ENGINE (app.js)
- * Enterprise client script with multi-date format detection,
- * automatic date calibration, split-bill tracking, POS, and payroll engine.
+ * Enterprise client script with:
+ * - Multi-date format detection & automatic calibration
+ * - Dedicated Sunday Extra Pay Allowance & Google Sheets Sync
+ * - Multi-Split Bill Settling Engine & Bank Ledgers
+ * - Real-time Touchscreen POS & Staff Workspaces
+ * - WhatsApp & PDF Payslip Generation with Sunday Breakdown
  * =========================================================================
  */
 
@@ -40,14 +44,18 @@ let activePosMode = "Cash";
 let activePosBank = "Cash";
 let cashierShiftRecords = [];
 
-// Filter States & Settings
+// Filter States & Default Rates
 let selectedStore = "All";
 let selectedCategory = "All";
 let selectedAttendanceMonth = "All";
 let selectedChannel = "All";
 let activeAnalysisAgent = "";
 let monthlyTarget = parseFloat(localStorage.getItem('kk_monthly_target')) || 1000000;
+
+// Global Payroll Defaults
 let defaultCommissionPct = 1.0;
+let defaultStandardSalary = 12000;
+let defaultSundayDailyRate = 500; // Extra allowance per Sunday worked
 
 // Metrics & Sorting States
 let currentDaySales = [0, 0, 0, 0, 0, 0, 0];
@@ -61,29 +69,11 @@ window.addEventListener('popstate', e => applyState(e.state, true));
 // -------------------------------------------------------------
 // SAFE DOM MANIPULATION HELPERS
 // -------------------------------------------------------------
-function getEl(id) {
-  return document.getElementById(id);
-}
-
-function showEl(id) {
-  const el = document.getElementById(id);
-  if (el) el.classList.remove('hidden');
-}
-
-function hideEl(id) {
-  const el = document.getElementById(id);
-  if (el) el.classList.add('hidden');
-}
-
-function setText(id, text) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = text;
-}
-
-function setHTML(id, html) {
-  const el = document.getElementById(id);
-  if (el) el.innerHTML = html;
-}
+function getEl(id) { return document.getElementById(id); }
+function showEl(id) { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); }
+function hideEl(id) { const el = document.getElementById(id); if (el) el.classList.add('hidden'); }
+function setText(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
+function setHTML(id, html) { const el = document.getElementById(id); if (el) el.innerHTML = html; }
 
 // -------------------------------------------------------------
 // PDF EXPORT UTILITY
@@ -137,9 +127,7 @@ function normalizeToDateString(dateVal) {
     const monthStr = dMmmYyyyMatch[2].substring(0, 3).toLowerCase();
     const year = dMmmYyyyMatch[3];
     const months = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
-    if (months[monthStr]) {
-      return `${year}-${months[monthStr]}-${day}`;
-    }
+    if (months[monthStr]) return `${year}-${months[monthStr]}-${day}`;
   }
 
   const parsed = new Date(strVal);
@@ -162,18 +150,10 @@ function getMonthYearContext(monthStr) {
     if (yMatch) year = parseInt(yMatch[1], 10);
 
     const monthMap = {
-      jan: 0, january: 0,
-      feb: 1, february: 1,
-      mar: 2, march: 2,
-      apr: 3, april: 3,
-      may: 4,
-      jun: 5, june: 5,
-      jul: 6, july: 6,
-      aug: 7, august: 7,
-      sep: 8, sept: 8, september: 8,
-      oct: 9, october: 9,
-      nov: 10, november: 10,
-      dec: 11, december: 11
+      jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
+      apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6,
+      aug: 7, august: 7, sep: 8, sept: 8, september: 8, oct: 9, october: 9,
+      nov: 10, november: 10, dec: 11, december: 11
     };
 
     const cleanM = monthStr.toLowerCase();
@@ -243,7 +223,6 @@ function getRowAmount(row) {
       if (!isNaN(parsed)) return parsed;
     }
   }
-
   for (let key in row) {
     const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
     if (['finalamount', 'totalvalue', 'billamount', 'amount', 'netvalue', 'netinvoicevalue', 'total', 'saleamount'].includes(cleanKey)) {
@@ -256,7 +235,6 @@ function getRowAmount(row) {
 
 function getBillNo(row) {
   if (!row || typeof row !== 'object') return 'N/A';
-  
   const directKeys = [
     'Bil No', 'Bil No.', 'BilNo', 'Bill No', 'Bill No.', 'BillNo', 
     'Invoice No', 'Invoice No.', 'InvoiceNo', 'Bill #', 'Invoice #', 'Bill Number', 
@@ -270,7 +248,6 @@ function getBillNo(row) {
       }
     }
   }
-
   for (let key in row) {
     const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
     if (['bilno', 'billno', 'billnum', 'billnumber', 'invoiceno', 'invoicenumber', 'docno', 'voucherno', 'refno', 'billcode'].includes(cleanKey)) {
@@ -286,7 +263,6 @@ function getBillNo(row) {
 function getRowBankDirect(row) {
   if (!row || typeof row !== 'object') return 'Not Defined';
   const ignoreKeywords = ['split payment', 'split', 'payment', 'not defined', 'not found', 'null', 'undefined', '-', '--', '0'];
-
   const priorityKeys = [
     'Acc No', 'Acc No.', 'AccNo', 'Acc_No', 'A/c No', 'A/c No.', 'A/C No', 'A/C No.',
     'Ac No', 'Ac No.', 'Account No', 'Account No.', 'AccountNo', 'Account_No',
@@ -297,22 +273,9 @@ function getRowBankDirect(row) {
   for (let k of priorityKeys) {
     if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
       const val = row[k].toString().trim();
-      if (val && !ignoreKeywords.includes(val.toLowerCase())) {
-        return val;
-      }
+      if (val && !ignoreKeywords.includes(val.toLowerCase())) return val;
     }
   }
-
-  const secondaryKeys = ['Account Name', 'AccountName', 'Acc Name', 'AccName', 'Account Name.', 'Account', 'Bank Details'];
-  for (let k of secondaryKeys) {
-    if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
-      const val = row[k].toString().trim();
-      if (val && !ignoreKeywords.includes(val.toLowerCase())) {
-        return val;
-      }
-    }
-  }
-
   return 'Not Defined';
 }
 
@@ -323,12 +286,7 @@ function registerBillSplit(billNo, bankName, splitAmount, payMode) {
   const bank = (bankName || 'Not Defined').toString().trim();
   const amt = parseFloat(splitAmount) || 0;
 
-  const splitEntry = {
-    bank: bank,
-    amount: amt,
-    mode: payMode || bank
-  };
-
+  const splitEntry = { bank: bank, amount: amt, mode: payMode || bank };
   if (!globalBillSplitsMap[bKey]) globalBillSplitsMap[bKey] = [];
   globalBillSplitsMap[bKey].push(splitEntry);
 
@@ -336,7 +294,6 @@ function registerBillSplit(billNo, bankName, splitAmount, payMode) {
     if (!globalBillSplitsMap[cleanKey]) globalBillSplitsMap[cleanKey] = [];
     globalBillSplitsMap[cleanKey].push(splitEntry);
   }
-
   globalBillBankMap[bKey] = bank;
   globalBillBankMap[cleanKey] = bank;
 }
@@ -366,16 +323,16 @@ function getSalesType(payMode) {
   if (!payMode) return 'Offline';
   const pm = payMode.toString().toLowerCase().trim();
   if (pm.includes('onl') || pm.includes('online') || pm.includes('web')) return 'Online';
-  if (pm.includes('by hand') || pm.includes('hand') || pm.includes('wholesale') || pm.includes('take by hand') || pm.includes('takebyhand') || pm.includes('tbh')) return 'Wholesale';
+  if (pm.includes('by hand') || pm.includes('hand') || pm.includes('wholesale') || pm.includes('tbh')) return 'Wholesale';
   return 'Offline';
 }
 
 function getItemCategory(itemName) {
   if (!itemName) return 'General';
   const name = itemName.toString().toLowerCase();
-  if (name.includes('frame') || name.includes('painting') || name.includes('art') || name.includes('photo') || name.includes('wall') || name.includes('canvas') || name.includes('wood') || name.includes('chitra') || name.includes('picchwai') || name.includes('glass')) return 'Frames';
-  if (name.includes('saree') || name.includes('sari') || name.includes('silk') || name.includes('pattu') || name.includes('kanchi') || name.includes('tussar') || name.includes('soft') || name.includes('organza') || name.includes('georgette') || name.includes('kota') || name.includes('linen') || name.includes('handloom') || name.includes('chanderi')) return 'Sarees';
-  if (name.includes('fabric') || name.includes('meter') || name.includes('running') || name.includes('print') || name.includes('blouse') || name.includes('material') || name.includes('cotton') || name.includes('dupatta') || name.includes('stole') || name.includes('dress') || name.includes('suit') || name.includes('kurti')) return 'Fabrics';
+  if (name.includes('frame') || name.includes('painting') || name.includes('art') || name.includes('photo') || name.includes('canvas')) return 'Frames';
+  if (name.includes('saree') || name.includes('sari') || name.includes('silk') || name.includes('pattu') || name.includes('kanchi') || name.includes('linen')) return 'Sarees';
+  if (name.includes('fabric') || name.includes('meter') || name.includes('dupatta') || name.includes('dress') || name.includes('suit')) return 'Fabrics';
   return 'General';
 }
 
@@ -383,19 +340,11 @@ function getDayValue(emp, d) {
   if (!emp || typeof emp !== 'object') return '';
   const dStr = d.toString();
   const dPad = d < 10 ? '0' + d : dStr;
-  const possibleKeys = [dStr, dPad, 'D' + dStr, 'D' + dPad, 'Day ' + dStr, 'Day' + dStr, 'Day ' + dPad];
+  const possibleKeys = [dStr, dPad, 'D' + dStr, 'D' + dPad, 'Day ' + dStr, 'Day ' + dPad];
 
   for (let key of possibleKeys) {
     if (emp[key] !== undefined && emp[key] !== null && emp[key] !== '') {
       return emp[key].toString().trim();
-    }
-  }
-
-  for (let key in emp) {
-    const cleanK = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (cleanK === dStr || cleanK === dPad || cleanK === 'd' + dStr || cleanK === 'day' + dStr) {
-      const val = (emp[key] || '').toString().trim();
-      if (val) return val;
     }
   }
   return '';
@@ -405,7 +354,7 @@ function getDayNote(emp, d) {
   const notesMap = emp['_notes'] || {};
   const dStr = d.toString();
   const dPad = d < 10 ? '0' + d : dStr;
-  const possibleKeys = [dStr, dPad, 'D' + dStr, 'D' + dPad, 'Day ' + dStr, 'Day' + dPad];
+  const possibleKeys = [dStr, dPad, 'D' + dStr, 'D' + dPad, 'Day ' + dStr, 'Day ' + dPad];
 
   for (let key of possibleKeys) {
     if (notesMap[key]) return notesMap[key].toString().trim();
@@ -802,11 +751,8 @@ function detectDateRanges() {
   const toEl = getEl('to-date');
 
   if (allDates.length > 0) {
-    if (fromEl) fromEl.value = allDates[0];
-    if (toEl) toEl.value = allDates[allDates.length - 1];
-  } else {
-    if (fromEl) fromEl.value = '';
-    if (toEl) toEl.value = '';
+    if (fromEl && !fromEl.value) fromEl.value = allDates[0];
+    if (toEl && !toEl.value) toEl.value = allDates[allDates.length - 1];
   }
 }
 
@@ -1301,7 +1247,6 @@ function renderBankLedgerModule() {
 
   const ledgerRecords = [];
   let totalBankAmount = 0;
-  const processedBills = new Set();
 
   rawData.forEach(r => {
     const rawDate = r['Bill Date'] || r['Date'] || r['Invoice Date'] || r['BillDate'];
@@ -1314,10 +1259,6 @@ function renderBankLedgerModule() {
     if (selectedStore !== 'All' && storeName.toLowerCase() !== selectedStore.toLowerCase()) return;
 
     const bNo = getBillNo(r);
-    const billKey = `${bNo}-${rDate}`;
-    if (processedBills.has(billKey)) return;
-    processedBills.add(billKey);
-
     const fullAmt = getRowAmount(r);
     const agent = r['SM Name'] || r['SMName'] || r['Agent'] || r['Staff Name'] || 'No Agent';
     const splits = getBillSplits(bNo);
@@ -1408,7 +1349,35 @@ function backupBankStatementExcel() {
 }
 
 // -------------------------------------------------------------
-// ATTENDANCE, PAYROLL & COMMISSIONS MODULE
+// GLOBAL SALARY & SUNDAY RATE UPDATERS
+// -------------------------------------------------------------
+function updateGlobalStandardSalary(val) {
+  if (!isAdmin) return;
+  defaultStandardSalary = parseFloat(val) || 0;
+  rawAttendanceData.forEach(emp => {
+    emp['Monthly Salary'] = defaultStandardSalary;
+  });
+  renderAttendanceSalaryModule(parseFloat((getEl('metric-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
+}
+
+function updateGlobalSundayRate(val) {
+  if (!isAdmin) return;
+  defaultSundayDailyRate = parseFloat(val) || 0;
+  rawAttendanceData.forEach(emp => {
+    emp['Sunday Rate'] = defaultSundayDailyRate;
+  });
+  renderAttendanceSalaryModule(parseFloat((getEl('metric-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
+}
+
+function updateGlobalCommission(val) {
+  if (!isAdmin) return;
+  defaultCommissionPct = parseFloat(val) || 0;
+  rawAttendanceData.forEach(emp => { emp['Commission Pct'] = defaultCommissionPct; });
+  renderAttendanceSalaryModule(parseFloat((getEl('metric-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
+}
+
+// -------------------------------------------------------------
+// ATTENDANCE, SUNDAY EXTRA PAY & PAYROLL ENGINE
 // -------------------------------------------------------------
 function setAttendanceViewMode(mode) {
   attendanceViewMode = mode;
@@ -1457,6 +1426,7 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
   let totalStorePayroll = 0;
   let totalPayableDaysAccumulator = 0;
   let totalSundaysWorkedAccumulator = 0;
+  let totalSundayPayAccumulator = 0;
 
   setText('payroll-staff-count', staffData.length);
   setText('profit-store-sales', `₹${storeRevenue.toLocaleString('en-IN')}`);
@@ -1470,8 +1440,9 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
     const phone = getEmpProp(emp, ['Phone Number', 'Phone', 'Mobile']) || '';
     const mSheetName = emp['Month_Sheet'] || 'attendance';
     
-    let fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Salary'])) || 10000;
-    let commPct = parseFloat(getEmpProp(emp, ['Commission Pct', 'Commission %'])) || 0;
+    let fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Salary'])) || defaultStandardSalary;
+    let sundayDailyRate = parseFloat(getEmpProp(emp, ['Sunday Rate', 'Sunday Daily Rate'])) || defaultSundayDailyRate;
+    let commPct = parseFloat(getEmpProp(emp, ['Commission Pct', 'Commission %'])) || defaultCommissionPct;
     let advance = parseFloat(getEmpProp(emp, ['Advance Taken', 'Advance'])) || 0;
 
     const totalSold = getStaffSalesAmount(name);
@@ -1547,10 +1518,26 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
 
     const payableDays = countP + (countHD * 0.5) + countPL;
     const baseEarned = Math.round(payableDays * (fullSalary / monthContext.daysInMonth));
-    const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
+    
+    // SEPARATE SUNDAY PAY CALCULATION
+    const sundayExtraPay = Math.round(sundaysWorked * sundayDailyRate);
+    totalSundayPayAccumulator += sundayExtraPay;
+
+    // NET SALARY = Base Earned + Sunday Extra Pay + Incentive - Advance
+    const netSalary = Math.max(0, (baseEarned + sundayExtraPay + calculatedIncentive) - advance);
     totalStorePayroll += netSalary;
     totalPayableDaysAccumulator += payableDays;
     totalSundaysWorkedAccumulator += sundaysWorked;
+
+    // Store calculated values on the memory object for Google Sheet sync
+    emp['Payable Days'] = payableDays;
+    emp['Sundays Worked'] = sundaysWorked;
+    emp['Sunday Rate'] = sundayDailyRate;
+    emp['Sunday Pay Amount'] = sundayExtraPay;
+    emp['Monthly Salary'] = fullSalary;
+    emp['Commission Pct'] = commPct;
+    emp['Advance Taken'] = advance;
+    emp['Net Payable'] = netSalary;
 
     // View Mode 1: Grid Cards
     const card = document.createElement('div');
@@ -1591,12 +1578,12 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
           <strong class="text-amber-900 text-sm font-black">${sundaysWorked} / ${monthContext.totalSundaysInMonth}</strong>
         </div>
         <div class="border-r border-[#E5D5C6]/60 pr-1">
-          <span class="block text-[8px] font-bold text-rose-800 uppercase font-traditional">Absent (A)</span>
-          <strong class="text-rose-900 text-sm font-black">${countA} Days</strong>
+          <span class="block text-[8px] font-bold text-amber-800 uppercase font-traditional">☀️ Sunday Extra Pay</span>
+          <strong class="text-amber-900 text-sm font-black">+₹${sundayExtraPay.toLocaleString('en-IN')}</strong>
         </div>
         <div>
-          <span class="block text-[8px] font-bold text-blue-800 uppercase font-traditional">Half Days (HD)</span>
-          <strong class="text-blue-900 text-sm font-black">${countHD} (PL: ${countPL})</strong>
+          <span class="block text-[8px] font-bold text-rose-800 uppercase font-traditional">Absent (A)</span>
+          <strong class="text-rose-900 text-sm font-black">${countA} Days</strong>
         </div>
       </div>
 
@@ -1622,11 +1609,15 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
         </div>
       ` : ''}
 
-      <!-- SALARY EDITABLE INPUTS -->
-      <div class="grid grid-cols-3 gap-2 bg-[#FAF6EE] p-3 rounded-2xl border border-[#E5D5C6] text-xs font-numeric">
+      <!-- SALARY, SUNDAY EXTRA RATE & COMMISSION INPUTS -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-[#FAF6EE] p-3 rounded-2xl border border-[#E5D5C6] text-xs font-numeric">
         <div>
           <label class="block text-[8px] font-bold text-stone-500 uppercase font-traditional mb-1">Base Salary (₹)</label>
           <input type="number" value="${fullSalary}" oninput="updateStaffPayroll(${index}, 'salary', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-xl p-2 text-stone-800 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-[8px] font-bold text-amber-800 uppercase font-traditional mb-1">Sunday Rate (₹/Sun)</label>
+          <input type="number" value="${sundayDailyRate}" oninput="updateStaffPayroll(${index}, 'sundayRate', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-xl p-2 text-amber-900 focus:outline-none">
         </div>
         <div>
           <label class="block text-[8px] font-bold text-stone-500 uppercase font-traditional mb-1">Incentive Rate (%)</label>
@@ -1657,10 +1648,13 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
             ☀️ ${sundaysWorked} / ${monthContext.totalSundaysInMonth}
           </span>
         </td>
-        <td class="p-3 text-right font-bold text-stone-700">₹${totalSold.toLocaleString('en-IN')}</td>
         <td class="p-3 text-right">
           <div class="font-bold text-stone-800">₹${fullSalary.toLocaleString('en-IN')}</div>
           <div class="text-[9px] text-stone-500">Earned: ₹${baseEarned.toLocaleString('en-IN')}</div>
+        </td>
+        <td class="p-3 text-right text-amber-900 font-black font-numeric">
+          +₹${sundayExtraPay.toLocaleString('en-IN')}
+          <div class="text-[8px] text-amber-700">(${sundaysWorked} × ₹${sundayDailyRate})</div>
         </td>
         <td class="p-3 text-right text-emerald-800 font-bold">+₹${calculatedIncentive.toLocaleString('en-IN')} <span class="text-[8px] text-stone-400">(${commPct}%)</span></td>
         <td class="p-3 text-right text-rose-700 font-bold">-₹${advance.toLocaleString('en-IN')}</td>
@@ -1700,19 +1694,61 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
 function updateStaffPayroll(index, field, val) {
   if (!isAdmin) return;
   const emp = rawAttendanceData[index];
+  if (!emp) return;
   if (field === 'salary') emp['Monthly Salary'] = parseFloat(val) || 0;
+  else if (field === 'sundayRate') emp['Sunday Rate'] = parseFloat(val) || 0;
   else if (field === 'commission') emp['Commission Pct'] = parseFloat(val) || 0;
   else if (field === 'advance') emp['Advance Taken'] = parseFloat(val) || 0;
   renderAttendanceSalaryModule(parseFloat((getEl('metric-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
 }
 
-function updateGlobalCommission(val) {
+// -------------------------------------------------------------
+// SYNC ATTENDANCE & PAYROLL TO GOOGLE SHEETS
+// -------------------------------------------------------------
+async function saveAttendanceData() {
   if (!isAdmin) return;
-  defaultCommissionPct = parseFloat(val) || 0;
-  rawAttendanceData.forEach(emp => { emp['Commission Pct'] = defaultCommissionPct; });
-  renderAttendanceSalaryModule(parseFloat((getEl('metric-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
+  const session = checkSession();
+  if (!session.valid) return alert("Please log in again.");
+
+  const saveBtn = getEl('btn-save-attendance-sheet');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-1"></i> Saving to Google Sheets...`;
+  }
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      mode: 'cors',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ 
+        action: 'save_attendance',
+        username: session.user, 
+        password: session.pass, 
+        records: rawAttendanceData, 
+        monthSheet: selectedAttendanceMonth 
+      })
+    });
+    const res = await response.json();
+    if (res.status === 'success') {
+      alert("✅ Attendance, Sunday Extra Pay, and Payroll saved successfully to Google Sheets!");
+    } else {
+      alert("Error saving: " + (res.error || res.message || "Unknown error"));
+    }
+  } catch (err) {
+    alert("Saved locally in active session! (Check network connection to Google Sheet)");
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = `Save to Sheet`;
+    }
+  }
 }
 
+// -------------------------------------------------------------
+// WHATSAPP & PDF PAYSLIP GENERATORS (WITH SUNDAY BREAKDOWN)
+// -------------------------------------------------------------
 function shareStaffPayslipWhatsApp(index) {
   if (!isAdmin) return;
   const emp = rawAttendanceData[index];
@@ -1722,8 +1758,9 @@ function shareStaffPayslipWhatsApp(index) {
 
   const name = getEmpProp(emp, ['Employee Name', 'Name']) || 'Staff';
   const empId = getEmpProp(emp, ['Emp ID', 'ID']) || `KS-${101 + index}`;
-  const fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Salary'])) || 0;
-  const commPct = parseFloat(getEmpProp(emp, ['Commission Pct'])) || 0;
+  const fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Salary'])) || defaultStandardSalary;
+  const sundayDailyRate = parseFloat(getEmpProp(emp, ['Sunday Rate'])) || defaultSundayDailyRate;
+  const commPct = parseFloat(getEmpProp(emp, ['Commission Pct'])) || defaultCommissionPct;
   const advance = parseFloat(getEmpProp(emp, ['Advance Taken'])) || 0;
 
   const totalSold = getStaffSalesAmount(name);
@@ -1749,7 +1786,8 @@ function shareStaffPayslipWhatsApp(index) {
 
   const payableDays = countP + (countHD * 0.5) + countPL;
   const baseEarned = Math.round(payableDays * (fullSalary / monthContext.daysInMonth));
-  const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
+  const sundayExtraPay = Math.round(sundaysWorked * sundayDailyRate);
+  const netSalary = Math.max(0, (baseEarned + sundayExtraPay + calculatedIncentive) - advance);
 
   let msg = `🌸 *KAILASH KALAMKARI - OFFICIAL MONTHLY PAYSLIP* 🌸\n\n`;
   msg += `🆔 *Staff ID:* ${empId}\n`;
@@ -1763,6 +1801,7 @@ function shareStaffPayslipWhatsApp(index) {
   msg += `--------------------------------------\n`;
   msg += `💵 *Monthly Base Salary:* ₹${fullSalary.toLocaleString('en-IN')}\n`;
   msg += `🧾 *Earned Base Salary:* ₹${baseEarned.toLocaleString('en-IN')}\n`;
+  msg += `☀️ *Sunday Extra Pay (${sundaysWorked} × ₹${sundayDailyRate}):* +₹${sundayExtraPay.toLocaleString('en-IN')}\n`;
   msg += `🛍️ *Store Sales Achieved:* ₹${totalSold.toLocaleString('en-IN')}\n`;
   
   if (calculatedIncentive > 0) {
@@ -1792,8 +1831,9 @@ function exportSingleStaffPayslipPDF(index) {
   const name = getEmpProp(emp, ['Employee Name', 'Name']) || 'Staff Member';
   const empId = getEmpProp(emp, ['Emp ID', 'ID']) || `KS-${101 + index}`;
   const role = getEmpProp(emp, ['Designation', 'Role']) || 'Sales Executive';
-  const fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Salary'])) || 0;
-  const commPct = parseFloat(getEmpProp(emp, ['Commission Pct'])) || 0;
+  const fullSalary = parseFloat(getEmpProp(emp, ['Monthly Salary', 'Salary'])) || defaultStandardSalary;
+  const sundayDailyRate = parseFloat(getEmpProp(emp, ['Sunday Rate'])) || defaultSundayDailyRate;
+  const commPct = parseFloat(getEmpProp(emp, ['Commission Pct'])) || defaultCommissionPct;
   const advance = parseFloat(getEmpProp(emp, ['Advance Taken'])) || 0;
 
   const totalSold = getStaffSalesAmount(name);
@@ -1819,7 +1859,8 @@ function exportSingleStaffPayslipPDF(index) {
 
   const payableDays = countP + (countHD * 0.5) + countPL;
   const baseEarned = Math.round(payableDays * (fullSalary / monthContext.daysInMonth));
-  const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
+  const sundayExtraPay = Math.round(sundaysWorked * sundayDailyRate);
+  const netSalary = Math.max(0, (baseEarned + sundayExtraPay + calculatedIncentive) - advance);
 
   const payslipContainer = document.createElement('div');
   payslipContainer.className = "p-8 bg-[#FFFDF9] border-2 border-[#5C0612] max-w-xl mx-auto rounded-3xl font-numeric text-stone-800 space-y-4";
@@ -1828,7 +1869,7 @@ function exportSingleStaffPayslipPDF(index) {
   payslipContainer.innerHTML = `
     <div class="text-center border-b-2 border-[#DAA520] pb-4">
       <h2 class="text-2xl font-bold font-traditional text-[#5C0612]">KAILASH KALAMKARI</h2>
-      <p class="text-[10px] text-stone-600 uppercase font-semibold">Official Staff Salary Slip & Performance Voucher</p>
+      <p class="text-[10px] text-stone-600 uppercase font-semibold">Official Staff Salary Slip & Sunday Allowance Voucher</p>
       <p class="text-[9px] text-[#DAA520] font-bold uppercase mt-0.5">${monthContext.monthName} ${monthContext.year}</p>
     </div>
 
@@ -1870,6 +1911,10 @@ function exportSingleStaffPayslipPDF(index) {
       <div class="flex justify-between py-1 border-b border-stone-200">
         <span class="text-stone-600 font-medium">Earned Base (Attended Days)</span>
         <span class="font-bold text-stone-800">₹${baseEarned.toLocaleString('en-IN')}</span>
+      </div>
+      <div class="flex justify-between py-1 border-b border-stone-200 text-amber-900 bg-amber-50 px-2 rounded">
+        <span class="font-bold">☀️ Sunday Extra Pay (${sundaysWorked} Sundays @ ₹${sundayDailyRate})</span>
+        <span class="font-black">+₹${sundayExtraPay.toLocaleString('en-IN')}</span>
       </div>
       <div class="flex justify-between py-1 border-b border-stone-200">
         <span class="text-stone-600 font-medium">Total Store Sales Generated</span>
@@ -2009,34 +2054,6 @@ function backupFullDatabaseExcel() {
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rawAttendanceData), "Attendance & Payroll");
   }
   XLSX.writeFile(workbook, `Kailash_Kalamkari_Backup_${new Date().toISOString().split('T')[0]}.xlsx`);
-}
-
-async function saveAttendanceData() {
-  if (!isAdmin) return;
-  const user = localStorage.getItem('kk_user');
-  const pass = localStorage.getItem('kk_pass');
-  if (!user || !pass) return;
-
-  try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      mode: 'cors',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ 
-        action: 'save_attendance',
-        username: user, 
-        password: pass, 
-        records: rawAttendanceData, 
-        monthSheet: selectedAttendanceMonth 
-      })
-    });
-    const res = await response.json();
-    if (res.status === 'success') alert("✅ Attendance and payroll saved cleanly to Google Sheets!");
-    else alert("Error saving: " + (res.error || "Unknown error"));
-  } catch (err) {
-    alert("Saved locally in session!");
-  }
 }
 
 // -------------------------------------------------------------
@@ -2722,7 +2739,7 @@ async function submitSplitPayment() {
 }
 
 // -------------------------------------------------------------
-// 1. CASHIER WORKSPACE & TOUCHSCREEN POS ENGINE
+// CASHIER WORKSPACE & POS ENGINE
 // -------------------------------------------------------------
 function initCashierWorkspace() {
   setText('cashier-current-date-badge', `Shift Date: ${new Date().toLocaleDateString('en-IN')}`);
@@ -2946,7 +2963,7 @@ function renderCashierShiftFeed() {
 }
 
 // -------------------------------------------------------------
-// 2. SALES STAFF / SALES GIRL ISOLATED WORKSPACE
+// SALES STAFF / SALES GIRL ISOLATED WORKSPACE
 // -------------------------------------------------------------
 function initAgentWorkspace() {
   setText('agent-portal-name', currentDisplayName);
@@ -3167,5 +3184,3 @@ document.addEventListener('DOMContentLoaded', () => {
     hideEl('loader');
   }
 });
-
-

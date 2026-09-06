@@ -1,7 +1,17 @@
-/* Base Page & Typography */
+/* =========================================================================
+   KAILASH KALAMKARI - DESIGN SYSTEM & LUXURY TEXTILE PALETTE
+   Palette:
+   - Primary Crimson: #5C0612 / #4A030D
+   - Zari Gold Accents: #DAA520 / #B38F4D
+   - Silk Parchment Backgrounds: #FAF6EE / #FFFDF9 / #EFE5C9 / #F3EFE9
+   ========================================================================= */
+
+/* 1. Base Page & Typography */
 body {
-  background-color: #FAF6EE; 
+  background-color: #FAF6EE;
   font-family: 'Lora', Georgia, serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .font-traditional {
@@ -14,7 +24,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Kailash Kalamkari Decorative Accents */
+/* 2. Kailash Kalamkari Zari Decorative Borders */
 .zari-border {
   height: 4px;
   background: repeating-linear-gradient(
@@ -31,7 +41,7 @@ body {
   background: linear-gradient(90deg, #B38F4D 0%, #DAA520 50%, #B38F4D 100%);
 }
 
-/* Warm Shadows */
+/* 3. Warm Indian Crimson Shadows */
 .warm-shadow {
   box-shadow: 0 4px 20px -2px rgba(92, 6, 18, 0.05), 0 2px 8px -1px rgba(92, 6, 18, 0.03);
 }
@@ -40,7 +50,11 @@ body {
   box-shadow: 0 10px 30px -3px rgba(92, 6, 18, 0.08), 0 4px 12px -2px rgba(92, 6, 18, 0.04);
 }
 
-/* Custom Gold Scrollbar */
+.shadow-xs {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* 4. Custom Gold Scrollbars */
 ::-webkit-scrollbar {
   height: 6px;
   width: 6px;
@@ -59,7 +73,7 @@ body {
   background: #B38F4D;
 }
 
-/* Subtle Fade-in Animation */
+/* 5. Smooth Fade-in Animations */
 @keyframes fadeIn {
   from { 
     opacity: 0; 
@@ -75,7 +89,19 @@ body {
   animation: fadeIn 0.25s ease-out forwards;
 }
 
-/* PDF Export Printing & Formatting Rules */
+/* 6. Form Element Defaults */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* 7. PDF Export & Print Formatting Rules */
 @media print {
   body {
     -webkit-print-color-adjust: exact !important;
@@ -87,79 +113,14 @@ body {
     display: none !important;
   }
 
-  .warm-shadow, .warm-shadow-lg {
+  .warm-shadow, 
+  .warm-shadow-lg {
     box-shadow: none !important;
   }
-}
-/* Base Page & Typography */
-body {
-  background-color: #FAF6EE; 
-  font-family: 'Lora', Georgia, serif;
-}
 
-.font-traditional {
-  font-family: 'Marcellus', serif;
-  letter-spacing: 0.03em;
-}
-
-.font-numeric {
-  font-family: 'Lora', Georgia, serif;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Kailash Kalamkari Decorative Accents */
-.zari-border {
-  height: 4px;
-  background: repeating-linear-gradient(
-    45deg,
-    #DAA520,
-    #DAA520 4px,
-    #B38F4D 4px,
-    #B38F4D 8px
-  );
-}
-
-.zari-line {
-  height: 3px;
-  background: linear-gradient(90deg, #B38F4D 0%, #DAA520 50%, #B38F4D 100%);
-}
-
-/* Warm Shadows */
-.warm-shadow {
-  box-shadow: 0 4px 20px -2px rgba(92, 6, 18, 0.05), 0 2px 8px -1px rgba(92, 6, 18, 0.03);
-}
-
-.warm-shadow-lg {
-  box-shadow: 0 10px 30px -3px rgba(92, 6, 18, 0.08), 0 4px 12px -2px rgba(92, 6, 18, 0.04);
-}
-
-/* Custom Gold Scrollbar */
-::-webkit-scrollbar {
-  height: 6px;
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #FAF6EE;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #DAA520;
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #B38F4D;
-}
-
-/* Subtle Fade-in Animation */
-@keyframes fadeIn {     
-  from { 
-    opacity: 0; 
-    transform: translateY(6px); 
-  }
-  to { 
-    opacity: 1; 
-    transform: translateY(0); 
+  header, 
+  nav, 
+  .sticky {
+    position: static !important;
   }
 }
