@@ -25,9 +25,7 @@
 
   <datalist id="accounts-master-datalist"></datalist>
 
-  <!-- =========================================================================
-       1. HEADER
-       ========================================================================= -->
+  <!-- HEADER -->
   <header class="bg-[#5C0612] text-white shadow-md sticky top-0 z-50 border-b-2 border-[#DAA520]">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row justify-between items-center gap-3">
       <div class="flex items-center gap-3 w-full sm:w-auto">
@@ -57,9 +55,7 @@
     <div class="zari-line"></div>
   </header>
 
-  <!-- =========================================================================
-       2. MAIN WORKSPACE & FILTER BAR
-       ========================================================================= -->
+  <!-- MAIN WORKSPACE -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-4">
     <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex flex-col xl:flex-row justify-between items-center gap-3">
       <div class="relative flex-1 w-full max-w-sm">
@@ -71,7 +67,7 @@
         <div class="flex items-center gap-1.5 bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl px-2.5 py-1.5">
           <span class="text-[10px] font-bold text-stone-500 uppercase font-traditional">From:</span>
           <input type="date" id="filter-from-date" onchange="renderBillsTable()" class="bg-transparent text-xs font-bold text-stone-800 focus:outline-none font-numeric">
-          <button onclick="triggerDatePicker('filter-from-date')" class="text-[#5C0612] hover:text-[#4A030D] p-0.5">
+          <button onclick="document.getElementById('filter-from-date').showPicker()" class="text-[#5C0612] hover:text-[#4A030D] p-0.5">
             <i class="fa-regular fa-calendar-days text-xs"></i>
           </button>
         </div>
@@ -79,7 +75,7 @@
         <div class="flex items-center gap-1.5 bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl px-2.5 py-1.5">
           <span class="text-[10px] font-bold text-stone-500 uppercase font-traditional">To:</span>
           <input type="date" id="filter-to-date" onchange="renderBillsTable()" class="bg-transparent text-xs font-bold text-stone-800 focus:outline-none font-numeric">
-          <button onclick="triggerDatePicker('filter-to-date')" class="text-[#5C0612] hover:text-[#4A030D] p-0.5">
+          <button onclick="document.getElementById('filter-to-date').showPicker()" class="text-[#5C0612] hover:text-[#4A030D] p-0.5">
             <i class="fa-regular fa-calendar-days text-xs"></i>
           </button>
         </div>
@@ -105,9 +101,7 @@
       </div>
     </div>
 
-    <!-- =========================================================================
-         3. SETTLEMENT TABLE
-         ========================================================================= -->
+    <!-- TABLE -->
     <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden warm-shadow">
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse text-xs">
@@ -144,9 +138,7 @@
     </div>
   </main>
 
-  <!-- =========================================================================
-       4. MODAL: ADD ACCOUNT / BANK
-       ========================================================================= -->
+  <!-- MODAL: ADD ACCOUNT -->
   <div id="new-account-modal" class="hidden fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-[#FFFDF9] rounded-3xl border-2 border-[#5C0612] max-w-sm w-full overflow-hidden warm-shadow-lg relative">
       <div class="zari-border absolute top-0 left-0 right-0"></div>
@@ -170,13 +162,8 @@
     </div>
   </div>
 
-  <!-- =========================================================================
-       5. CLIENT SCRIPT ENGINE (Fast Settlement Sheet)
-       ========================================================================= -->
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbwSdvj2seF5EV9onv1GeirtNHBvh2A6r8RJlu1krcNOhXMY92UXWeZduiqUDpbrcG_q/exec";
-    const SESSION_TIMEOUT = 6 * 60 * 60 * 1000;
-    
+    const API_URL = "https://script.google.com/macros/s/AKfycbzw2Tn6tx2ITA-HkYLCfNYG9TBkfkrMv64mtdAudBX_c7JHBCAEwAGdF9haOaEpRcwu/exec";
     let billsList = [];
     let accountsMaster = ['Cash', '42441-TJ', 'KC'];
     let settlementRowsState = {}; 
@@ -184,33 +171,17 @@
     let currentSortAsc = false;
 
     window.addEventListener('DOMContentLoaded', () => {
-      const user = localStorage.getItem('kk_user');
-      const pass = localStorage.getItem('kk_pass');
-      const loginTime = localStorage.getItem('kk_login_time');
-
-      if (!user || !pass || !loginTime || (Date.now() - parseInt(loginTime, 10) > SESSION_TIMEOUT)) {
-        localStorage.clear();
+      if (!localStorage.getItem('kk_user') || !localStorage.getItem('kk_pass')) {
         window.location.href = 'index.html';
         return;
       }
-
       syncDatalist();
       fetchSheetData();
     });
 
-    function triggerDatePicker(id) {
-      const el = document.getElementById(id);
-      if (el) {
-        if (typeof el.showPicker === 'function') el.showPicker();
-        else el.focus();
-      }
-    }
-
     function syncDatalist() {
       const dl = document.getElementById('accounts-master-datalist');
-      if (dl) {
-        dl.innerHTML = accountsMaster.map(acc => `<option value="${acc}"></option>`).join('');
-      }
+      if (dl) dl.innerHTML = accountsMaster.map(acc => `<option value="${acc}"></option>`).join('');
     }
 
     function getSalesType(payMode) {
@@ -239,7 +210,7 @@
         }
       }
 
-      if (/^\d{4}-\d{2}-\d{2}$/.test(strVal)) {
+      if (/^\d{4}-\d{2}-\d{2}/.test(strVal)) {
         const cleanISO = strVal.substring(0, 10);
         const [y, m, d] = cleanISO.split('-').map(Number);
         const ts = new Date(y, m - 1, d).getTime();
@@ -257,34 +228,16 @@
     }
 
     function getCleanBillNo(row) {
-      if (!row || typeof row !== 'object') return '';
+      if (!row) return '';
       const keys = ['Bil No', 'Bil No.', 'BilNo', 'Bill No', 'Bill No.', 'BillNo', 'Invoice No', 'Invoice No.', 'Bill_No', 'Invoice_No'];
       for (let k of keys) {
-        if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
-          const val = row[k].toString().trim();
-          if (val && val !== '0' && !val.includes('T') && !val.includes('Z')) return val;
-        }
+        if (row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k].toString().trim();
       }
       for (let key in row) {
         const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-        if (cleanKey === 'bilno' || cleanKey === 'billno' || cleanKey === 'invoiceno') {
-          const val = (row[key] || '').toString().trim();
-          if (val && val !== '0' && !val.includes('T') && !val.includes('Z')) return val;
-        }
+        if (cleanKey === 'bilno' || cleanKey === 'billno' || cleanKey === 'invoiceno') return (row[key] || '').toString().trim();
       }
       return '';
-    }
-
-    function getRowAmountDirect(row) {
-      if (!row || typeof row !== 'object') return 0;
-      const directKeys = ['Final Amount', 'FinalAmount', 'Total Value', 'TotalValue', 'BillAmount', 'Bill Amount', 'Amount', 'Net Value', 'Net Invoice Value'];
-      for (let k of directKeys) {
-        if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
-          const parsed = parseFloat(row[k].toString().replace(/[^0-9.-]+/g, ""));
-          if (!isNaN(parsed)) return parsed;
-        }
-      }
-      return 0;
     }
 
     async function fetchSheetData() {
@@ -297,9 +250,7 @@
       try {
         const response = await fetch(API_URL, {
           method: 'POST',
-          mode: 'cors',
-          redirect: 'follow',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({ action: 'fetch_all', username: user, password: pass })
         });
 
@@ -327,7 +278,7 @@
         syncDatalist();
 
         const existingSettlements = {};
-        const recList = data.recievables || data.receivables || [];
+        const recList = data.recievables || data.receivables || data.bank_ledger || [];
         recList.forEach(r => {
           const rawBNo = getCleanBillNo(r);
           if (!rawBNo) return;
@@ -346,10 +297,10 @@
           const bNo = getCleanBillNo(r);
           if (!bNo || bNo === 'N/A') return;
           const cleanKey = bNo.toString().trim().toUpperCase();
-          const dateObj = parseDateToISO(r['Bill Date'] || r['Date'] || r['Invoice Date']);
+          const dateObj = parseDateToISO(r['Bill Date'] || r['Invoice Date']);
           const store = (r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Main Branch').toString().trim();
-          const agent = (r['SM Name'] || r['SMName'] || r['Agent'] || 'No Agent').toString().trim();
-          const amt = getRowAmountDirect(r);
+          const agent = (r['SM Name'] || r['Agent'] || 'No Agent').toString().trim();
+          const amt = parseFloat((r['Final Amount'] || r['Total Value'] || r['Bill Amount'] || r['Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
           const payMode = r['PayMode'] || r['Pay Mode'] || r['Sale type'] || '';
           const channel = getSalesType(payMode);
 
@@ -405,7 +356,7 @@
       } catch (err) {
         console.error(err);
         document.getElementById('bills-table-body').innerHTML = `
-          <tr><td colspan="7" class="p-6 text-center text-rose-700 font-bold font-traditional">Failed to load data. Please check your connection.</td></tr>
+          <tr><td colspan="7" class="p-6 text-center text-rose-700 font-bold">Failed to load data. Please check your connection.</td></tr>
         `;
       } finally {
         if (icon) icon.classList.remove('animate-spin');
@@ -481,7 +432,7 @@
         const isSettled = b.settlements && b.settlements.length > 0;
         let allocatedSum = 0;
         rows.forEach(r => allocatedSum += parseFloat(r.amount) || 0);
-        const rem = Math.round(((b.totalAmount - allocatedSum) + Number.EPSILON) * 100) / 100;
+        const rem = Math.round((b.totalAmount - allocatedSum) * 100) / 100;
 
         let channelBadge = '';
         if (b.channel === 'Online') channelBadge = `<span class="text-[8px] bg-blue-100 text-blue-800 border border-blue-300 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider"><i class="fa-solid fa-globe mr-0.5"></i> Online</span>`;
@@ -491,10 +442,10 @@
         const splitRowsHTML = rows.map((split, idx) => `
           <div class="flex items-center gap-1.5 mt-1 first:mt-0">
             <div class="relative w-40">
-              <input type="text" list="accounts-master-datalist" value="${split.account || ''}" placeholder="Type account..." oninput="updateRowSplitAccount('${b.billNo}', ${idx}, this.value)" class="w-full text-xs font-bold bg-white border border-[#E5D5C6] rounded-lg py-1.5 pl-2 pr-6 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612]"/>
+              <input type="text" list="accounts-master-datalist" value="${split.account || ''}" placeholder="Type account..." oninput="updateRowSplitAccount('${b.billNo}', ${idx}, this.value)" class="account-input-${b.billNo}-${idx} w-full text-xs font-bold bg-white border border-[#E5D5C6] rounded-lg py-1.5 pl-2 pr-6 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612]"/>
               <button type="button" tabindex="-1" onclick="this.previousElementSibling.focus()" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-stone-400 text-[10px] px-1"><i class="fa-solid fa-chevron-down"></i></button>
             </div>
-            <input type="number" step="any" placeholder="Amount (₹)" value="${split.amount !== undefined ? split.amount : ''}" oninput="updateRowSplitAmount('${b.billNo}', ${idx}, this.value)" class="w-28 text-xs font-bold font-numeric bg-white border border-[#E5D5C6] rounded-lg p-1.5 text-[#5C0612] focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
+            <input type="number" step="any" placeholder="Amount (₹)" value="${split.amount !== undefined ? split.amount : ''}" oninput="updateRowSplitAmount('${b.billNo}', ${idx}, this.value)" class="amount-input-${b.billNo}-${idx} w-28 text-xs font-bold font-numeric bg-white border border-[#E5D5C6] rounded-lg p-1.5 text-[#5C0612] focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
             ${rows.length > 1 ? `<button onclick="removeRowSplit('${b.billNo}', ${idx})" class="text-stone-400 hover:text-rose-600 p-1 text-xs" tabindex="-1"><i class="fa-solid fa-xmark"></i></button>` : ''}
           </div>
         `).join('');
@@ -575,9 +526,7 @@
       try {
         const response = await fetch(API_URL, {
           method: 'POST',
-          mode: 'cors',
-          redirect: 'follow',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({
             action: 'save_payment_splits',
             username: user,
@@ -628,9 +577,7 @@
       try {
         await fetch(API_URL, {
           method: 'POST',
-          mode: 'cors',
-          redirect: 'follow',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({ action: 'save_new_account', username: user, password: pass, accountName: name })
         });
       } catch (e) {
