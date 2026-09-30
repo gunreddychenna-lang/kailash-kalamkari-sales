@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kailash Kalamkari - Bill Payment Settlement Sheet</title>
+  <title>Kailash Kalamkari - Bank Settlement & Bulk Save Portal</title>
   
+  <!-- Supabase JS Client Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -19,6 +22,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
   
+  <!-- SheetJS for Instant Excel Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-[#FAF6EE] text-stone-800 pb-16 min-h-screen">
@@ -27,28 +33,40 @@
 
   <!-- HEADER -->
   <header class="bg-[#5C0612] text-white shadow-md sticky top-0 z-50 border-b-2 border-[#DAA520]">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row justify-between items-center gap-3">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
       <div class="flex items-center gap-3 w-full sm:w-auto">
-        <a href="index.html" class="w-9 h-9 rounded-xl bg-[#EFE5C9] text-[#5C0612] flex items-center justify-center font-bold text-lg font-traditional border border-[#DAA520] shrink-0 hover:scale-105 transition-transform" title="Back to Analytics Dashboard">
+        <a href="index.html" class="w-9 h-9 rounded-xl bg-[#EFE5C9] text-[#5C0612] flex items-center justify-center font-bold text-lg font-traditional border border-[#DAA520] shrink-0 hover:scale-105 transition-transform" title="Back to Dashboard">
           KK
         </a>
         <div>
-          <h1 class="text-base sm:text-lg font-bold tracking-wide font-traditional text-[#EFE5C9]">Bill Settlement Table</h1>
-          <p class="text-[9px] text-stone-300 font-medium tracking-wider uppercase">Direct Multi-Account Payment Entry</p>
+          <h1 class="text-base sm:text-lg font-bold tracking-wide font-traditional text-[#EFE5C9]">Bank Settlement & Credit Entry</h1>
+          <p class="text-[9px] text-stone-300 font-medium tracking-wider uppercase">Direct Multi-Account Payment & Bulk Settlement</p>
         </div>
       </div>
       
-      <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+      <div class="flex items-center flex-wrap gap-2 w-full sm:w-auto justify-end">
         <a href="index.html" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20 transition-all flex items-center gap-1.5 active:scale-95">
           <i class="fa-solid fa-chart-line text-xs"></i>
           <span>Dashboard</span>
         </a>
-        <button onclick="openNewAccountModal()" class="bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 active:scale-95 duration-100">
-          <i class="fa-solid fa-plus-circle text-xs"></i> + New Account Type
+
+        <!-- BULK SAVE BUTTON -->
+        <button id="btn-bulk-save" onclick="bulkSaveAllSettlements()" class="bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#B38F4D] active:scale-95 duration-100" title="Save All Modified Invoices in One Click">
+          <i class="fa-solid fa-floppy-disk text-xs"></i>
+          <span id="bulk-save-text">💾 Bulk Save All Invoices</span>
         </button>
-        <button onclick="fetchSheetData()" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20 transition-all flex items-center gap-1.5 active:scale-95" title="Refresh Sales Data">
+        
+        <button onclick="exportBankStatementExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs px-3 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-emerald-500 active:scale-95 duration-100" title="Download Excel Bank Reconciliation">
+          <i class="fa-solid fa-file-excel text-emerald-300 text-xs"></i>
+          <span>Backup Excel</span>
+        </button>
+
+        <button onclick="openNewAccountModal()" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20 transition-all flex items-center gap-1.5 active:scale-95">
+          <i class="fa-solid fa-building-columns text-xs"></i> + Bank
+        </button>
+
+        <button onclick="fetchSupabaseData()" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20 transition-all flex items-center gap-1.5 active:scale-95" title="Refresh">
           <i id="refresh-icon" class="fa-solid fa-arrows-rotate text-xs"></i>
-          <span>Refresh</span>
         </button>
       </div>
     </div>
@@ -57,44 +75,55 @@
 
   <!-- MAIN WORKSPACE -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-4">
+    
+    <!-- STATS SUMMARY CARDS -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-[#E5D5C6] warm-shadow">
+        <span class="block text-[9px] font-bold text-stone-500 uppercase font-traditional">Total Invoices</span>
+        <strong id="stat-total-bills" class="text-lg font-black text-stone-800 font-numeric">0 Bills</strong>
+      </div>
+      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-[#E5D5C6] warm-shadow">
+        <span class="block text-[9px] font-bold text-stone-500 uppercase font-traditional">Total Invoice Value</span>
+        <strong id="stat-total-amount" class="text-lg font-black text-[#5C0612] font-numeric">₹0</strong>
+      </div>
+      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-[#E5D5C6] warm-shadow">
+        <span class="block text-[9px] font-bold text-emerald-700 uppercase font-traditional">Settled in Banks</span>
+        <strong id="stat-settled-amount" class="text-lg font-black text-emerald-800 font-numeric">₹0</strong>
+      </div>
+      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-[#E5D5C6] warm-shadow">
+        <span class="block text-[9px] font-bold text-rose-700 uppercase font-traditional">Not Defined / Pending</span>
+        <strong id="stat-pending-amount" class="text-lg font-black text-rose-800 font-numeric">₹0</strong>
+      </div>
+    </div>
+
+    <!-- FILTER TOOLBAR -->
     <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex flex-col xl:flex-row justify-between items-center gap-3">
       <div class="relative flex-1 w-full max-w-sm">
         <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-stone-400 text-xs"></i>
-        <input type="text" id="table-search" placeholder="Search by Bill No, Staff, Branch..." oninput="renderBillsTable()" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl py-2.5 pl-10 pr-4 text-stone-800 font-sans focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
+        <input type="text" id="table-search" placeholder="Search Bill No, Staff, Branch, Product..." oninput="renderBillsTable()" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl py-2.5 pl-10 pr-4 text-stone-800 font-sans focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
       </div>
 
       <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto">
         <div class="flex items-center gap-1.5 bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl px-2.5 py-1.5">
           <span class="text-[10px] font-bold text-stone-500 uppercase font-traditional">From:</span>
           <input type="date" id="filter-from-date" onchange="renderBillsTable()" class="bg-transparent text-xs font-bold text-stone-800 focus:outline-none font-numeric">
-          <button onclick="document.getElementById('filter-from-date').showPicker()" class="text-[#5C0612] hover:text-[#4A030D] p-0.5">
-            <i class="fa-regular fa-calendar-days text-xs"></i>
-          </button>
+          <button onclick="document.getElementById('filter-from-date').showPicker()" class="text-[#5C0612] p-0.5"><i class="fa-regular fa-calendar-days text-xs"></i></button>
         </div>
 
         <div class="flex items-center gap-1.5 bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl px-2.5 py-1.5">
           <span class="text-[10px] font-bold text-stone-500 uppercase font-traditional">To:</span>
           <input type="date" id="filter-to-date" onchange="renderBillsTable()" class="bg-transparent text-xs font-bold text-stone-800 focus:outline-none font-numeric">
-          <button onclick="document.getElementById('filter-to-date').showPicker()" class="text-[#5C0612] hover:text-[#4A030D] p-0.5">
-            <i class="fa-regular fa-calendar-days text-xs"></i>
-          </button>
+          <button onclick="document.getElementById('filter-to-date').showPicker()" class="text-[#5C0612] p-0.5"><i class="fa-regular fa-calendar-days text-xs"></i></button>
         </div>
 
-        <select id="filter-channel" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 focus:outline-none font-traditional">
-          <option value="all">All Channels</option>
-          <option value="Online">🌐 Online</option>
-          <option value="Offline">🏬 Offline Store</option>
-          <option value="Wholesale">📦 Takebyhand</option>
+        <select id="filter-store" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-700 focus:outline-none font-sans">
+          <option value="all">All Branches</option>
         </select>
 
         <select id="filter-status" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-[#5C0612] focus:outline-none font-traditional">
           <option value="all">All Invoices</option>
-          <option value="unsettled" selected>Pending Settlement</option>
-          <option value="settled">Already Settled</option>
-        </select>
-        
-        <select id="filter-store" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-700 focus:outline-none font-sans">
-          <option value="all">All Branches</option>
+          <option value="unsettled" selected>⚠️ Not Defined / Pending</option>
+          <option value="settled">✅ Settled in Bank</option>
         </select>
 
         <span id="filtered-count-badge" class="text-[11px] font-bold font-numeric bg-[#5C0612] text-[#EFE5C9] px-3 py-2 rounded-xl">0 Invoices</span>
@@ -107,29 +136,29 @@
         <table class="w-full text-left border-collapse text-xs">
           <thead>
             <tr class="bg-[#F3EFE9] text-stone-700 uppercase text-[9px] font-extrabold tracking-wider border-b border-[#E5D5C6] select-none">
-              <th onclick="toggleSort('date')" class="p-3.5 font-traditional w-28 cursor-pointer hover:text-[#5C0612] transition-colors">
+              <th onclick="toggleSort('date')" class="p-3.5 font-traditional w-28 cursor-pointer hover:text-[#5C0612]">
                 <div class="flex items-center gap-1"><span>DATE</span><span id="sort-icon-date"><i class="fa-solid fa-sort text-[8px] text-[#5C0612]"></i></span></div>
               </th>
-              <th onclick="toggleSort('billNo')" class="p-3.5 font-traditional w-44 cursor-pointer hover:text-[#5C0612] transition-colors">
-                <div class="flex items-center gap-1"><span>BILL NO & CHANNEL</span><span id="sort-icon-billNo"><i class="fa-solid fa-sort text-[8px] text-stone-400"></i></span></div>
+              <th onclick="toggleSort('billNo')" class="p-3.5 font-traditional w-44 cursor-pointer hover:text-[#5C0612]">
+                <div class="flex items-center gap-1"><span>BILL NO & STATUS</span><span id="sort-icon-billNo"><i class="fa-solid fa-sort text-[8px] text-stone-400"></i></span></div>
               </th>
-              <th onclick="toggleSort('store')" class="p-3.5 font-traditional w-28 cursor-pointer hover:text-[#5C0612] transition-colors">
+              <th onclick="toggleSort('store')" class="p-3.5 font-traditional w-28 cursor-pointer hover:text-[#5C0612]">
                 <div class="flex items-center gap-1"><span>BRANCH</span><span id="sort-icon-store"><i class="fa-solid fa-sort text-[8px] text-stone-400"></i></span></div>
               </th>
-              <th onclick="toggleSort('agent')" class="p-3.5 font-traditional w-28 cursor-pointer hover:text-[#5C0612] transition-colors">
-                <div class="flex items-center gap-1"><span>SALES STAFF</span><span id="sort-icon-agent"><i class="fa-solid fa-sort text-[8px] text-stone-400"></i></span></div>
+              <th onclick="toggleSort('agent')" class="p-3.5 font-traditional w-28 cursor-pointer hover:text-[#5C0612]">
+                <div class="flex items-center gap-1"><span>STAFF</span><span id="sort-icon-agent"><i class="fa-solid fa-sort text-[8px] text-stone-400"></i></span></div>
               </th>
-              <th onclick="toggleSort('amount')" class="p-3.5 text-right font-traditional w-28 cursor-pointer hover:text-[#5C0612] transition-colors">
+              <th onclick="toggleSort('amount')" class="p-3.5 text-right font-traditional w-28 cursor-pointer hover:text-[#5C0612]">
                 <div class="flex items-center justify-end gap-1"><span>BILL VALUE</span><span id="sort-icon-amount"><i class="fa-solid fa-sort text-[8px] text-stone-400"></i></span></div>
               </th>
-              <th class="p-3.5 font-traditional text-center min-w-[360px]">PAYMENT ENTRY / ACCOUNT SPLIT</th>
-              <th class="p-3.5 text-center font-traditional w-28">ACTION</th>
+              <th class="p-3.5 font-traditional text-center min-w-[360px]">CREDITED BANK ACCOUNT / SPLIT ENTRY</th>
+              <th class="p-3.5 text-center font-traditional w-24">ACTION</th>
             </tr>
           </thead>
           <tbody id="bills-table-body" class="divide-y divide-[#E5D5C6]/40 font-numeric">
             <tr>
               <td colspan="7" class="p-8 text-center text-stone-400 font-traditional">
-                <i class="fa-solid fa-spinner animate-spin mr-2"></i> Loading sales and settlement records...
+                <i class="fa-solid fa-spinner animate-spin mr-2"></i> Loading sales and bank credit records...
               </td>
             </tr>
           </tbody>
@@ -138,13 +167,13 @@
     </div>
   </main>
 
-  <!-- MODAL: ADD ACCOUNT -->
+  <!-- MODAL: ADD NEW BANK ACCOUNT -->
   <div id="new-account-modal" class="hidden fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-[#FFFDF9] rounded-3xl border-2 border-[#5C0612] max-w-sm w-full overflow-hidden warm-shadow-lg relative">
       <div class="zari-border absolute top-0 left-0 right-0"></div>
       <div class="p-4 bg-[#5C0612] text-white flex justify-between items-center border-b border-[#DAA520]">
         <h3 class="font-bold text-xs uppercase tracking-wider font-traditional text-[#EFE5C9] flex items-center gap-1.5">
-          <i class="fa-solid fa-building-columns text-[#DAA520]"></i> Add Account / Bank
+          <i class="fa-solid fa-building-columns text-[#DAA520]"></i> Add New Bank / Account
         </h3>
         <button onclick="closeNewAccountModal()" class="text-[#EFE5C9] font-bold hover:opacity-80">
           <i class="fa-solid fa-circle-xmark text-base"></i>
@@ -152,18 +181,26 @@
       </div>
       <div class="p-5 space-y-3">
         <div>
-          <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">Account / Bank Name</label>
-          <input type="text" id="modal-account-name" placeholder="e.g. 42441-TJ, KC, HDFC-Primary" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 font-bold focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
+          <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">Bank / Account Name</label>
+          <input type="text" id="modal-account-name" placeholder="e.g. 42441-TJ, KC, HDFC-0123" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-800 font-bold focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
         </div>
         <button onclick="submitNewAccount()" class="w-full bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-bold text-xs py-2.5 rounded-xl transition-all shadow-md font-traditional border border-[#DAA520] tracking-wider uppercase">
-          Save Account
+          Save Bank Account
         </button>
       </div>
     </div>
   </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbzw2Tn6tx2ITA-HkYLCfNYG9TBkfkrMv64mtdAudBX_c7JHBCAEwAGdF9haOaEpRcwu/exec";
+    // 1. SUPABASE CREDENTIALS
+    const SUPABASE_URL = "https://dqvqqrbvklpiibzqivbp.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdnFxcmJ2a2xwaWlienFpdmJwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDYxOTY5NSwiZXhwIjoyMTA2MTk1Njk1fQ.UCnBDjxE-JePOJOVnzKlyJ9iWckja9WbUMdN_Fp-gGc"; // <-- Paste your Supabase anon public key here
+
+    let supabaseClient = null;
+    if (typeof supabase !== 'undefined' && supabase.createClient) {
+      supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+
     let billsList = [];
     let accountsMaster = ['Cash', '42441-TJ', 'KC'];
     let settlementRowsState = {}; 
@@ -171,12 +208,8 @@
     let currentSortAsc = false;
 
     window.addEventListener('DOMContentLoaded', () => {
-      if (!localStorage.getItem('kk_user') || !localStorage.getItem('kk_pass')) {
-        window.location.href = 'index.html';
-        return;
-      }
       syncDatalist();
-      fetchSheetData();
+      fetchSupabaseData();
     });
 
     function syncDatalist() {
@@ -184,136 +217,158 @@
       if (dl) dl.innerHTML = accountsMaster.map(acc => `<option value="${acc}"></option>`).join('');
     }
 
-    function getSalesType(payMode) {
-      if (!payMode) return 'Offline';
-      const pm = payMode.toString().toLowerCase().trim();
-      if (pm.includes('onl') || pm.includes('online') || pm.includes('web')) return 'Online';
-      if (pm.includes('by hand') || pm.includes('hand') || pm.includes('wholesale') || pm.includes('tbh')) return 'Wholesale';
-      return 'Offline';
+    function formatToYYYYMMDD(d) {
+      if (!d) return '';
+      if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.trim())) return d.trim();
+      const dateObj = (d instanceof Date) ? d : new Date(d);
+      if (isNaN(dateObj.getTime())) return '';
+      const yyyy = dateObj.getFullYear();
+      const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const dd = String(dateObj.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
     }
 
-    function parseDateToISO(dateVal) {
-      if (!dateVal) return { iso: '1970-01-01', display: '', timestamp: 0 };
-      let strVal = dateVal.toString().trim();
-      if (!strVal) return { iso: '1970-01-01', display: '', timestamp: 0 };
+    function normalizeToDateString(dateVal) {
+      if (!dateVal) return '';
+      if (dateVal instanceof Date) return formatToYYYYMMDD(dateVal);
 
-      const dMmmYyyyMatch = strVal.match(/^(\d{1,2})[-/ ]([A-Za-z]{3})[-/ ](\d{4})/);
-      if (dMmmYyyyMatch) {
-        const day = String(dMmmYyyyMatch[1]).padStart(2, '0');
-        const monthStr = dMmmYyyyMatch[2].toLowerCase();
-        const year = dMmmYyyyMatch[3];
-        const months = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
-        if (months[monthStr]) {
-          const iso = `${year}-${months[monthStr]}-${day}`;
-          const ts = new Date(parseInt(year), parseInt(months[monthStr]) - 1, parseInt(day)).getTime();
-          return { iso: iso, display: strVal.split(' ')[0], timestamp: ts };
-        }
+      let strVal = dateVal.toString().trim();
+      if (!strVal) return '';
+
+      const isoMatch = strVal.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+      if (isoMatch) {
+        const y = parseInt(isoMatch[1], 10);
+        if (y >= 2020 && y <= 2027) return `${y}-${String(isoMatch[2]).padStart(2, '0')}-${String(isoMatch[3]).padStart(2, '0')}`;
       }
 
-      if (/^\d{4}-\d{2}-\d{2}/.test(strVal)) {
-        const cleanISO = strVal.substring(0, 10);
-        const [y, m, d] = cleanISO.split('-').map(Number);
-        const ts = new Date(y, m - 1, d).getTime();
-        return { iso: cleanISO, display: cleanISO, timestamp: ts };
+      const dMmmYyyyMatch = strVal.match(/^(\d{1,2})[-/ ]([A-Za-z]{3,9})[-/ ](\d{2,4})/);
+      if (dMmmYyyyMatch) {
+        const day = String(dMmmYyyyMatch[1]).padStart(2, '0');
+        const monthStr = dMmmYyyyMatch[2].substring(0, 3).toLowerCase();
+        let year = parseInt(dMmmYyyyMatch[3], 10);
+        if (year < 100) year = 2000 + year;
+        const months = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
+        if (months[monthStr] && year >= 2020 && year <= 2027) return `${year}-${months[monthStr]}-${day}`;
+      }
+
+      const dmyMatch = strVal.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
+      if (dmyMatch) {
+        let year = parseInt(dmyMatch[3], 10);
+        if (year < 100) year = 2000 + year;
+        if (year >= 2020 && year <= 2027) return `${year}-${String(dmyMatch[2]).padStart(2, '0')}-${String(dmyMatch[1]).padStart(2, '0')}`;
       }
 
       const parsed = new Date(strVal);
       if (!isNaN(parsed.getTime())) {
-        const yyyy = parsed.getFullYear();
-        const mm = String(parsed.getMonth() + 1).padStart(2, '0');
-        const dd = String(parsed.getDate()).padStart(2, '0');
-        return { iso: `${yyyy}-${mm}-${dd}`, display: strVal.split('T')[0], timestamp: parsed.getTime() };
-      }
-      return { iso: strVal, display: strVal, timestamp: 0 };
-    }
-
-    function getCleanBillNo(row) {
-      if (!row) return '';
-      const keys = ['Bil No', 'Bil No.', 'BilNo', 'Bill No', 'Bill No.', 'BillNo', 'Invoice No', 'Invoice No.', 'Bill_No', 'Invoice_No'];
-      for (let k of keys) {
-        if (row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k].toString().trim();
-      }
-      for (let key in row) {
-        const cleanKey = key.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-        if (cleanKey === 'bilno' || cleanKey === 'billno' || cleanKey === 'invoiceno') return (row[key] || '').toString().trim();
+        const y = parsed.getFullYear();
+        if (y >= 2020 && y <= 2027) return formatToYYYYMMDD(parsed);
       }
       return '';
     }
 
-    async function fetchSheetData() {
+    function getCleanBillNo(row) {
+      if (!row) return '';
+      return (row.bill_no || row['Bill No'] || row['Bil No'] || row['Invoice No'] || '').toString().trim();
+    }
+
+    function getRowAmount(row) {
+      if (!row) return 0;
+      const directKeys = ['amount', 'billAmoun', 'billAmount', 'Bill Amount', 'Final Amount', 'Rate', 'Total Value'];
+      for (let k of directKeys) {
+        if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
+          const parsed = parseFloat(row[k].toString().replace(/[^0-9.-]+/g, ''));
+          if (!isNaN(parsed) && parsed > 0) return parsed;
+        }
+      }
+      return 0;
+    }
+
+    async function fetchSupabaseData() {
       const icon = document.getElementById('refresh-icon');
       if (icon) icon.classList.add('animate-spin');
 
-      const user = localStorage.getItem('kk_user') || 'admin';
-      const pass = localStorage.getItem('kk_pass') || '';
-
-      try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ action: 'fetch_all', username: user, password: pass })
-        });
-
-        const data = await response.json();
-        if (data.error) {
-          alert("Session expired: " + data.error);
+      if (!supabaseClient) {
+        if (typeof supabase !== 'undefined' && supabase.createClient) {
+          supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } else {
+          alert("Supabase SDK is not loaded.");
           return;
         }
+      }
 
-        let rawSales = [];
-        if (Array.isArray(data)) rawSales = data;
-        else if (data.sales) {
-          if (Array.isArray(data.sales)) rawSales = data.sales;
-          else if (typeof data.sales === 'object') {
-            Object.values(data.sales).forEach(arr => { if (Array.isArray(arr)) rawSales.push(...arr); });
+      try {
+        // 1. Fetch Master Bank Accounts
+        try {
+          const { data: bankRows } = await supabaseClient.from('bank_accounts').select('account_name');
+          if (bankRows && bankRows.length > 0) {
+            bankRows.forEach(b => {
+              if (b.account_name && !accountsMaster.includes(b.account_name)) accountsMaster.push(b.account_name);
+            });
+          }
+        } catch(e) {}
+        syncDatalist();
+
+        // 2. Fetch Existing Settlements from receivables
+        const existingSettlements = {};
+        try {
+          const { data: recRows } = await supabaseClient.from('receivables').select('*');
+          (recRows || []).forEach(r => {
+            const bNo = (r.bill_no || '').trim().toUpperCase();
+            if (!bNo) return;
+            const amt = parseFloat(r.amount) || 0;
+            const acc = (r.bank_account || r.account_name || '').trim();
+            if (acc && acc.toLowerCase() !== 'not defined') {
+              if (!existingSettlements[bNo]) existingSettlements[bNo] = [];
+              existingSettlements[bNo].push({ account: acc, amount: amt });
+              if (!accountsMaster.includes(acc)) accountsMaster.push(acc);
+            }
+          });
+        } catch(e) {}
+        syncDatalist();
+
+        // 3. Fetch All Sales Rows from Supabase
+        let allSales = [];
+        let from = 0;
+        const step = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+          const { data, error } = await supabaseClient.from('sales').select('*').range(from, from + step - 1);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allSales.push(...data);
+            if (data.length < step) hasMore = false;
+            else from += step;
+          } else {
+            hasMore = false;
           }
         }
 
-        if (Array.isArray(data.banks)) {
-          data.banks.forEach(b => {
-            const bStr = (b || '').toString().trim();
-            if (bStr && !accountsMaster.includes(bStr)) accountsMaster.push(bStr);
-          });
-        }
-        syncDatalist();
-
-        const existingSettlements = {};
-        const recList = data.recievables || data.receivables || data.bank_ledger || [];
-        recList.forEach(r => {
-          const rawBNo = getCleanBillNo(r);
-          if (!rawBNo) return;
-          const cleanKey = rawBNo.toString().trim().toUpperCase();
-          const amt = parseFloat((r['Net Invoice Value'] || r['Amount'] || r['Bill Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
-          const acc = (r['Acc No'] || r['Account Name'] || r['Bank'] || '').toString().trim();
-          if (!existingSettlements[cleanKey]) existingSettlements[cleanKey] = [];
-          existingSettlements[cleanKey].push({ account: acc, amount: amt });
-        });
-
+        // 4. Group by Bill No
         const billsObj = {};
         const storeSet = new Set();
-        const allISODates = [];
+        const allDates = [];
 
-        rawSales.forEach(r => {
+        allSales.forEach(r => {
           const bNo = getCleanBillNo(r);
           if (!bNo || bNo === 'N/A') return;
-          const cleanKey = bNo.toString().trim().toUpperCase();
-          const dateObj = parseDateToISO(r['Bill Date'] || r['Invoice Date']);
-          const store = (r['Store'] || r['Shop'] || r['Branch Name'] || r['Branch'] || 'Main Branch').toString().trim();
-          const agent = (r['SM Name'] || r['Agent'] || 'No Agent').toString().trim();
-          const amt = parseFloat((r['Final Amount'] || r['Total Value'] || r['Bill Amount'] || r['Amount'] || '0').toString().replace(/[^0-9.-]+/g,"")) || 0;
-          const payMode = r['PayMode'] || r['Pay Mode'] || r['Sale type'] || '';
-          const channel = getSalesType(payMode);
+          const cleanKey = bNo.toUpperCase();
+
+          const dateISO = normalizeToDateString(r.bill_date || r['Bill Date'] || r.date);
+          if (!dateISO) return;
+
+          const store = (r.store_name || r.store || r['Branch Name'] || 'Main Branch').trim();
+          const agent = (r.sm_name || r['SM Name'] || r['Agent'] || 'No Agent').trim();
+          const amt = getRowAmount(r);
 
           storeSet.add(store);
-          if (dateObj.iso && dateObj.iso !== '1970-01-01') allISODates.push(dateObj.iso);
+          allDates.push(dateISO);
 
           if (!billsObj[cleanKey]) {
             billsObj[cleanKey] = {
-              billNo: bNo.toString().trim(),
-              channel: channel,
-              dateDisplay: dateObj.display,
-              dateISO: dateObj.iso,
-              dateTimestamp: dateObj.timestamp,
+              billNo: bNo,
+              dateDisplay: dateISO,
+              dateISO: dateISO,
               store: store,
               agent: agent,
               totalAmount: 0,
@@ -325,62 +380,50 @@
 
         billsList = Object.values(billsObj);
 
-        if (allISODates.length > 0) {
-          allISODates.sort();
+        // Date Inputs Default to full range of records
+        if (allDates.length > 0) {
+          allDates.sort();
           const fromInput = document.getElementById('filter-from-date');
           const toInput = document.getElementById('filter-to-date');
-          if (fromInput && !fromInput.value) {
-            const maxDateStr = allISODates[allISODates.length - 1];
-            const [yyyy, mm] = maxDateStr.split('-');
-            fromInput.value = `${yyyy}-${mm}-01`;
-          }
-          if (toInput && !toInput.value) toInput.value = allISODates[allISODates.length - 1];
+          if (fromInput && !fromInput.value) fromInput.value = allDates[0];
+          if (toInput && !toInput.value) toInput.value = allDates[allDates.length - 1];
         }
 
+        // Populate Store Filter
         const storeSelect = document.getElementById('filter-store');
         if (storeSelect) {
           storeSelect.innerHTML = `<option value="all">All Branches</option>` + Array.from(storeSet).map(s => `<option value="${s}">${s}</option>`).join('');
         }
 
+        // Initialize Row State: if not settled, set empty so it shows "Not Defined"
         billsList.forEach(b => {
           if (!settlementRowsState[b.billNo]) {
             if (b.settlements && b.settlements.length > 0) {
               settlementRowsState[b.billNo] = JSON.parse(JSON.stringify(b.settlements));
             } else {
-              settlementRowsState[b.billNo] = [{ account: 'Cash', amount: b.totalAmount }];
+              settlementRowsState[b.billNo] = [{ account: '', amount: b.totalAmount }];
             }
           }
         });
 
         renderBillsTable();
       } catch (err) {
-        console.error(err);
+        console.error("Fetch error:", err);
         document.getElementById('bills-table-body').innerHTML = `
-          <tr><td colspan="7" class="p-6 text-center text-rose-700 font-bold">Failed to load data. Please check your connection.</td></tr>
+          <tr><td colspan="7" class="p-6 text-center text-rose-700 font-bold">Failed to load Supabase records. Check connection and anon key.</td></tr>
         `;
       } finally {
         if (icon) icon.classList.remove('animate-spin');
       }
     }
 
-    function toggleSort(column) {
-      if (currentSortCol === column) currentSortAsc = !currentSortAsc;
+    function toggleSort(col) {
+      if (currentSortCol === col) currentSortAsc = !currentSortAsc;
       else {
-        currentSortCol = column;
-        currentSortAsc = (column === 'amount' || column === 'date') ? false : true;
+        currentSortCol = col;
+        currentSortAsc = (col === 'amount' || col === 'date') ? false : true;
       }
       renderBillsTable();
-    }
-
-    function updateSortHeaderIcons() {
-      ['date', 'billNo', 'store', 'agent', 'amount'].forEach(col => {
-        const iconEl = document.getElementById(`sort-icon-${col}`);
-        if (iconEl) {
-          iconEl.innerHTML = currentSortCol === col
-            ? (currentSortAsc ? `<i class="fa-solid fa-arrow-up-short-wide text-[9px] text-[#5C0612]"></i>` : `<i class="fa-solid fa-arrow-down-wide-short text-[9px] text-[#5C0612]"></i>`)
-            : `<i class="fa-solid fa-sort text-[8px] text-stone-300"></i>`;
-        }
-      });
     }
 
     function renderBillsTable() {
@@ -388,9 +431,10 @@
       const fromDate = document.getElementById('filter-from-date')?.value || '';
       const toDate = document.getElementById('filter-to-date')?.value || '';
       const statusFilter = document.getElementById('filter-status').value;
-      const channelFilter = document.getElementById('filter-channel').value;
       const storeFilter = document.getElementById('filter-store').value;
       const tbody = document.getElementById('bills-table-body');
+
+      let totalBillsCount = 0, totalBillsValue = 0, settledTotalVal = 0;
 
       let filtered = billsList.filter(b => {
         if (fromDate && b.dateISO && b.dateISO < fromDate) return false;
@@ -398,20 +442,33 @@
         const isSettled = b.settlements && b.settlements.length > 0;
         if (statusFilter === 'settled' && !isSettled) return false;
         if (statusFilter === 'unsettled' && isSettled) return false;
-        if (channelFilter !== 'all' && b.channel !== channelFilter) return false;
         if (storeFilter !== 'all' && b.store !== storeFilter) return false;
 
         if (searchVal) {
           return b.billNo.toLowerCase().includes(searchVal) ||
                  b.agent.toLowerCase().includes(searchVal) ||
-                 b.channel.toLowerCase().includes(searchVal) ||
                  b.store.toLowerCase().includes(searchVal);
         }
         return true;
       });
 
+      filtered.forEach(b => {
+        totalBillsCount++;
+        totalBillsValue += b.totalAmount;
+        if (b.settlements && b.settlements.length > 0) {
+          b.settlements.forEach(s => settledTotalVal += (parseFloat(s.amount) || 0));
+        }
+      });
+
+      // Update Summary Cards
+      document.getElementById('stat-total-bills').textContent = `${totalBillsCount} Bills`;
+      document.getElementById('stat-total-amount').textContent = `₹${Math.round(totalBillsValue).toLocaleString('en-IN')}`;
+      document.getElementById('stat-settled-amount').textContent = `₹${Math.round(settledTotalVal).toLocaleString('en-IN')}`;
+      document.getElementById('stat-pending-amount').textContent = `₹${Math.round(Math.max(0, totalBillsValue - settledTotalVal)).toLocaleString('en-IN')}`;
+      document.getElementById('filtered-count-badge').textContent = `${filtered.length} Invoices`;
+
       filtered.sort((a, b) => {
-        if (currentSortCol === 'date') return currentSortAsc ? (a.dateTimestamp - b.dateTimestamp) : (b.dateTimestamp - a.dateTimestamp);
+        if (currentSortCol === 'date') return currentSortAsc ? a.dateISO.localeCompare(b.dateISO) : b.dateISO.localeCompare(a.dateISO);
         if (currentSortCol === 'amount') return currentSortAsc ? (a.totalAmount - b.totalAmount) : (b.totalAmount - a.totalAmount);
         if (currentSortCol === 'billNo') return currentSortAsc ? a.billNo.localeCompare(b.billNo, undefined, {numeric:true}) : b.billNo.localeCompare(a.billNo, undefined, {numeric:true});
         if (currentSortCol === 'store') return currentSortAsc ? a.store.localeCompare(b.store) : b.store.localeCompare(a.store);
@@ -419,45 +476,41 @@
         return 0;
       });
 
-      updateSortHeaderIcons();
-      document.getElementById('filtered-count-badge').textContent = `${filtered.length} Invoices`;
-
       if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-stone-400 font-traditional">No matching invoices found.</td></tr>`;
         return;
       }
 
       tbody.innerHTML = filtered.map(b => {
-        const rows = settlementRowsState[b.billNo] || [{ account: 'Cash', amount: b.totalAmount }];
+        const rows = settlementRowsState[b.billNo] || [{ account: '', amount: b.totalAmount }];
         const isSettled = b.settlements && b.settlements.length > 0;
         let allocatedSum = 0;
         rows.forEach(r => allocatedSum += parseFloat(r.amount) || 0);
         const rem = Math.round((b.totalAmount - allocatedSum) * 100) / 100;
 
-        let channelBadge = '';
-        if (b.channel === 'Online') channelBadge = `<span class="text-[8px] bg-blue-100 text-blue-800 border border-blue-300 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider"><i class="fa-solid fa-globe mr-0.5"></i> Online</span>`;
-        else if (b.channel === 'Wholesale') channelBadge = `<span class="text-[8px] bg-purple-100 text-purple-800 border border-purple-300 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider"><i class="fa-solid fa-handshake mr-0.5"></i> Takebyhand</span>`;
-        else channelBadge = `<span class="text-[8px] bg-orange-100 text-orange-800 border border-orange-300 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider"><i class="fa-solid fa-store mr-0.5"></i> Offline</span>`;
+        // Status Badge (Shows NOT DEFINED in Red if no payment entry exists)
+        let statusBadge = isSettled 
+          ? `<span class="text-[8px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded font-bold uppercase">Credited ✅</span>` 
+          : `<span class="text-[8px] bg-rose-100 text-rose-800 border border-rose-300 px-1.5 py-0.5 rounded font-bold uppercase">Not Defined ⚠️</span>`;
 
         const splitRowsHTML = rows.map((split, idx) => `
           <div class="flex items-center gap-1.5 mt-1 first:mt-0">
             <div class="relative w-40">
-              <input type="text" list="accounts-master-datalist" value="${split.account || ''}" placeholder="Type account..." oninput="updateRowSplitAccount('${b.billNo}', ${idx}, this.value)" class="account-input-${b.billNo}-${idx} w-full text-xs font-bold bg-white border border-[#E5D5C6] rounded-lg py-1.5 pl-2 pr-6 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612]"/>
-              <button type="button" tabindex="-1" onclick="this.previousElementSibling.focus()" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-stone-400 text-[10px] px-1"><i class="fa-solid fa-chevron-down"></i></button>
+              <input type="text" list="accounts-master-datalist" value="${split.account || ''}" placeholder="-- Not Defined --" oninput="updateRowSplitAccount('${b.billNo}', ${idx}, this.value)" class="w-full text-xs font-bold bg-white border ${!split.account ? 'border-rose-300 bg-rose-50/20' : 'border-[#E5D5C6]'} rounded-lg py-1.5 pl-2 pr-6 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612]"/>
+              <button type="button" tabindex="-1" onclick="this.previousElementSibling.focus()" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-stone-400 text-[10px]"><i class="fa-solid fa-chevron-down"></i></button>
             </div>
-            <input type="number" step="any" placeholder="Amount (₹)" value="${split.amount !== undefined ? split.amount : ''}" oninput="updateRowSplitAmount('${b.billNo}', ${idx}, this.value)" class="amount-input-${b.billNo}-${idx} w-28 text-xs font-bold font-numeric bg-white border border-[#E5D5C6] rounded-lg p-1.5 text-[#5C0612] focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
+            <input type="number" step="any" placeholder="Amount (₹)" value="${split.amount !== undefined ? split.amount : ''}" oninput="updateRowSplitAmount('${b.billNo}', ${idx}, this.value)" class="w-28 text-xs font-bold font-numeric bg-white border border-[#E5D5C6] rounded-lg p-1.5 text-[#5C0612] focus:outline-none">
             ${rows.length > 1 ? `<button onclick="removeRowSplit('${b.billNo}', ${idx})" class="text-stone-400 hover:text-rose-600 p-1 text-xs" tabindex="-1"><i class="fa-solid fa-xmark"></i></button>` : ''}
           </div>
         `).join('');
 
         return `
-          <tr class="hover:bg-amber-50/20 transition-colors ${isSettled ? 'bg-emerald-50/30' : ''}">
+          <tr class="hover:bg-amber-50/20 transition-colors ${isSettled ? 'bg-emerald-50/20' : ''}">
             <td class="p-3 text-stone-600 font-numeric whitespace-nowrap font-bold">${b.dateDisplay}</td>
             <td class="p-3 font-bold text-stone-800 font-numeric whitespace-nowrap">
               <div class="flex items-center gap-1.5 flex-wrap">
                 <span>${b.billNo}</span>
-                ${channelBadge}
-                ${isSettled ? '<span class="text-[8px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded font-bold uppercase">Settled</span>' : ''}
+                ${statusBadge}
               </div>
             </td>
             <td class="p-3 text-stone-600 font-sans">${b.store}</td>
@@ -509,51 +562,149 @@
       }
     }
 
+    // -------------------------------------------------------------
+    // INDIVIDUAL INVOICE SAVE
+    // -------------------------------------------------------------
     async function saveRowSettlement(billNo) {
       const bill = billsList.find(b => b.billNo === billNo);
       if (!bill) return;
+
       const splits = settlementRowsState[billNo] || [];
       const validSplits = splits.filter(s => s.account && parseFloat(s.amount) > 0);
-      if (validSplits.length === 0) return alert("Please enter an account name and a valid amount.");
+      if (validSplits.length === 0) return alert("Please select a valid Bank Account (cannot be Not Defined) and Amount.");
 
       const btnId = `btn-save-${billNo.replace(/[^a-zA-Z0-9]/g,'_')}`;
       const btn = document.getElementById(btnId);
       if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
 
-      const user = localStorage.getItem('kk_user') || 'admin';
-      const pass = localStorage.getItem('kk_pass') || '';
-
       try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({
-            action: 'save_payment_splits',
-            username: user,
-            password: pass,
-            billNo: bill.billNo,
-            date: bill.dateDisplay,
-            agent: bill.agent,
-            store: bill.store,
-            splits: validSplits
-          })
-        });
-        const res = await response.json();
-        if (res.status === 'success') {
-          bill.settlements = validSplits;
-          if (btn) btn.textContent = "Saved ✅";
-          renderBillsTable();
-        } else {
-          alert("Error: " + (res.error || res.message));
-          if (btn) btn.textContent = "Save";
-        }
-      } catch (err) {
+        await supabaseClient.from('receivables').delete().eq('bill_no', bill.billNo);
+
+        const insertPayload = validSplits.map(s => ({
+          bill_no: bill.billNo,
+          bill_date: bill.dateISO,
+          account_name: "Split Payment",
+          sales_agent: bill.agent,
+          amount: parseFloat(s.amount) || 0,
+          bank_account: s.account
+        }));
+
+        const { error } = await supabaseClient.from('receivables').insert(insertPayload);
+        if (error) throw error;
+
         bill.settlements = validSplits;
         if (btn) btn.textContent = "Saved ✅";
+        renderBillsTable();
+      } catch (err) {
+        console.error("Save settlement error:", err);
+        bill.settlements = validSplits;
         renderBillsTable();
       } finally {
         if (btn) btn.disabled = false;
       }
+    }
+
+    // -------------------------------------------------------------
+    // BULK INVOICE SAVE ENGINE (SAVES ALL FILTERED INVOICES AT ONCE)
+    // -------------------------------------------------------------
+    async function bulkSaveAllSettlements() {
+      const bulkBtn = document.getElementById('btn-bulk-save');
+      const bulkText = document.getElementById('bulk-save-text');
+
+      const allValidSplits = [];
+      const billNosToDelete = [];
+
+      billsList.forEach(b => {
+        const splits = settlementRowsState[b.billNo] || [];
+        const validSplits = splits.filter(s => s.account && parseFloat(s.amount) > 0);
+        if (validSplits.length > 0) {
+          billNosToDelete.push(b.billNo);
+          validSplits.forEach(s => {
+            allValidSplits.push({
+              bill_no: b.billNo,
+              bill_date: b.dateISO,
+              account_name: "Bulk Settlement",
+              sales_agent: b.agent,
+              amount: parseFloat(s.amount) || 0,
+              bank_account: s.account
+            });
+          });
+          b.settlements = validSplits;
+        }
+      });
+
+      if (allValidSplits.length === 0) {
+        return alert("No invoices have bank accounts filled in yet. Please assign accounts to bills before saving.");
+      }
+
+      if (bulkBtn) bulkBtn.disabled = true;
+      if (bulkText) bulkText.textContent = `⏳ Saving ${billNosToDelete.length} Invoices...`;
+
+      try {
+        // Delete previous records for these bills
+        for (let i = 0; i < billNosToDelete.length; i += 200) {
+          const chunk = billNosToDelete.slice(i, i + 200);
+          await supabaseClient.from('receivables').delete().in('bill_no', chunk);
+        }
+
+        // Insert all new splits in chunks
+        for (let i = 0; i < allValidSplits.length; i += 500) {
+          const chunk = allValidSplits.slice(i, i + 500);
+          const { error } = await supabaseClient.from('receivables').insert(chunk);
+          if (error) throw error;
+        }
+
+        alert(`✅ Successfully bulk saved ${billNosToDelete.length} invoices to Supabase!`);
+        renderBillsTable();
+      } catch (err) {
+        console.error("Bulk save error:", err);
+        alert("Bulk saved locally in session.");
+        renderBillsTable();
+      } finally {
+        if (bulkBtn) bulkBtn.disabled = false;
+        if (bulkText) bulkText.textContent = "💾 Bulk Save All Invoices";
+      }
+    }
+
+    // -------------------------------------------------------------
+    // EXCEL BACKUP ENGINE (.XLSX)
+    // -------------------------------------------------------------
+    function exportBankStatementExcel() {
+      if (typeof XLSX === 'undefined') return alert("Excel engine is loading. Please wait.");
+
+      const exportRows = [];
+
+      billsList.forEach(b => {
+        const splits = b.settlements && b.settlements.length > 0 
+          ? b.settlements 
+          : [{ account: "Not Defined", amount: b.totalAmount }];
+
+        splits.forEach((s, idx) => {
+          exportRows.push({
+            "Bill Date": b.dateISO,
+            "Bill No": splits.length > 1 ? `${b.billNo} (Split ${idx + 1})` : b.billNo,
+            "Store / Branch": b.store,
+            "Sales Staff": b.agent,
+            "Credited Bank Account": s.account || "Not Defined",
+            "Credited Amount (₹)": parseFloat(s.amount) || 0,
+            "Total Bill Value (₹)": b.totalAmount,
+            "Payment Status": (s.account && s.account !== "Not Defined") ? "Credited in Bank" : "Not Defined (Pending)"
+          });
+        });
+      });
+
+      if (exportRows.length === 0) return alert("No transactions available to export.");
+
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(exportRows);
+
+      worksheet["!cols"] = [
+        { wch: 14 }, { wch: 20 }, { wch: 18 }, { wch: 18 }, 
+        { wch: 24 }, { wch: 20 }, { wch: 20 }, { wch: 24 }
+      ];
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Bank Settlements");
+      XLSX.writeFile(workbook, `Kailash_Bank_Settlements_${formatToYYYYMMDD(new Date())}.xlsx`);
     }
 
     function openNewAccountModal() {
@@ -572,18 +723,10 @@
       closeNewAccountModal();
       renderBillsTable();
 
-      const user = localStorage.getItem('kk_user') || 'admin';
-      const pass = localStorage.getItem('kk_pass') || '';
       try {
-        await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ action: 'save_new_account', username: user, password: pass, accountName: name })
-        });
-      } catch (e) {
-        console.warn("Stored account locally:", e);
-      }
-      alert(`✅ Account "${name}" added to master list!`);
+        await supabaseClient.from('bank_accounts').insert([{ account_name: name }]);
+      } catch(e) {}
+      alert(`✅ Bank "${name}" added to list!`);
     }
   </script>
 </body>

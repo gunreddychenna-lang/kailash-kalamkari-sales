@@ -84,6 +84,12 @@
           <span id="user-role-badge" class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-[#DAA520] text-[#5C0612] tracking-wider font-sans mt-0.5">ADMIN</span>
         </div>
 
+        <!-- DIRECT BUTTON TO OPEN BANK ENTRY PORTAL -->
+        <a href="entry.html" target="_blank" class="bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#B38F4D] active:scale-95 duration-100" title="Open Bank Payment Credit Portal in New Tab">
+          <i class="fa-solid fa-building-columns text-xs"></i>
+          <span>Bank Entry Portal ↗</span>
+        </a>
+
         <button onclick="exportSectionToPDF('standard-main', 'Kailash_Kalamkari_Full_Dashboard')" class="bg-rose-900 hover:bg-rose-950 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md border border-rose-700 active:scale-95 duration-100" title="Export Full Dashboard PDF">
           <i class="fa-solid fa-file-pdf text-xs text-[#DAA520]"></i> <span class="hidden md:inline">Export PDF</span>
         </button>
@@ -239,10 +245,13 @@
         </div>
       </div>
 
+      <!-- BANK LEDGER CARD WITH BUTTON TO BANK ENTRY PORTAL -->
       <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow sm:col-span-2 space-y-2">
         <div class="flex justify-between items-center">
           <p class="text-[10px] font-bold text-stone-600 uppercase tracking-wider font-traditional flex items-center gap-1"><i class="fa-solid fa-building-columns text-[#5C0612]"></i> Bank Ledger Split</p>
-          <button onclick="switchTab('banks-tab')" class="text-[9px] text-[#5C0612] font-bold hover:underline font-traditional uppercase">View Details →</button>
+          <a href="entry.html" target="_blank" class="text-[9px] bg-[#EFE5C9] text-[#5C0612] border border-[#DAA520] font-bold px-2 py-0.5 rounded-lg font-traditional uppercase hover:scale-105 transition-transform">
+            Enter Bank Credits ↗
+          </a>
         </div>
         <div id="account-split-container" class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center font-numeric text-xs"></div>
       </div>
@@ -344,6 +353,9 @@
             <option value="All">All Bank Accounts</option>
           </select>
         </div>
+        <a href="entry.html" target="_blank" class="bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5">
+          <i class="fa-solid fa-building-columns text-xs"></i> Open Bank Entry Portal ↗
+        </a>
       </div>
       <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] overflow-hidden warm-shadow">
         <div class="overflow-x-auto">
