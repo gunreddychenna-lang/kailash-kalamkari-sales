@@ -14,10 +14,8 @@
     tailwind.config = { corePlugins: { preflight: true } }
   </script>
   
-  <!-- FontAwesome Icons -->
+  <!-- FontAwesome Icons & Google Fonts -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-  
-  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
@@ -50,13 +48,18 @@
           <span>Dashboard</span>
         </a>
 
+        <a href="attendance.html" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20 transition-all flex items-center gap-1.5 active:scale-95">
+          <i class="fa-solid fa-user-check text-xs"></i>
+          <span>Attendance</span>
+        </a>
+
         <!-- BULK SAVE BUTTON -->
         <button id="btn-bulk-save" onclick="bulkSaveAllSettlements()" class="bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#B38F4D] active:scale-95 duration-100" title="Save All Modified Invoices in One Click">
           <i class="fa-solid fa-floppy-disk text-xs"></i>
           <span id="bulk-save-text">💾 Bulk Save All Invoices</span>
         </button>
         
-        <button onclick="exportBankStatementExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs px-3 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-emerald-500 active:scale-95 duration-100" title="Download Excel Bank Reconciliation">
+        <button onclick="exportBankStatementExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-emerald-500 active:scale-95 duration-100" title="Download Excel Bank Reconciliation">
           <i class="fa-solid fa-file-excel text-emerald-300 text-xs"></i>
           <span>Backup Excel</span>
         </button>
@@ -194,7 +197,7 @@
   <script>
     // 1. SUPABASE CREDENTIALS
     const SUPABASE_URL = "https://dqvqqrbvklpiibzqivbp.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdnFxcmJ2a2xwaWlienFpdmJwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDYxOTY5NSwiZXhwIjoyMTA2MTk1Njk1fQ.UCnBDjxE-JePOJOVnzKlyJ9iWckja9WbUMdN_Fp-gGc"; // <-- Paste your Supabase anon public key here
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdnFxcmJ2a2xwaWlienFpdmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MTk2OTUsImV4cCI6MjEwNjE5NTY5NX0.ljhpD3QBpXvi5DjrQ2wE6R4NdhOicu_3ODH7pX79K58";
 
     let supabaseClient = null;
     if (typeof supabase !== 'undefined' && supabase.createClient) {
@@ -277,7 +280,7 @@
       for (let k of directKeys) {
         if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
           const parsed = parseFloat(row[k].toString().replace(/[^0-9.-]+/g, ''));
-          if (!isNaN(parsed) && parsed > 0) return parsed;
+          if (!isNaN(parsed)) return parsed;
         }
       }
       return 0;
@@ -308,11 +311,33 @@
         } catch(e) {}
         syncDatalist();
 
-        // 2. Fetch Existing Settlements from receivables
+        // 2. Fetch Existing Settlements from receivables with chunked pagination
         const existingSettlements = {};
         try {
-          const { data: recRows } = await supabaseClient.from('receivables').select('*');
-          (recRows || []).forEach(r => {
+          let allRecs = [];
+          let rFrom = 0;
+          const rStep = 1000;
+          let rHasMore = true;
+
+          while (rHasMore) {
+            const { data: recRows, error: rErr } = await supabaseClient
+              .from('receivables')
+              .select('*')
+              .order('id', { ascending: true })
+              .range(rFrom, rFrom + rStep - 1);
+
+            if (rErr) throw rErr;
+
+            if (recRows && recRows.length > 0) {
+              allRecs.push(...recRows);
+              if (recRows.length < rStep) rHasMore = false;
+              else rFrom += rStep;
+            } else {
+              rHasMore = false;
+            }
+          }
+
+          allRecs.forEach(r => {
             const bNo = (r.bill_no || '').trim().toUpperCase();
             if (!bNo) return;
             const amt = parseFloat(r.amount) || 0;
@@ -323,17 +348,24 @@
               if (!accountsMaster.includes(acc)) accountsMaster.push(acc);
             }
           });
-        } catch(e) {}
+        } catch(e) {
+          console.warn("Could not load receivables:", e);
+        }
         syncDatalist();
 
-        // 3. Fetch All Sales Rows from Supabase
+        // 3. Fetch All Sales Rows from Supabase with deterministic ID order
         let allSales = [];
         let from = 0;
         const step = 1000;
         let hasMore = true;
 
         while (hasMore) {
-          const { data, error } = await supabaseClient.from('sales').select('*').range(from, from + step - 1);
+          const { data, error } = await supabaseClient
+            .from('sales')
+            .select('*')
+            .order('id', { ascending: true })
+            .range(from, from + step - 1);
+
           if (error) throw error;
           if (data && data.length > 0) {
             allSales.push(...data);
@@ -344,7 +376,7 @@
           }
         }
 
-        // 4. Group by Bill No
+        // 4. Group line items by Bill No
         const billsObj = {};
         const storeSet = new Set();
         const allDates = [];
@@ -354,11 +386,15 @@
           if (!bNo || bNo === 'N/A') return;
           const cleanKey = bNo.toUpperCase();
 
-          const dateISO = normalizeToDateString(r.bill_date || r['Bill Date'] || r.date);
-          if (!dateISO) return;
+          let dateISO = normalizeToDateString(r.bill_date || r['Bill Date'] || r.date);
+          if (!dateISO && r.created_at) {
+            const splitDate = (r.created_at || '').toString().split('T')[0].split(' ')[0];
+            dateISO = normalizeToDateString(splitDate);
+          }
+          if (!dateISO) dateISO = "2026-09-01";
 
           const store = (r.store_name || r.store || r['Branch Name'] || 'Main Branch').trim();
-          const agent = (r.sm_name || r['SM Name'] || r['Agent'] || 'No Agent').trim();
+          const agent = (r.sm_name || r['SM Name'] || r['Agent'] || r.agent_name || 'No Agent').trim();
           const amt = getRowAmount(r);
 
           storeSet.add(store);
@@ -380,7 +416,7 @@
 
         billsList = Object.values(billsObj);
 
-        // Date Inputs Default to full range of records
+        // Date Inputs: default to the full range of available records
         if (allDates.length > 0) {
           allDates.sort();
           const fromInput = document.getElementById('filter-from-date');
@@ -395,13 +431,13 @@
           storeSelect.innerHTML = `<option value="all">All Branches</option>` + Array.from(storeSet).map(s => `<option value="${s}">${s}</option>`).join('');
         }
 
-        // Initialize Row State: if not settled, set empty so it shows "Not Defined"
+        // Initialize Row State
         billsList.forEach(b => {
           if (!settlementRowsState[b.billNo]) {
             if (b.settlements && b.settlements.length > 0) {
               settlementRowsState[b.billNo] = JSON.parse(JSON.stringify(b.settlements));
             } else {
-              settlementRowsState[b.billNo] = [{ account: '', amount: b.totalAmount }];
+              settlementRowsState[b.billNo] = [{ account: '', amount: Math.round(b.totalAmount) }];
             }
           }
         });
@@ -482,13 +518,12 @@
       }
 
       tbody.innerHTML = filtered.map(b => {
-        const rows = settlementRowsState[b.billNo] || [{ account: '', amount: b.totalAmount }];
+        const rows = settlementRowsState[b.billNo] || [{ account: '', amount: Math.round(b.totalAmount) }];
         const isSettled = b.settlements && b.settlements.length > 0;
         let allocatedSum = 0;
         rows.forEach(r => allocatedSum += parseFloat(r.amount) || 0);
         const rem = Math.round((b.totalAmount - allocatedSum) * 100) / 100;
 
-        // Status Badge (Shows NOT DEFINED in Red if no payment entry exists)
         let statusBadge = isSettled 
           ? `<span class="text-[8px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded font-bold uppercase">Credited ✅</span>` 
           : `<span class="text-[8px] bg-rose-100 text-rose-800 border border-rose-300 px-1.5 py-0.5 rounded font-bold uppercase">Not Defined ⚠️</span>`;
@@ -515,14 +550,14 @@
             </td>
             <td class="p-3 text-stone-600 font-sans">${b.store}</td>
             <td class="p-3 text-stone-600 font-sans">${b.agent}</td>
-            <td class="p-3 text-right font-black text-[#5C0612] font-numeric whitespace-nowrap">₹${b.totalAmount.toLocaleString('en-IN')}</td>
+            <td class="p-3 text-right font-black text-[#5C0612] font-numeric whitespace-nowrap">₹${Math.round(b.totalAmount).toLocaleString('en-IN')}</td>
             <td class="p-2.5">
               <div class="bg-[#FAF6EE] p-2 rounded-xl border border-[#E5D5C6] space-y-1">
                 ${splitRowsHTML}
                 <div class="flex justify-between items-center pt-1 border-t border-[#E5D5C6]/40 text-[9px]">
                   <button onclick="addRowSplit('${b.billNo}')" tabindex="-1" class="text-[#5C0612] hover:underline font-bold font-traditional flex items-center gap-0.5"><i class="fa-solid fa-plus text-[8px]"></i> Add Split Line</button>
                   <span class="font-numeric font-bold ${Math.abs(rem) < 0.01 ? 'text-emerald-700' : 'text-amber-800'}">
-                    ${Math.abs(rem) < 0.01 ? 'Exact Match ✅' : `Rem: ₹${rem.toLocaleString('en-IN')}`}
+                    ${Math.abs(rem) < 0.01 ? 'Exact Match ✅' : `Rem: ₹${Math.round(rem).toLocaleString('en-IN')}`}
                   </span>
                 </div>
               </div>
@@ -551,7 +586,7 @@
       let allocated = 0;
       settlementRowsState[billNo].forEach(s => allocated += parseFloat(s.amount) || 0);
       const rem = bill ? Math.max(0, bill.totalAmount - allocated) : '';
-      settlementRowsState[billNo].push({ account: '42441-TJ', amount: rem });
+      settlementRowsState[billNo].push({ account: '42441-TJ', amount: Math.round(rem) });
       renderBillsTable();
     }
 
@@ -605,7 +640,7 @@
     }
 
     // -------------------------------------------------------------
-    // BULK INVOICE SAVE ENGINE (SAVES ALL FILTERED INVOICES AT ONCE)
+    // BULK INVOICE SAVE ENGINE
     // -------------------------------------------------------------
     async function bulkSaveAllSettlements() {
       const bulkBtn = document.getElementById('btn-bulk-save');
@@ -641,13 +676,13 @@
       if (bulkText) bulkText.textContent = `⏳ Saving ${billNosToDelete.length} Invoices...`;
 
       try {
-        // Delete previous records for these bills
+        // Delete previous records for these bills in chunks
         for (let i = 0; i < billNosToDelete.length; i += 200) {
           const chunk = billNosToDelete.slice(i, i + 200);
           await supabaseClient.from('receivables').delete().in('bill_no', chunk);
         }
 
-        // Insert all new splits in chunks
+        // Insert all new splits in chunks of 500
         for (let i = 0; i < allValidSplits.length; i += 500) {
           const chunk = allValidSplits.slice(i, i + 500);
           const { error } = await supabaseClient.from('receivables').insert(chunk);
@@ -677,7 +712,7 @@
       billsList.forEach(b => {
         const splits = b.settlements && b.settlements.length > 0 
           ? b.settlements 
-          : [{ account: "Not Defined", amount: b.totalAmount }];
+          : [{ account: "Not Defined", amount: Math.round(b.totalAmount) }];
 
         splits.forEach((s, idx) => {
           exportRows.push({
@@ -687,7 +722,7 @@
             "Sales Staff": b.agent,
             "Credited Bank Account": s.account || "Not Defined",
             "Credited Amount (₹)": parseFloat(s.amount) || 0,
-            "Total Bill Value (₹)": b.totalAmount,
+            "Total Bill Value (₹)": Math.round(b.totalAmount),
             "Payment Status": (s.account && s.account !== "Not Defined") ? "Credited in Bank" : "Not Defined (Pending)"
           });
         });
