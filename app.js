@@ -375,38 +375,46 @@ async function fetchData(user, pass) {
   hideEl('login-screen');
 
   try {
-    const { data: userRow } = await supabaseClient
-      .from('users')
-      .select('*')
-      .eq('username', cleanUser)
-      .eq('password', cleanPass)
-      .maybeSingle();
+    const session = checkSession();
 
-    if (!userRow) {
-      if (cleanUser === 'admin' && (cleanPass === 'admin123' || cleanPass === 'admin')) {
-        currentRole = 'Admin';
-        currentDisplayName = 'Store Management';
-        currentEmployeeId = 'KS-001';
+    // Verify login if credentials provided; otherwise verify session validity
+    if (cleanPass) {
+      const { data: userRow } = await supabaseClient
+        .from('users')
+        .select('*')
+        .eq('username', cleanUser)
+        .eq('password', cleanPass)
+        .maybeSingle();
+
+      if (!userRow) {
+        if (cleanUser === 'admin' && (cleanPass === 'admin123' || cleanPass === 'admin')) {
+          currentRole = 'Admin';
+          currentDisplayName = 'Store Management';
+          currentEmployeeId = 'KS-001';
+        } else {
+          showLoginError("Invalid username or password");
+          return;
+        }
       } else {
-        showLoginError("Invalid username or password");
-        return;
+        currentRole = userRow.role || 'Viewer';
+        currentDisplayName = userRow.display_name || cleanUser;
+        currentEmployeeId = userRow.employee_id || 'KS-100';
       }
-    } else {
-      currentRole = userRow.role || 'Viewer';
-      currentDisplayName = userRow.display_name || cleanUser;
-      currentEmployeeId = userRow.employee_id || 'KS-100';
+
+      currentUserId = cleanUser;
+      isAdmin = (currentRole === 'Admin');
+
+      localStorage.setItem('kk_user', cleanUser);
+      localStorage.setItem('kk_role', currentRole);
+      localStorage.setItem('kk_emp_id', currentEmployeeId);
+      localStorage.setItem('kk_display_name', currentDisplayName);
+      localStorage.setItem('kk_login_time', Date.now().toString());
+    } else if (!session.valid) {
+      showLoginError("Session expired. Please log in.");
+      return;
     }
 
-    currentUserId = cleanUser;
-    isAdmin = (currentRole === 'Admin');
-
-    localStorage.setItem('kk_user', cleanUser);
-    localStorage.setItem('kk_role', currentRole);
-    localStorage.setItem('kk_emp_id', currentEmployeeId);
-    localStorage.setItem('kk_display_name', currentDisplayName);
-    localStorage.setItem('kk_login_time', Date.now().toString());
-
-    // 1. Fetch All Sales with deterministic ordering
+    // 1. Fetch All Sales with deterministic ID ordering
     let allSalesRecords = [];
     let from = 0;
     const step = 1000;
@@ -481,28 +489,40 @@ async function fetchData(user, pass) {
 
     rawData = cleanSales;
 
-    // 3. Fetch Master Attendance from Supabase or Fallback
+    // 3. Fetch Master Attendance from Supabase with Safe JSON Parsing
     try {
-      const { data: attRows, error: attError } = await supabaseClient.from('attendance').select('*');
+      const { data: attRows, error: attError } = await supabaseClient
+        .from('attendance')
+        .select('*');
+
       if (!attError && attRows && attRows.length > 0) {
-        rawAttendanceData = attRows.map(a => ({
-          'id': a.id,
-          'Emp ID': a.emp_id,
-          'Employee Name': a.employee_name,
-          'Designation': a.designation || 'Sales (Fabrics)',
-          'Month_Sheet': a.month_sheet || 'September 2026',
-          'Phone Number': a.phone_number || '',
-          'Monthly Salary': parseFloat(a.monthly_salary) || 10000,
-          'Commission Pct': parseFloat(a.commission_pct) || 1.0,
-          'Advance Taken': parseFloat(a.advance_taken) || 0,
-          'status': a.status || 'Active',
-          ...(a.days_data || {}),
-          '_notes': a.notes_data || {}
-        }));
+        rawAttendanceData = attRows.map(a => {
+          let parsedDays = {};
+          if (typeof a.days_data === 'string') {
+            try { parsedDays = JSON.parse(a.days_data); } catch (e) { parsedDays = {}; }
+          } else if (typeof a.days_data === 'object' && a.days_data !== null) {
+            parsedDays = a.days_data;
+          }
+
+          return {
+            'id': a.id,
+            'Emp ID': a.emp_id,
+            'Employee Name': a.employee_name,
+            'Designation': a.designation || 'Sales (Fabrics)',
+            'Month_Sheet': a.month_sheet || 'September 2026',
+            'Phone Number': a.phone_number || '',
+            'Monthly Salary': parseFloat(a.monthly_salary) || 10000,
+            'Commission Pct': parseFloat(a.commission_pct) || 1.0,
+            'Advance Taken': parseFloat(a.advance_taken) || 0,
+            'status': a.status || 'Active',
+            ...parsedDays,
+            '_notes': a.notes_data || {}
+          };
+        });
       } else {
         rawAttendanceData = JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_DATA));
       }
-    } catch(e) {
+    } catch (e) {
       rawAttendanceData = JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_DATA));
     }
 
@@ -805,7 +825,7 @@ function processData() {
   if (targetBar) targetBar.style.width = `${targetPct}%`;
   setText('target-forecast-text', `Target: ₹${monthlyTarget.toLocaleString('en-IN')} (${targetPct}% Achieved)`);
 
-  // Dynamic Store Breakdown Cards
+  // Dynamic Store Cards
   const storeBreakdownContainer = getEl('store-breakdown-container');
   if (storeBreakdownContainer) {
     const storeNames = Object.keys(storeTotals);
@@ -1265,7 +1285,7 @@ function updateStaffPayroll(index, field, val) {
 }
 
 // -------------------------------------------------------------
-// SAVE ATTENDANCE DIRECTLY TO SUPABASE
+// SAVE ATTENDANCE DIRECTLY TO SUPABASE (PERMANENT ROW PERSISTENCE)
 // -------------------------------------------------------------
 async function saveAttendanceToSupabase() {
   if (!isAdmin) {
@@ -1276,7 +1296,7 @@ async function saveAttendanceToSupabase() {
   const saveBtn = getEl('btn-save-attendance-main');
   const saveText = getEl('save-attendance-main-text');
   if (saveBtn) saveBtn.disabled = true;
-  if (saveText) saveText.textContent = "⏳ Saving to Supabase...";
+  if (saveText) saveText.textContent = "⏳ Saving to Database...";
 
   const staffList = rawAttendanceData.filter(emp => (emp['Month_Sheet'] || '').toLowerCase() === selectedAttendanceMonth.toLowerCase());
   const targetList = staffList.length > 0 ? staffList : rawAttendanceData;
@@ -1284,11 +1304,11 @@ async function saveAttendanceToSupabase() {
   const upsertPayload = targetList.map(emp => {
     const daysObj = {};
     for (let d = 1; d <= 31; d++) {
-      const val = emp[d.toString()] || emp[d < 10 ? '0' + d : d.toString()] || '';
+      const val = (emp[d.toString()] || emp[d < 10 ? '0' + d : d.toString()] || '').toString().toUpperCase().trim();
       if (val) daysObj[d.toString()] = val;
     }
 
-    return {
+    const payloadItem = {
       emp_id: emp['Emp ID'],
       employee_name: emp['Employee Name'],
       designation: emp['Designation'] || 'Sales (Fabrics)',
@@ -1300,18 +1320,34 @@ async function saveAttendanceToSupabase() {
       status: emp.status || 'Active',
       days_data: daysObj
     };
+
+    // If record already exists in Supabase with a UUID, pass it so it directly updates the row!
+    if (emp.id) {
+      payloadItem.id = emp.id;
+    }
+
+    return payloadItem;
   });
 
   try {
-    const { error } = await supabaseClient
+    const { data, error } = await supabaseClient
       .from('attendance')
-      .upsert(upsertPayload, { onConflict: 'emp_id,month_sheet' });
+      .upsert(upsertPayload, { onConflict: 'emp_id,month_sheet' })
+      .select();
 
     if (error) throw error;
-    alert(`✅ Attendance for ${selectedAttendanceMonth} saved cleanly to Supabase!`);
+
+    if (data && data.length > 0) {
+      data.forEach(savedRow => {
+        const match = targetList.find(t => t['Emp ID'] === savedRow.emp_id);
+        if (match) match.id = savedRow.id;
+      });
+    }
+
+    alert(`✅ SUCCESS: Attendance for ${selectedAttendanceMonth} is permanently saved in Supabase!`);
   } catch (err) {
-    console.error("Supabase attendance save error:", err);
-    alert("Saved locally in session: " + err.message);
+    console.error("Supabase Save Error:", err);
+    alert("❌ DATABASE SAVE FAILED: " + err.message);
   } finally {
     if (saveBtn) saveBtn.disabled = false;
     if (saveText) saveText.textContent = "💾 Save Attendance to Supabase";
