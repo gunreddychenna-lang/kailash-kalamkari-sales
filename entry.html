@@ -195,7 +195,7 @@
   </div>
 
   <script>
-    // 1. SUPABASE CREDENTIALS
+    // 1. SUPABASE CONFIGURATION
     const SUPABASE_URL = "https://dqvqqrbvklpiibzqivbp.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdnFxcmJ2a2xwaWlienFpdmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MTk2OTUsImV4cCI6MjEwNjE5NTY5NX0.ljhpD3QBpXvi5DjrQ2wE6R4NdhOicu_3ODH7pX79K58";
 
@@ -286,6 +286,9 @@
       return 0;
     }
 
+    // -------------------------------------------------------------
+    // FETCH DATA FROM SUPABASE
+    // -------------------------------------------------------------
     async function fetchSupabaseData() {
       const icon = document.getElementById('refresh-icon');
       if (icon) icon.classList.add('animate-spin');
@@ -295,6 +298,7 @@
           supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         } else {
           alert("Supabase SDK is not loaded.");
+          if (icon) icon.classList.remove('animate-spin');
           return;
         }
       }
@@ -311,7 +315,7 @@
         } catch(e) {}
         syncDatalist();
 
-        // 2. Fetch Existing Settlements from receivables with chunked pagination
+        // 2. Fetch Existing Settlements from receivables table with pagination
         const existingSettlements = {};
         try {
           let allRecs = [];
@@ -353,7 +357,7 @@
         }
         syncDatalist();
 
-        // 3. Fetch All Sales Rows from Supabase with deterministic ID order
+        // 3. Fetch All Sales Rows from Supabase
         let allSales = [];
         let from = 0;
         const step = 1000;
@@ -416,7 +420,7 @@
 
         billsList = Object.values(billsObj);
 
-        // Date Inputs: default to the full range of available records
+        // Date Inputs
         if (allDates.length > 0) {
           allDates.sort();
           const fromInput = document.getElementById('filter-from-date');
@@ -425,13 +429,13 @@
           if (toInput && !toInput.value) toInput.value = allDates[allDates.length - 1];
         }
 
-        // Populate Store Filter
+        // Store Dropdown
         const storeSelect = document.getElementById('filter-store');
         if (storeSelect) {
           storeSelect.innerHTML = `<option value="all">All Branches</option>` + Array.from(storeSet).map(s => `<option value="${s}">${s}</option>`).join('');
         }
 
-        // Initialize Row State
+        // Row State Init
         billsList.forEach(b => {
           if (!settlementRowsState[b.billNo]) {
             if (b.settlements && b.settlements.length > 0) {
@@ -446,7 +450,7 @@
       } catch (err) {
         console.error("Fetch error:", err);
         document.getElementById('bills-table-body').innerHTML = `
-          <tr><td colspan="7" class="p-6 text-center text-rose-700 font-bold">Failed to load Supabase records. Check connection and anon key.</td></tr>
+          <tr><td colspan="7" class="p-6 text-center text-rose-700 font-bold">Failed to load Supabase records: ${err.message || 'Check network connection'}</td></tr>
         `;
       } finally {
         if (icon) icon.classList.remove('animate-spin');
@@ -496,7 +500,6 @@
         }
       });
 
-      // Update Summary Cards
       document.getElementById('stat-total-bills').textContent = `${totalBillsCount} Bills`;
       document.getElementById('stat-total-amount').textContent = `₹${Math.round(totalBillsValue).toLocaleString('en-IN')}`;
       document.getElementById('stat-settled-amount').textContent = `₹${Math.round(settledTotalVal).toLocaleString('en-IN')}`;
@@ -531,7 +534,7 @@
         const splitRowsHTML = rows.map((split, idx) => `
           <div class="flex items-center gap-1.5 mt-1 first:mt-0">
             <div class="relative w-40">
-              <input type="text" list="accounts-master-datalist" value="${split.account || ''}" placeholder="-- Not Defined --" oninput="updateRowSplitAccount('${b.billNo}', ${idx}, this.value)" class="w-full text-xs font-bold bg-white border ${!split.account ? 'border-rose-300 bg-rose-50/20' : 'border-[#E5D5C6]'} rounded-lg py-1.5 pl-2 pr-6 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612]"/>
+              <input type="text" list="accounts-master-datalist" value="${split.account || ''}" placeholder="-- Select Account --" oninput="updateRowSplitAccount('${b.billNo}', ${idx}, this.value)" class="w-full text-xs font-bold bg-white border ${!split.account ? 'border-rose-300 bg-rose-50/20' : 'border-[#E5D5C6]'} rounded-lg py-1.5 pl-2 pr-6 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612]"/>
               <button type="button" tabindex="-1" onclick="this.previousElementSibling.focus()" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-stone-400 text-[10px]"><i class="fa-solid fa-chevron-down"></i></button>
             </div>
             <input type="number" step="any" placeholder="Amount (₹)" value="${split.amount !== undefined ? split.amount : ''}" oninput="updateRowSplitAmount('${b.billNo}', ${idx}, this.value)" class="w-28 text-xs font-bold font-numeric bg-white border border-[#E5D5C6] rounded-lg p-1.5 text-[#5C0612] focus:outline-none">
@@ -598,23 +601,32 @@
     }
 
     // -------------------------------------------------------------
-    // INDIVIDUAL INVOICE SAVE
+    // INDIVIDUAL INVOICE SAVE TO SUPABASE
     // -------------------------------------------------------------
     async function saveRowSettlement(billNo) {
       const bill = billsList.find(b => b.billNo === billNo);
       if (!bill) return;
 
       const splits = settlementRowsState[billNo] || [];
-      const validSplits = splits.filter(s => s.account && parseFloat(s.amount) > 0);
-      if (validSplits.length === 0) return alert("Please select a valid Bank Account (cannot be Not Defined) and Amount.");
+      const validSplits = splits.filter(s => s.account && s.account !== '-- Select Account --' && parseFloat(s.amount) > 0);
+      if (validSplits.length === 0) {
+        return alert("Please select a valid Bank Account (cannot be empty) and Amount.");
+      }
 
       const btnId = `btn-save-${billNo.replace(/[^a-zA-Z0-9]/g,'_')}`;
       const btn = document.getElementById(btnId);
       if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
 
       try {
-        await supabaseClient.from('receivables').delete().eq('bill_no', bill.billNo);
+        // 1. Delete previous records for this bill
+        const { error: delError } = await supabaseClient
+          .from('receivables')
+          .delete()
+          .eq('bill_no', bill.billNo);
 
+        if (delError) throw delError;
+
+        // 2. Insert new splits into receivables table
         const insertPayload = validSplits.map(s => ({
           bill_no: bill.billNo,
           bill_date: bill.dateISO,
@@ -624,23 +636,26 @@
           bank_account: s.account
         }));
 
-        const { error } = await supabaseClient.from('receivables').insert(insertPayload);
-        if (error) throw error;
+        const { error: insError } = await supabaseClient
+          .from('receivables')
+          .insert(insertPayload);
+
+        if (insError) throw insError;
 
         bill.settlements = validSplits;
         if (btn) btn.textContent = "Saved ✅";
         renderBillsTable();
+        alert(`✅ Bill ${bill.billNo} successfully saved in Supabase!`);
       } catch (err) {
         console.error("Save settlement error:", err);
-        bill.settlements = validSplits;
-        renderBillsTable();
+        alert("❌ Database Save Failed: " + (err.message || JSON.stringify(err)));
       } finally {
         if (btn) btn.disabled = false;
       }
     }
 
     // -------------------------------------------------------------
-    // BULK INVOICE SAVE ENGINE
+    // BULK INVOICE SAVE TO SUPABASE
     // -------------------------------------------------------------
     async function bulkSaveAllSettlements() {
       const bulkBtn = document.getElementById('btn-bulk-save');
@@ -651,7 +666,7 @@
 
       billsList.forEach(b => {
         const splits = settlementRowsState[b.billNo] || [];
-        const validSplits = splits.filter(s => s.account && parseFloat(s.amount) > 0);
+        const validSplits = splits.filter(s => s.account && s.account !== '-- Select Account --' && parseFloat(s.amount) > 0);
         if (validSplits.length > 0) {
           billNosToDelete.push(b.billNo);
           validSplits.forEach(s => {
@@ -676,25 +691,25 @@
       if (bulkText) bulkText.textContent = `⏳ Saving ${billNosToDelete.length} Invoices...`;
 
       try {
-        // Delete previous records for these bills in chunks
+        // Delete in chunks of 200
         for (let i = 0; i < billNosToDelete.length; i += 200) {
           const chunk = billNosToDelete.slice(i, i + 200);
-          await supabaseClient.from('receivables').delete().in('bill_no', chunk);
+          const { error: delErr } = await supabaseClient.from('receivables').delete().in('bill_no', chunk);
+          if (delErr) throw delErr;
         }
 
-        // Insert all new splits in chunks of 500
+        // Insert in chunks of 500
         for (let i = 0; i < allValidSplits.length; i += 500) {
           const chunk = allValidSplits.slice(i, i + 500);
-          const { error } = await supabaseClient.from('receivables').insert(chunk);
-          if (error) throw error;
+          const { error: insErr } = await supabaseClient.from('receivables').insert(chunk);
+          if (insErr) throw insErr;
         }
 
-        alert(`✅ Successfully bulk saved ${billNosToDelete.length} invoices to Supabase!`);
+        alert(`✅ Successfully saved ${billNosToDelete.length} invoices to Supabase!`);
         renderBillsTable();
       } catch (err) {
         console.error("Bulk save error:", err);
-        alert("Bulk saved locally in session.");
-        renderBillsTable();
+        alert("❌ Bulk Save Failed: " + (err.message || JSON.stringify(err)));
       } finally {
         if (bulkBtn) bulkBtn.disabled = false;
         if (bulkText) bulkText.textContent = "💾 Bulk Save All Invoices";
@@ -702,7 +717,7 @@
     }
 
     // -------------------------------------------------------------
-    // EXCEL BACKUP ENGINE (.XLSX)
+    // EXCEL BACKUP (.XLSX)
     // -------------------------------------------------------------
     function exportBankStatementExcel() {
       if (typeof XLSX === 'undefined') return alert("Excel engine is loading. Please wait.");
@@ -754,14 +769,21 @@
     async function submitNewAccount() {
       const name = (document.getElementById('modal-account-name').value || '').trim();
       if (!name) return alert("Please enter an Account Name.");
-      if (!accountsMaster.includes(name)) { accountsMaster.push(name); syncDatalist(); }
+
+      if (!accountsMaster.includes(name)) { 
+        accountsMaster.push(name); 
+        syncDatalist(); 
+      }
       closeNewAccountModal();
       renderBillsTable();
 
       try {
-        await supabaseClient.from('bank_accounts').insert([{ account_name: name }]);
-      } catch(e) {}
-      alert(`✅ Bank "${name}" added to list!`);
+        const { error } = await supabaseClient.from('bank_accounts').upsert([{ account_name: name }]);
+        if (error) throw error;
+        alert(`✅ Bank account "${name}" saved to Supabase!`);
+      } catch(e) {
+        console.warn("Could not persist bank account to database:", e);
+      }
     }
   </script>
 </body>

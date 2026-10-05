@@ -1,8 +1,8 @@
 /**
  * =========================================================================
  * KAILASH KALAMKARI - LIVE SUPABASE ANALYTICS & ATTENDANCE ENGINE (app.js)
- * Enterprise client with direct "Save Attendance to Supabase" button,
- * 11 staff members (KS-103 to KS-113), 31-day interactive grid, and payroll.
+ * Strict Channel Classification (Strict Take By Hand / Online / Offline),
+ * Precision Staff Mapping, 31-Day Attendance & Live Payroll Engine.
  * =========================================================================
  */
 
@@ -24,7 +24,7 @@ let currentEmployeeId = '';
 let currentDisplayName = '';
 let isAdmin = true;
 
-// 2. MASTER 11 STAFF DATASET (From attendancesep.csv)
+// 2. MASTER 11 STAFF DATASET
 const DEFAULT_ATTENDANCE_DATA = [
   { 'Emp ID': 'KS-103', 'Employee Name': 'B varalakshmi', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', '5':'P', '6':'A', '7':'P' },
   { 'Emp ID': 'KS-104', 'Employee Name': 'Ty mounika', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '8317649338', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', '5':'P', '6':'P', '7':'P' },
@@ -41,21 +41,21 @@ const DEFAULT_ATTENDANCE_DATA = [
 
 // 3. MASTER STAFF ALIAS RESOLUTION MAP
 const STAFF_ALIASES_MAP = {
-  'KS-103': ['varalakshmi', 'vara lakshmi', 'b varalakshmi', 'b. varalakshmi', 'varalaxmi'],
-  'KS-104': ['mouni', 'mounika', 'ty mounika', 't y mounika', 't.y. mounika'],
-  'KS-105': ['sanjana', 'r sanjana', 'r. sanjana'],
-  'KS-106': ['geethika', 'githika'],
-  'KS-107': ['sandhya', 'j sandhya', 'j. sandhya'],
-  'KS-108': ['pushpa', 'c pushpa', 'c. pushpa'],
-  'KS-109': ['bharathamma'],
+  'KS-103': ['varalakshmi', 'vara lakshmi', 'b varalakshmi', 'b. varalakshmi', 'varalaxmi', 'varalakshmi b'],
+  'KS-104': ['mouni', 'mounika', 'ty mounika', 't y mounika', 't.y. mounika', 'mounika ty'],
+  'KS-105': ['sanjana', 'r sanjana', 'r. sanjana', 'sanjana r'],
+  'KS-106': ['geethika', 'githika', 'gethika'],
+  'KS-107': ['sandhya', 'j sandhya', 'j. sandhya', 'sandhya j'],
+  'KS-108': ['pushpa', 'c pushpa', 'c. pushpa', 'pushpa c'],
+  'KS-109': ['bharathamma', 'barathamma', 'bharatamma'],
   'KS-110': ['nandhini', 'nandini'],
   'KS-111': ['harika'],
-  'KS-112': ['dhanalakshmi', 'dhana lakshmi', 'dhana laskhmi', 'dhana laskhmi akka', 'dhanalakshmi akka'],
-  'KS-113': ['ammulu', 'm.ammulu', 'm ammulu']
+  'KS-112': ['dhanalakshmi', 'dhana lakshmi', 'dhana laskhmi', 'dhana laskhmi akka', 'dhanalakshmi akka', 'dhanalaxmi'],
+  'KS-113': ['ammulu', 'm.ammulu', 'm ammulu', 'ammulu m']
 };
 
-const WHOLESALE_AGENT_KEYWORDS = [
-  'village', 'kalamkari', 'ayyappa', 'wholesale', 'sujatha', 'chengal', 'rayudu', 
+const WHOLESALE_PARTNER_NAMES = [
+  'village kalamkari', 'ayyappa kalamkari', 'sujatha', 'chengal rayudu', 
   'prasanna', 'sravan', 'ravi', 'bala', 'thirumalesh', 'madhuri', 'leela', 'shireesha', 'swathi', 'preethi'
 ];
 
@@ -73,8 +73,7 @@ let selectedAttendanceMonth = "September 2026";
 let selectedChannel = "All";
 let activeAnalysisAgent = "";
 let monthlyTarget = parseFloat(localStorage.getItem('kk_monthly_target')) || 1000000;
-let defaultCommissionPct = 1.0;
-let attendanceViewMode = 'grid'; // 'grid' | 'summary'
+let attendanceViewMode = 'grid';
 
 // Safe DOM Helpers
 function getEl(id) { return document.getElementById(id); }
@@ -83,32 +82,43 @@ function hideEl(id) { const el = document.getElementById(id); if (el) el.classLi
 function setText(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
 
 // -------------------------------------------------------------
-// STANDARDIZE STAFF & AGENT NAMES (Fixes Case & Typo Duplicates)
+// STANDARDIZE STAFF & AGENT NAMES
 // -------------------------------------------------------------
 function normalizeStaffName(name) {
   if (!name) return 'No Agent';
   let clean = name.toString().trim();
-  if (!clean || clean === '-' || clean === 'N/A') return 'No Agent';
+  if (!clean || clean === '-' || clean === 'N/A' || clean === 'null') return 'No Agent';
   if (/^\d+$/.test(clean)) return 'No Agent';
 
-  const lower = clean.toLowerCase().replace(/\s+/g, ' ');
-  if (lower === 'chenna kesava reddy' || lower === 'chenna kesavareddy' || lower === 'chenna kesava') return 'Chenna Kesava Reddy';
-  if (lower === 'venkatesh') return 'Venkatesh';
-  if (lower === 'mouni' || lower === 'mounika' || lower === 'ty mounika') return 'Mouni';
-  if (lower === 'vara lakshmi' || lower === 'b varalakshmi' || lower === 'varalakshmi') return 'Vara Lakshmi';
-  if (lower === 'dhana laskhmi akka' || lower === 'dhanalakshmi akka' || lower === 'dhanalakshmi' || lower === 'dhana lakshmi') return 'Dhanalakshmi';
-  if (lower === 'kailash anna' || lower === 'kailash') return 'Kailash Anna';
-  if (lower === 'admin') return 'ADMIN';
-  if (lower === 'sravan') return 'Sravan';
-  if (lower === 'prasanna') return 'Prasanna';
-  if (lower === 'sujatha') return 'Sujatha';
-  if (lower === 'chengal rayudu') return 'Chengal Rayudu';
-  if (lower === 'village kalamkari') return 'Village Kalamkari';
-  if (lower === 'ayyappa kalamkari') return 'Ayyappa Kalamkari';
-  if (lower === 'sanjana' || lower === 'r sanjana') return 'Sanjana';
-  if (lower === 'keerthi') return 'Keerthi';
-  if (lower === 'harika') return 'Harika';
-  if (lower === 'geethika') return 'Geethika';
+  const lower = clean.toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  if (lower.includes('mounika') || lower.includes('mouni') || lower.includes('tymounika') || lower === 'ty mounika') {
+    return 'Mouni';
+  }
+  if (lower.includes('vara') || lower.includes('varalaxmi') || (lower.includes('lakshmi') && lower.includes('b'))) {
+    return 'Vara Lakshmi';
+  }
+  if (lower.includes('dhana') || lower.includes('daskhmi') || lower.includes('dhanalaxmi')) {
+    return 'Dhanalakshmi';
+  }
+  if (lower.includes('sanjana')) return 'Sanjana';
+  if (lower.includes('geethika') || lower.includes('githika')) return 'Geethika';
+  if (lower.includes('sandhya')) return 'Sandhya';
+  if (lower.includes('pushpa')) return 'Pushpa';
+  if (lower.includes('harika')) return 'Harika';
+  if (lower.includes('nandhini') || lower.includes('nandini')) return 'Nandhini';
+  if (lower.includes('ammulu')) return 'Ammulu';
+  if (lower.includes('bharath')) return 'Bharathamma';
+  if (lower.includes('chenna') || lower.includes('kesava')) return 'Chenna Kesava Reddy';
+  if (lower.includes('venkatesh')) return 'Venkatesh';
+  if (lower.includes('kailash')) return 'Kailash Anna';
+  if (lower.includes('admin')) return 'ADMIN';
+  if (lower.includes('sravan')) return 'Sravan';
+  if (lower.includes('prasanna')) return 'Prasanna';
+  if (lower.includes('sujatha')) return 'Sujatha';
+  if (lower.includes('chengal') || lower.includes('rayudu')) return 'Chengal Rayudu';
+  if (lower.includes('village')) return 'Village Kalamkari';
+  if (lower.includes('ayyappa')) return 'Ayyappa Kalamkari';
 
   return clean.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
@@ -180,14 +190,19 @@ function getRowAmount(row) {
   const directKeys = [
     'amount', 'billAmoun', 'billAmount', 'Bill Amount', 'BillAmount', 
     'Final Amount', 'FinalAmount', 'Total Value', 'TotalValue', 
-    'Net Invoice Value', 'Net Value', 'NetValue', 'Gross Value', 'Total', 'Rate', 'rate'
+    'Net Invoice Value', 'Net Value', 'NetValue', 'Gross Value', 'Total'
   ];
   for (let k of directKeys) {
     if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
       const parsed = parseFloat(row[k].toString().replace(/[^0-9.-]+/g, ""));
-      if (!isNaN(parsed)) return parsed;
+      if (!isNaN(parsed) && parsed !== 0) return parsed;
     }
   }
+
+  const rateVal = parseFloat((row['Rate'] || row['rate'] || 0).toString().replace(/[^0-9.-]+/g, "")) || 0;
+  const qtyVal = parseInt(row['Qty'] || row['qty'] || 1, 10) || 1;
+  if (rateVal > 0) return rateVal * qtyVal;
+
   return 0;
 }
 
@@ -201,30 +216,46 @@ function getBillNo(row) {
 }
 
 // -------------------------------------------------------------
-// PRECISE CHANNEL CLASSIFIER (Online vs. Offline vs. Wholesale)
+// STRICT CHANNEL CLASSIFICATION (Takebyhand vs Online vs Offline)
 // -------------------------------------------------------------
-function getSalesType(payMode, saleType, billNo, bankAcc) {
-  const st = (saleType || '').toString().toLowerCase().trim();
-  const pm = (payMode || '').toString().toLowerCase().trim();
-  const bn = (billNo || '').toString().toUpperCase().trim();
-  const bk = (bankAcc || '').toString().toLowerCase().trim();
+function classifyExactChannel(row) {
+  const store = (row.store_name || row.store || row.branch || row['Branch Name'] || row['Store'] || '').toString().toLowerCase().trim();
+  const saleType = (row.sale_type || row.saletype || row['Sale type'] || row.type || row.channel || '').toString().toLowerCase().trim();
+  const payMode = (row.pay_mode || row.payment_mode || row['PayMode'] || '').toString().toLowerCase().trim();
+  const bankAcc = (row.bank_account || row.bank || row['Acc Name'] || row['Acc No'] || '').toString().toLowerCase().trim();
+  const billNo = (row.bill_no || row['Bill No'] || row['Invoice No'] || '').toString().toUpperCase().trim();
+  const smName = normalizeStaffName(row.sm_name || row.agent_name || row['SM Name'] || row['Agent']);
 
-  if (st.includes('onl') || pm.includes('onl') || pm.includes('online')) {
-    return 'Online';
-  }
+  // 1. STRICT TAKEBYHAND / WHOLESALE
+  // Only matches actual Takebyhand/Wholesale branch or sale type (NEVER matches generic "cash in hand")
+  const isTBHStore = store === 'takebyhand' || store === 'take by hand' || store === 'tbh' || store === 'wholesale';
+  const isTBHSaleType = saleType === 'takebyhand' || saleType === 'take by hand' || saleType === 'tbh' || saleType === 'wholesale';
+  const isTBHPayMode = payMode === 'takebyhand' || payMode === 'take by hand' || payMode === 'tbh';
+  const isTBHBank = bankAcc === 'tbh' || bankAcc === 'takebyhand' || bankAcc === 'wholesale';
+  const isTBHBill = billNo.startsWith('TBH-') || billNo.startsWith('WS-');
+  const isWholesalePartner = WHOLESALE_PARTNER_NAMES.some(wp => smName.toLowerCase() === wp);
 
-  if (st.includes('hand') || st.includes('wholesale') || st.includes('tbh') || 
-      pm.includes('hand') || pm.includes('wholesale') || pm.includes('tbh') || 
-      bk.includes('tbh') || bn.includes('SN')) {
+  if (isTBHStore || isTBHSaleType || isTBHPayMode || isTBHBank || isTBHBill || isWholesalePartner) {
     return 'Wholesale';
   }
 
+  // 2. STRICT ONLINE SALES
+  // Matches website, courier, online delivery (Does NOT match counter UPI in store)
+  const isOnlineStore = store === 'online' || store.includes('website') || store.includes('instagram');
+  const isOnlineSaleType = saleType === 'online' || saleType === 'onl' || saleType === 'website';
+  const isOnlinePayMode = (payMode === 'online' || payMode === 'upi onl' || payMode === 'upi online' || payMode === 'razorpay') && !payMode.includes('store');
+  const isOnlineBank = bankAcc.includes('razorpay');
+
+  if (isOnlineStore || isOnlineSaleType || isOnlinePayMode || isOnlineBank) {
+    return 'Online';
+  }
+
+  // 3. OFFLINE (Standard Retail Showroom: Cash, Card, Counter UPI Store)
   return 'Offline';
 }
 
 // -------------------------------------------------------------
-// FIXED PRODUCT CATEGORIZATION ENGINE
-// Priority: Check Dupattas/Fabrics BEFORE Sarees
+// PRODUCT CATEGORIZATION ENGINE
 // -------------------------------------------------------------
 function getItemCategory(itemName) {
   if (!itemName) return 'General';
@@ -257,8 +288,8 @@ function getItemCategory(itemName) {
 function getStaffSalesAmount(empName, empId) {
   if (!empName) return 0;
   const cleanEmp = empName.toLowerCase().replace(/[^a-z0-9]/g, '');
-
   const allowedAliases = STAFF_ALIASES_MAP[empId] || [];
+
   let totalRevenueFound = 0;
   let matchedAgentKeys = new Set();
 
@@ -287,7 +318,7 @@ function getStaffSalesAmount(empName, empId) {
 }
 
 // -------------------------------------------------------------
-// ATTENDANCE CALENDAR CONTEXT (31-Day & Sundays)
+// ATTENDANCE CALENDAR CONTEXT
 // -------------------------------------------------------------
 function getMonthYearContext(monthStr) {
   let year = new Date().getFullYear();
@@ -377,7 +408,6 @@ async function fetchData(user, pass) {
   try {
     const session = checkSession();
 
-    // Verify login if credentials provided; otherwise verify session validity
     if (cleanPass) {
       const { data: userRow } = await supabaseClient
         .from('users')
@@ -414,7 +444,7 @@ async function fetchData(user, pass) {
       return;
     }
 
-    // 1. Fetch All Sales with deterministic ID ordering
+    // 1. Fetch Sales from Supabase
     let allSalesRecords = [];
     let from = 0;
     const step = 1000;
@@ -440,22 +470,17 @@ async function fetchData(user, pass) {
     }
 
     // 2. Normalizing Sales Records
-    // Unique key combines store + bill_no + sl_no (or unique id) so duplicate imports are dropped,
-    // while multiple items on the same bill (with unique sl_no) are 100% preserved.
-    const seenLineKeys = new Set();
     const cleanSales = [];
+    const seenIds = new Set();
 
-    allSalesRecords.forEach(r => {
+    allSalesRecords.forEach((r, idx) => {
+      if (r.id) {
+        if (seenIds.has(r.id)) return;
+        seenIds.add(r.id);
+      }
+
       const rawStore = (r.store_name || r.store || r['Branch Name'] || 'Main Branch').trim();
       const rawBillNo = getBillNo(r);
-      const rawSlNo = (r.sl_no !== undefined && r.sl_no !== null && r.sl_no !== '') ? r.sl_no.toString().trim() : '';
-
-      const uniqueLineKey = (rawBillNo !== 'N/A' && rawSlNo !== '') 
-        ? `${rawStore}_${rawBillNo}_${rawSlNo}` 
-        : (r.id ? `id_${r.id}` : `${rawStore}_${rawBillNo}_${cleanSales.length}`);
-
-      if (seenLineKeys.has(uniqueLineKey)) return;
-      seenLineKeys.add(uniqueLineKey);
 
       let rawDate = normalizeToDateString(r.bill_date || r['Bill Date'] || r.date);
       if (!rawDate && r.created_at) {
@@ -466,13 +491,13 @@ async function fetchData(user, pass) {
 
       const rawAmt = getRowAmount(r);
       const rawItem = r.item_name || r['Item Name'] || r.item || 'Product';
-
       const rawSM = normalizeStaffName(r.sm_name || r.agent_name || r['SM Name'] || r['Agent']);
       const rawPayMode = r.pay_mode || r['PayMode'] || 'Cash';
       const rawBank = r.bank_account || r['Acc Name'] || 'Cash';
-      const rawSaleType = getSalesType(rawPayMode, r.sale_type || r['Sale type'], rawBillNo, rawBank);
+      const rawSaleType = classifyExactChannel(r);
 
       cleanSales.push({
+        'id': r.id || `idx_${idx}`,
         'Bill No': rawBillNo,
         'Bill Date': rawDate,
         'Store': rawStore,
@@ -489,7 +514,7 @@ async function fetchData(user, pass) {
 
     rawData = cleanSales;
 
-    // 3. Fetch Master Attendance from Supabase with Safe JSON Parsing
+    // 3. Fetch Master Attendance from Supabase
     try {
       const { data: attRows, error: attError } = await supabaseClient
         .from('attendance')
@@ -647,18 +672,13 @@ function detectDateRanges() {
 
   if (allDates.length === 0) return;
 
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const firstDayOfMonth = `${year}-${month}-01`;
-  const latestDate = allDates[allDates.length - 1];
-
-  const defaultFrom = allDates.includes(firstDayOfMonth) ? firstDayOfMonth : (allDates[0] < firstDayOfMonth ? firstDayOfMonth : allDates[0]);
+  const defaultFrom = allDates[0];
+  const defaultTo = allDates[allDates.length - 1];
 
   if (fromEl) fromEl.value = defaultFrom;
-  if (toEl) toEl.value = latestDate;
+  if (toEl) toEl.value = defaultTo;
 
-  highlightActiveQuickDateButton('month');
+  highlightActiveQuickDateButton('all');
 }
 
 function setQuickDateRange(preset) {
@@ -773,7 +793,7 @@ function processData() {
     const cleanPm = payMode.toLowerCase();
     if (cleanPm.includes('cash')) payCash += amount;
     else if (cleanPm.includes('card')) payCard += amount;
-    else if (cleanPm.includes('hand') || cleanPm.includes('wholesale')) payHand += amount;
+    else if (cleanPm.includes('hand') || cleanPm.includes('wholesale') || cleanPm.includes('tbh')) payHand += amount;
     else if (cleanPm.includes('onl')) payUpiOnline += amount;
     else payUpiStore += amount;
 
@@ -797,27 +817,41 @@ function processData() {
     else if (type === 'Wholesale') productsObj[item].wholesaleQty += qty;
     else productsObj[item].offlineQty += qty;
 
-    if (!agentsObj[agent]) agentsObj[agent] = { name: agent, revenue: 0, items: {}, bills: {}, unitCount: 0 };
+    if (!agentsObj[agent]) {
+      agentsObj[agent] = { 
+        name: agent, 
+        revenue: 0, 
+        onlineRevenue: 0, 
+        offlineRevenue: 0, 
+        tbhRevenue: 0, 
+        items: {}, 
+        bills: {}, 
+        unitCount: 0 
+      };
+    }
     agentsObj[agent].revenue += amount;
     agentsObj[agent].unitCount += qty;
+
+    if (type === 'Online') agentsObj[agent].onlineRevenue += amount;
+    else if (type === 'Wholesale') agentsObj[agent].tbhRevenue += amount;
+    else agentsObj[agent].offlineRevenue += amount;
 
     if (!agentsObj[agent].items[item]) agentsObj[agent].items[item] = { qty: 0, revenue: 0 };
     agentsObj[agent].items[item].qty += qty;
     agentsObj[agent].items[item].revenue += amount;
 
     if (!agentsObj[agent].bills[billKey]) {
-      agentsObj[agent].bills[billKey] = { billNo: billNo, date: billDate, amount: 0, bank: bAcc };
+      agentsObj[agent].bills[billKey] = { billNo: billNo, date: billDate, amount: 0, bank: bAcc, channel: type };
     }
     agentsObj[agent].bills[billKey].amount += amount;
   });
 
-  // Display Exact Revenue matching Supabase SQL
   setText('metric-total', `₹${totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
   setText('metric-online', `₹${totalOnline.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
   setText('metric-offline', `₹${totalOffline.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
   setText('metric-wholesale', `₹${totalWholesale.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 
-  // Target Progress Card Updates
+  // Target Progress
   const targetPct = monthlyTarget > 0 ? Math.min(100, Math.round((totalSales / monthlyTarget) * 100)) : 0;
   setText('target-percent-text', `${targetPct}%`);
   setText('target-achieved-text', `₹${Math.round(totalSales).toLocaleString('en-IN')}`);
@@ -825,7 +859,7 @@ function processData() {
   if (targetBar) targetBar.style.width = `${targetPct}%`;
   setText('target-forecast-text', `Target: ₹${monthlyTarget.toLocaleString('en-IN')} (${targetPct}% Achieved)`);
 
-  // Dynamic Store Cards
+  // Store Breakdown Cards
   const storeBreakdownContainer = getEl('store-breakdown-container');
   if (storeBreakdownContainer) {
     const storeNames = Object.keys(storeTotals);
@@ -863,7 +897,7 @@ function processData() {
   const digitalPct = totalSales > 0 ? Math.round((digitalSales / totalSales) * 100) : 0;
   setText('metric-digital-pct', `${digitalPct}% Digital`);
 
-  // Bank Split Summary Container
+  // Bank Split Container
   const accContainer = getEl('account-split-container');
   if (accContainer) {
     accContainer.innerHTML = Object.entries(accountTotals).map(([acc, amt]) => `
@@ -890,7 +924,7 @@ function processData() {
     a.upt = a.billCount > 0 ? (a.unitCount / a.billCount) : 0;
 
     const cleanA = a.name.toLowerCase();
-    const isWholesale = WHOLESALE_AGENT_KEYWORDS.some(kw => cleanA.includes(kw));
+    const isWholesale = WHOLESALE_PARTNER_NAMES.some(wp => cleanA.includes(wp));
     const isManagement = cleanA.includes('admin') || cleanA.includes('kailash');
     
     if (isManagement) a.typeLabel = 'Store Management';
@@ -979,7 +1013,7 @@ function renderAgentsTable() {
             <span class="text-[9px] text-[#DAA520] font-bold flex items-center gap-1 font-traditional">Ledger <i class="fa-solid fa-chevron-right text-[8px]"></i></span>
           </div>
           <div class="text-[9px] text-stone-500 font-bold mt-1 font-sans">
-            Invoices: <strong class="font-numeric">${a.billCount}</strong> • Basket (UPT): <strong class="font-numeric">${a.upt.toFixed(1)}</strong> • Avg Ticket (ATV): <strong class="text-[#5C0612] font-numeric">₹${Math.round(a.billCount > 0 ? (a.revenue / a.billCount) : 0).toLocaleString('en-IN')}</strong>
+            Invoices: <strong class="font-numeric">${a.billCount}</strong> • Takebyhand: <strong class="text-purple-700 font-numeric">₹${Math.round(a.tbhRevenue || 0).toLocaleString('en-IN')}</strong> • Basket (UPT): <strong class="font-numeric">${a.upt.toFixed(1)}</strong> • Avg Ticket (ATV): <strong class="text-[#5C0612] font-numeric">₹${Math.round(a.billCount > 0 ? (a.revenue / a.billCount) : 0).toLocaleString('en-IN')}</strong>
           </div>
         </td>
         <td class="p-3.5 text-right font-black text-[#5C0612] font-numeric">₹${Math.round(a.revenue).toLocaleString('en-IN')}</td>
@@ -1035,7 +1069,7 @@ function renderBankLedgerModule() {
 }
 
 // -------------------------------------------------------------
-// 31-DAY ATTENDANCE & MULTI-MONTH PAYROLL ENGINE
+// ATTENDANCE & PAYROLL ENGINE
 // -------------------------------------------------------------
 function setAttendanceViewMode(mode) {
   attendanceViewMode = mode;
@@ -1152,7 +1186,6 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
     const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
     totalStorePayroll += netSalary;
 
-    // View 1: 31-Day Grid Card
     const card = document.createElement('div');
     card.className = "bg-[#FFFDF9] rounded-3xl border border-[#E5D5C6] warm-shadow p-5 space-y-3 relative overflow-hidden";
     card.innerHTML = `
@@ -1177,7 +1210,6 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
         </div>
       </div>
 
-      <!-- ATTENDANCE STATS -->
       <div class="grid grid-cols-4 gap-1.5 bg-[#FAF6EE] p-2 rounded-2xl border border-[#E5D5C6] text-center font-numeric text-xs">
         <div><span class="block text-[7px] text-emerald-800 uppercase">Payable</span><strong class="text-emerald-900 font-black">${payableDays}/${monthContext.daysInMonth}</strong></div>
         <div><span class="block text-[7px] text-amber-800 uppercase">☀️ Sundays</span><strong class="text-amber-900 font-black">${sundaysWorked}/${monthContext.totalSundaysInMonth}</strong></div>
@@ -1185,7 +1217,6 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
         <div><span class="block text-[7px] text-blue-800 uppercase">Half Days</span><strong class="text-blue-900 font-black">${countHD}</strong></div>
       </div>
 
-      <!-- 31-DAY CALENDAR GRID -->
       <div class="space-y-1">
         <div class="flex justify-between items-center text-[9px] font-traditional text-stone-500">
           <span>31-Day Attendance Grid (Click cell to change status)</span>
@@ -1196,7 +1227,6 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
         </div>
       </div>
 
-      <!-- SALARY EDITABLE INPUTS -->
       <div class="grid grid-cols-3 gap-2 bg-[#FAF6EE] p-2.5 rounded-2xl border border-[#E5D5C6] text-xs font-numeric">
         <div>
           <label class="block text-[8px] font-bold text-stone-500 uppercase mb-0.5">Base Salary (₹)</label>
@@ -1215,7 +1245,6 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
     `;
     container.appendChild(card);
 
-    // View 2: Summary Row
     summaryRowsHTML.push(`
       <tr class="hover:bg-amber-50/20 transition-colors">
         <td class="p-3">
@@ -1285,7 +1314,7 @@ function updateStaffPayroll(index, field, val) {
 }
 
 // -------------------------------------------------------------
-// SAVE ATTENDANCE DIRECTLY TO SUPABASE (PERMANENT ROW PERSISTENCE)
+// SAVE ATTENDANCE TO SUPABASE
 // -------------------------------------------------------------
 async function saveAttendanceToSupabase() {
   if (!isAdmin) {
@@ -1321,7 +1350,6 @@ async function saveAttendanceToSupabase() {
       days_data: daysObj
     };
 
-    // If record already exists in Supabase with a UUID, pass it so it directly updates the row!
     if (emp.id) {
       payloadItem.id = emp.id;
     }
@@ -1362,7 +1390,6 @@ function shareStaffPayslipWhatsApp(index) {
   const emp = staffList[index] || rawAttendanceData[index];
   if (!emp) return;
 
-  const monthContext = getMonthYearContext(selectedAttendanceMonth);
   const name = emp['Employee Name'] || 'Staff';
   const empId = emp['Emp ID'] || `KS-${103 + index}`;
   const fullSalary = parseFloat(emp['Monthly Salary']) || 10000;
@@ -1396,7 +1423,6 @@ function exportSingleStaffPayslipPDF(index) {
   const emp = staffList[index] || rawAttendanceData[index];
   if (!emp || typeof html2pdf === 'undefined') return;
 
-  const monthContext = getMonthYearContext(selectedAttendanceMonth);
   const name = emp['Employee Name'] || 'Staff Member';
   const empId = emp['Emp ID'] || `KS-${103 + index}`;
   const role = emp['Designation'] || 'Sales Executive';
@@ -1502,12 +1528,15 @@ function populateAgentAnalysisScreenDOM(agentName) {
   setText('agent-analysis-title', `${agentName} Ledger`);
   setText('agent-analysis-subtitle', `Period: ${fromVal || 'Start'} to ${toVal || 'End'}`);
 
+  const targetAgentNorm = normalizeStaffName(agentName).toLowerCase();
+
   const agentRows = rawData.filter(row => {
     const rDate = normalizeToDateString(row['Bill Date']);
     if (fromVal && rDate < fromVal) return false;
     if (toVal && rDate > toVal) return false;
     if (selectedStore !== 'All' && (row['Store'] || 'Main Branch').toLowerCase() !== selectedStore.toLowerCase()) return false;
-    return (row['SM Name'] || '').toLowerCase() === agentName.toLowerCase();
+    const rowSmNorm = normalizeStaffName(row['SM Name']).toLowerCase();
+    return rowSmNorm === targetAgentNorm;
   });
 
   let totalRevenue = 0, onlineSales = 0, offlineSales = 0, tbhSales = 0;
@@ -1583,7 +1612,7 @@ function populateAgentAnalysisScreenDOM(agentName) {
 }
 
 // -------------------------------------------------------------
-// ONLINE / OFFLINE / WHOLESALE CHANNEL SCREEN
+// CHANNEL SALES SCREEN (Takebyhand / Online / Offline)
 // -------------------------------------------------------------
 function selectChannel(channel) {
   if (channel === 'All') {
@@ -1597,7 +1626,8 @@ function populateChannelScreenDOM(channel) {
   const fromVal = getEl('from-date') ? getEl('from-date').value : '';
   const toVal = getEl('to-date') ? getEl('to-date').value : '';
 
-  setText('channel-view-title', `${channel} Channel Sales`);
+  const displayTitle = channel === 'Wholesale' ? 'Take By Hand / Wholesale' : `${channel} Channel`;
+  setText('channel-view-title', `${displayTitle} Sales`);
   setText('channel-view-subtitle', `Period: ${fromVal || 'Start'} to ${toVal || 'End'}`);
 
   const filtered = rawData.filter(row => {
@@ -1629,7 +1659,7 @@ function populateChannelScreenDOM(channel) {
   const agentTable = getEl('channel-agents-table');
   if (agentTable) {
     const sortedA = Object.entries(agentsObj).sort((a, b) => b[1] - a[1]);
-    agentTable.innerHTML = sortedA.length === 0 ? `<tr><td colspan="2" class="p-4 text-center text-stone-400">No staff sales for ${channel}</td></tr>` : sortedA.map(([aName, amt]) => `
+    agentTable.innerHTML = sortedA.length === 0 ? `<tr><td colspan="2" class="p-4 text-center text-stone-400">No staff sales for ${displayTitle}</td></tr>` : sortedA.map(([aName, amt]) => `
       <tr class="hover:bg-amber-50/20">
         <td class="p-3 font-bold text-stone-700 font-sans">${aName}</td>
         <td class="p-3 text-right font-black text-[#5C0612] font-numeric">₹${Math.round(amt).toLocaleString('en-IN')}</td>
@@ -1640,7 +1670,7 @@ function populateChannelScreenDOM(channel) {
   const prodTable = getEl('channel-products-table');
   if (prodTable) {
     const sortedP = Object.entries(productsObj).sort((a, b) => b[1].revenue - a[1].revenue);
-    prodTable.innerHTML = sortedP.length === 0 ? `<tr><td colspan="3" class="p-4 text-center text-stone-400">No products sold via ${channel}</td></tr>` : sortedP.map(([pName, pObj]) => `
+    prodTable.innerHTML = sortedP.length === 0 ? `<tr><td colspan="3" class="p-4 text-center text-stone-400">No products sold via ${displayTitle}</td></tr>` : sortedP.map(([pName, pObj]) => `
       <tr class="hover:bg-amber-50/20">
         <td class="p-3 font-bold text-stone-700 font-sans">${pName}</td>
         <td class="p-3 text-center font-bold text-stone-600 font-numeric">${pObj.qty}</td>

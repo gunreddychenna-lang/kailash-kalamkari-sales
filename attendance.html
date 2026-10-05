@@ -1124,32 +1124,66 @@
       hideEl('new-month-modal');
     }
 
-    function createNewMonthSheet() {
-      const monthName = (document.getElementById('modal-month-name').value || '').trim();
-      if (!monthName) return alert("Please enter a Month & Year name.");
+   async function createNewMonthSheet() {
+  const monthName = (document.getElementById('modal-month-name').value || '').trim();
+  if (!monthName) return alert("Please enter a Month & Year name (e.g. October 2026).");
 
-      selectedAttendanceMonth = monthName;
+  selectedAttendanceMonth = monthName;
 
-      const activeStaff = DEFAULT_STAFF_LIST.filter(s => s.status !== 'Terminated').map(m => ({
-        'Emp ID': m.emp_id,
-        'Employee Name': m.name,
-        'Designation': m.role,
-        'Month_Sheet': selectedAttendanceMonth,
-        'Phone Number': m.phone,
-        'Monthly Salary': m.salary,
-        'Commission Pct': m.comm,
+  // 1. Prepare active staff rows for the new month
+  const activeStaff = DEFAULT_STAFF_LIST
+    .filter(s => s.status !== 'Terminated')
+    .map(m => ({
+      emp_id: m.emp_id,
+      employee_name: m.name,
+      designation: m.role,
+      month_sheet: selectedAttendanceMonth,
+      phone_number: m.phone,
+      monthly_salary: m.salary,
+      commission_pct: m.comm,
+      advance_taken: 0,
+      status: 'Active',
+      joining_date: null,
+      relieving_date: null,
+      termination_reason: '',
+      days_data: {}
+    }));
+
+  try {
+    // 2. Persist directly to Supabase immediately
+    const { data, error } = await supabaseClient
+      .from('attendance')
+      .upsert(activeStaff, { onConflict: 'emp_id,month_sheet' })
+      .select();
+
+    if (error) throw error;
+
+    // 3. Update local state
+    activeStaff.forEach(emp => {
+      rawAttendanceData.push({
+        'Emp ID': emp.emp_id,
+        'Employee Name': emp.employee_name,
+        'Designation': emp.designation,
+        'Month_Sheet': emp.month_sheet,
+        'Phone Number': emp.phone_number,
+        'Monthly Salary': emp.monthly_salary,
+        'Commission Pct': emp.commission_pct,
         'Advance Taken': 0,
         'status': 'Active',
         'joining_date': '',
         'relieving_date': ''
-      }));
+      });
+    });
 
-      rawAttendanceData.push(...activeStaff);
-      closeNewMonthModal();
-      populateMonthDropdown();
-      renderAttendanceModule(currentTotalStoreSales);
-      alert(`✅ Created fresh sheet for "${monthName}". Click "💾 Save to Supabase" to persist.`);
-    }
+    closeNewMonthModal();
+    populateMonthDropdown();
+    renderAttendanceModule(currentTotalStoreSales);
+    alert(`✅ New attendance sheet for "${monthName}" has been created and saved directly in Supabase!`);
+  } catch (err) {
+    console.error("Failed to create new month sheet in Supabase:", err);
+    alert("❌ Error creating month in Supabase: " + err.message);
+  }
+}
   </script>
 </body>
 </html>
