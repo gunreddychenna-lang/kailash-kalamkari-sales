@@ -38,7 +38,7 @@
         </a>
         <div>
           <h1 class="text-base sm:text-lg font-bold tracking-wide font-traditional text-[#EFE5C9]">Enterprise Bank Settlement Portal</h1>
-          <p class="text-[9px] text-stone-300 font-medium tracking-wider uppercase">Online • Offline • Take by Hand Reconciliation</p>
+          <p class="text-[9px] text-stone-300 font-medium tracking-wider uppercase">Live Reconciliations • Offline Showroom • Online • Take by Hand</p>
         </div>
       </div>
       
@@ -54,13 +54,13 @@
         </a>
 
         <!-- ADD NEW BANK ACCOUNT BUTTON -->
-        <button onclick="openNewAccountModal()" class="bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#B38F4D] active:scale-95">
+        <button onclick="openNewAccountModal()" class="admin-only bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#B38F4D] active:scale-95">
           <i class="fa-solid fa-building-columns text-xs"></i>
           <span>+ Add Bank</span>
         </button>
 
         <!-- BULK SAVE BUTTON -->
-        <button id="btn-bulk-save" onclick="bulkSaveAllSettlements()" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#DAA520] active:scale-95 duration-100" title="Save All Modified Invoices to Supabase">
+        <button id="btn-bulk-save" onclick="bulkSaveAllSettlements()" class="admin-only bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#DAA520] active:scale-95 duration-100" title="Save All Modified Invoices to Supabase">
           <i class="fa-solid fa-cloud-arrow-up text-xs text-[#DAA520]"></i>
           <span id="bulk-save-text">💾 Save All to Server</span>
         </button>
@@ -130,7 +130,7 @@
     <div class="bg-[#FFFDF9] p-3 rounded-2xl border border-[#E5D5C6] warm-shadow flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
       <div class="flex items-center gap-2">
         <span class="text-xs font-bold font-traditional text-stone-700 flex items-center gap-1.5 shrink-0">
-          <i class="fa-solid fa-filter text-[#5C0612]"></i> Sales Channel Filter:
+          <i class="fa-solid fa-filter text-[#5C0612]"></i> Channel Filter:
         </span>
         <div class="flex flex-wrap gap-1.5" id="channel-quick-filter-container">
           <button onclick="setChannelFilter('All')" id="btn-channel-all" class="channel-btn px-3 py-1 text-xs font-bold rounded-xl bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] transition-all flex items-center gap-1 shadow-xs">
@@ -150,7 +150,7 @@
             <span id="pill-count-offline" class="bg-orange-100 text-[9px] px-1.5 py-0.2 rounded-full font-numeric">0</span>
           </button>
 
-          <button onclick="setChannelFilter('Wholesale')" id="btn-channel-wholesale" class="channel-btn px-3 py-1 text-xs font-bold rounded-xl bg-[#FAF6EE] text-purple-900 border border-purple-300 hover:bg-purple-50 transition-all flex items-center gap-1">
+          <button onclick="setChannelFilter('Take by Hand')" id="btn-channel-wholesale" class="channel-btn px-3 py-1 text-xs font-bold rounded-xl bg-[#FAF6EE] text-purple-900 border border-purple-300 hover:bg-purple-50 transition-all flex items-center gap-1">
             <span class="w-2 h-2 rounded-full bg-purple-500"></span>
             <span>Take by Hand (WS)</span>
             <span id="pill-count-wholesale" class="bg-purple-100 text-[9px] px-1.5 py-0.2 rounded-full font-numeric">0</span>
@@ -159,7 +159,7 @@
       </div>
 
       <div class="flex items-center gap-2">
-        <span class="text-[10px] font-bold font-traditional text-stone-500 uppercase">Active Banks:</span>
+        <span class="text-[10px] font-bold font-traditional text-stone-500 uppercase">Active Bank Accounts:</span>
         <div id="active-banks-pill-container" class="flex flex-wrap gap-1"></div>
       </div>
     </div>
@@ -168,7 +168,7 @@
     <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex flex-col xl:flex-row justify-between items-center gap-3">
       <div class="relative flex-1 w-full max-w-sm">
         <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-stone-400 text-xs"></i>
-        <input type="text" id="table-search" placeholder="Search Bill No, Staff, Channel, Bank..." oninput="renderBillsTable()" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl py-2.5 pl-10 pr-4 text-stone-800 font-sans focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
+        <input type="text" id="table-search" placeholder="Search Bill No, Staff, Branch, Bank..." oninput="renderBillsTable()" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl py-2.5 pl-10 pr-4 text-stone-800 font-sans focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
       </div>
 
       <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto">
@@ -186,13 +186,6 @@
 
         <select id="filter-store" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-700 focus:outline-none font-sans">
           <option value="all">All Branches</option>
-        </select>
-
-        <select id="filter-channel-select" onchange="setChannelFilter(this.value)" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-700 focus:outline-none font-sans">
-          <option value="All">All Channels</option>
-          <option value="Online">🌐 Online</option>
-          <option value="Offline">🏬 Offline Showroom</option>
-          <option value="Wholesale">🤝 Take by Hand (WS)</option>
         </select>
 
         <select id="filter-status" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-[#5C0612] focus:outline-none font-traditional">
@@ -234,7 +227,7 @@
           <tbody id="bills-table-body" class="divide-y divide-[#E5D5C6]/40 font-numeric">
             <tr>
               <td colspan="7" class="p-8 text-center text-stone-400 font-traditional">
-                <i class="fa-solid fa-spinner animate-spin mr-2"></i> Loading sales and server-synced bank records...
+                <i class="fa-solid fa-spinner animate-spin mr-2"></i> Loading bills from bills_master view...
               </td>
             </tr>
           </tbody>
@@ -249,7 +242,7 @@
       <div class="zari-border absolute top-0 left-0 right-0"></div>
       <div class="p-4 bg-[#5C0612] text-white flex justify-between items-center border-b border-[#DAA520]">
         <h3 class="font-bold text-xs uppercase tracking-wider font-traditional text-[#EFE5C9] flex items-center gap-1.5">
-          <i class="fa-solid fa-building-columns text-[#DAA520]"></i> Add Bank to Server
+          <i class="fa-solid fa-building-columns text-[#DAA520]"></i> Add Bank Account
         </h3>
         <button onclick="closeNewAccountModal()" class="text-[#EFE5C9] font-bold hover:opacity-80">
           <i class="fa-solid fa-circle-xmark text-base"></i>
@@ -278,7 +271,7 @@
   </div>
 
   <script>
-    // 1. SUPABASE CREDENTIALS CONFIGURATION
+    // 1. SUPABASE CREDENTIALS
     const SUPABASE_URL = "https://dqvqqrbvklpiibzqivbp.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdnFxcmJ2a2xwaWlienFpdmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MTk2OTUsImV4cCI6MjEwNjE5NTY5NX0.ljhpD3QBpXvi5DjrQ2wE6R4NdhOicu_3ODH7pX79K58";
 
@@ -287,10 +280,16 @@
       supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
 
-    const WHOLESALE_PARTNER_NAMES = [
-      'village kalamkari', 'ayyappa kalamkari', 'sujatha', 'chengal rayudu', 
-      'prasanna', 'sravan', 'ravi', 'bala', 'thirumalesh', 'madhuri', 'leela', 'shireesha', 'swathi', 'preethi'
-    ];
+    // Auth & Session Check
+    const activeUser = localStorage.getItem('kk_user');
+    const userRole = localStorage.getItem('kk_role') || 'Viewer';
+    const loginTimestamp = localStorage.getItem('kk_login_time');
+    const isAdmin = (userRole === 'Admin');
+
+    if (!activeUser || !loginTimestamp || (Date.now() - parseInt(loginTimestamp, 10) > 6 * 60 * 60 * 1000)) {
+      alert("Session expired. Please log in through the Dashboard.");
+      window.location.href = 'index.html';
+    }
 
     let billsList = [];
     let accountsMaster = ['Cash', '42441-TJ', 'KC'];
@@ -300,17 +299,20 @@
     let selectedChannelFilter = 'All';
 
     window.addEventListener('DOMContentLoaded', () => {
+      if (!isAdmin) {
+        document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+      }
       fetchSupabaseData();
     });
 
     function syncDatalistAndPills() {
       const dl = document.getElementById('accounts-master-datalist');
-      if (dl) dl.innerHTML = accountsMaster.map(acc => `<option value="${acc}"></option>`).join('');
+      if (dl) dl.innerHTML = accountsMaster.map(acc => `<option value="${acc}">${acc}</option>`).join('');
 
       const pillContainer = document.getElementById('active-banks-pill-container');
       if (pillContainer) {
         pillContainer.innerHTML = accountsMaster.map(acc => `
-          <span class="text-[9px] font-bold px-2 py-0.5 rounded-md bg-[#FAF6EE] text-[#5C0612] border border-[#E5D5C6] font-numeric shadow-2xs">
+          <span class="text-[9px] font-bold px-2 py-0.5 rounded-md bg-[#FAF6EE] text-[#5C0612] border border-[#E5D5C6] font-numeric">
             ${acc}
           </span>
         `).join('');
@@ -337,112 +339,29 @@
 
       const isoMatch = strVal.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
       if (isoMatch) {
-        const y = parseInt(isoMatch[1], 10);
-        return `${y}-${String(isoMatch[2]).padStart(2, '0')}-${String(isoMatch[3]).padStart(2, '0')}`;
+        return `${isoMatch[1]}-${String(isoMatch[2]).padStart(2, '0')}-${String(isoMatch[3]).padStart(2, '0')}`;
       }
-
-      const dMmmYyyyMatch = strVal.match(/^(\d{1,2})[-/ ]([A-Za-z]{3,9})[-/ ](\d{2,4})/);
-      if (dMmmYyyyMatch) {
-        const day = String(dMmmYyyyMatch[1]).padStart(2, '0');
-        const monthStr = dMmmYyyyMatch[2].substring(0, 3).toLowerCase();
-        let year = parseInt(dMmmYyyyMatch[3], 10);
-        if (year < 100) year = 2000 + year;
-        const months = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
-        if (months[monthStr]) return `${year}-${months[monthStr]}-${day}`;
-      }
-
-      const dmyMatch = strVal.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
-      if (dmyMatch) {
-        let year = parseInt(dmyMatch[3], 10);
-        if (year < 100) year = 2000 + year;
-        return `${year}-${String(dmyMatch[2]).padStart(2, '0')}-${String(dmyMatch[1]).padStart(2, '0')}`;
-      }
-
       const parsed = new Date(strVal);
       if (!isNaN(parsed.getTime())) return formatToYYYYMMDD(parsed);
       return '';
     }
 
-    function getCleanBillNo(row) {
-      if (!row) return '';
-      return (row.bill_no || row['Bill No'] || row['Bil No'] || row['Invoice No'] || '').toString().trim();
-    }
-
-    function getRowAmount(row) {
-      if (!row) return 0;
-      const directKeys = ['amount', 'billAmoun', 'billAmount', 'Bill Amount', 'Final Amount', 'Total Value'];
-      for (let k of directKeys) {
-        if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
-          const parsed = parseFloat(row[k].toString().replace(/[^0-9.-]+/g, ''));
-          if (!isNaN(parsed) && parsed !== 0) return parsed;
-        }
-      }
-      const rateVal = parseFloat((row['Rate'] || row['rate'] || 0).toString().replace(/[^0-9.-]+/g, '')) || 0;
-      const qtyVal = parseInt(row['Qty'] || row['qty'] || 1, 10) || 1;
-      if (rateVal > 0) return rateVal * qtyVal;
-      return 0;
-    }
-
     // -------------------------------------------------------------
-    // STRICT ZERO-FALSE-POSITIVE CHANNEL CLASSIFIER
-    // -------------------------------------------------------------
-    function classifyRowChannel(r) {
-      const store = (r.store_name || r.store || r.branch || r['Branch Name'] || r['Store'] || '').toString().toLowerCase().trim();
-      const saleType = (r.sale_type || r.saletype || r['Sale type'] || r.type || r.channel || '').toString().toLowerCase().trim();
-      const payMode = (r.pay_mode || r.payment_mode || r['PayMode'] || '').toString().toLowerCase().trim();
-      const bankAcc = (r.bank_account || r.bank || r['Acc Name'] || r['Acc No'] || '').toString().toLowerCase().trim();
-      const billNo = (r.bill_no || r['Bill No'] || r['Invoice No'] || '').toString().toUpperCase().trim();
-      const smName = (r.sm_name || r.agent_name || r['SM Name'] || r['Agent'] || '').toString().toLowerCase().trim();
-
-      const isTBHStore = (store.includes('takebyhand') || store.includes('take by hand') || store.includes('tbh') || store.includes('wholesale'));
-      const isTBHSaleType = (saleType.includes('takebyhand') || saleType.includes('take by hand') || saleType.includes('tbh') || saleType.includes('wholesale'));
-      const isTBHPayMode = (payMode === 'takebyhand' || payMode === 'take by hand' || payMode === 'tbh') && !payMode.includes('cash in hand');
-      const isTBHBank = (bankAcc === 'tbh' || bankAcc === 'takebyhand' || bankAcc.includes('wholesale'));
-      const isTBHBill = (billNo.startsWith('TBH') || billNo.startsWith('WS'));
-      const isWholesalePartner = WHOLESALE_PARTNER_NAMES.some(wp => smName.includes(wp));
-
-      if (isTBHStore || isTBHSaleType || isTBHPayMode || isTBHBank || isTBHBill || isWholesalePartner) {
-        return 'Wholesale'; // Take by Hand
-      }
-
-      const isOnlineStore = store === 'online' || store.includes('website') || store.includes('instagram');
-      const isOnlineSaleType = saleType === 'online' || saleType === 'onl' || saleType === 'website';
-      const isOnlinePayMode = (payMode === 'online' || payMode === 'upi onl' || payMode === 'upi online' || payMode === 'razorpay') && !payMode.includes('store');
-      const isOnlineBank = bankAcc.includes('razorpay') || bankAcc.includes('online');
-
-      if (isOnlineStore || isOnlineSaleType || isOnlinePayMode || isOnlineBank) {
-        return 'Online';
-      }
-
-      return 'Offline';
-    }
-
-    // -------------------------------------------------------------
-    // FETCH LIVE MASTER DATA FROM SUPABASE
+    // FETCH BILLS DIRECTLY FROM bills_master VIEW
     // -------------------------------------------------------------
     async function fetchSupabaseData() {
       const icon = document.getElementById('refresh-icon');
       if (icon) icon.classList.add('animate-spin');
 
-      if (!supabaseClient) {
-        if (typeof supabase !== 'undefined' && supabase.createClient) {
-          supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        } else {
-          alert("Supabase SDK is not loaded.");
-          if (icon) icon.classList.remove('animate-spin');
-          return;
-        }
-      }
-
       try {
-        // 1. Fetch Server-Saved Bank Accounts from Supabase
+        // 1. Fetch Bank Accounts
         try {
-          const { data: bankRows, error: bErr } = await supabaseClient
+          const { data: bankRows } = await supabaseClient
             .from('bank_accounts')
             .select('account_name')
             .order('account_name', { ascending: true });
 
-          if (!bErr && bankRows && bankRows.length > 0) {
+          if (bankRows && bankRows.length > 0) {
             bankRows.forEach(b => {
               if (b.account_name && !accountsMaster.includes(b.account_name)) {
                 accountsMaster.push(b.account_name);
@@ -450,18 +369,14 @@
             });
           }
         } catch(e) {
-          console.warn("Could not load bank_accounts table:", e);
+          console.warn("Could not load bank_accounts:", e);
         }
         syncDatalistAndPills();
 
-        // 2. Fetch Existing Settlements from receivables table
+        // 2. Fetch Existing Settlements from receivables
         const existingSettlements = {};
         try {
-          let allRecs = [];
-          let rFrom = 0;
-          const rStep = 1000;
-          let rHasMore = true;
-
+          let rFrom = 0, rStep = 1000, rHasMore = true;
           while (rHasMore) {
             const { data: recRows, error: rErr } = await supabaseClient
               .from('receivables')
@@ -470,98 +385,79 @@
               .range(rFrom, rFrom + rStep - 1);
 
             if (rErr) throw rErr;
-
             if (recRows && recRows.length > 0) {
-              allRecs.push(...recRows);
+              recRows.forEach(r => {
+                const bNo = (r.bill_no || '').trim().toUpperCase();
+                if (!bNo) return;
+                const amt = parseFloat(r.amount) || 0;
+                const acc = (r.bank_account || '').trim();
+                if (acc && acc.toLowerCase() !== 'not defined') {
+                  if (!existingSettlements[bNo]) existingSettlements[bNo] = [];
+                  existingSettlements[bNo].push({ account: acc, amount: amt });
+                  if (!accountsMaster.includes(acc)) accountsMaster.push(acc);
+                }
+              });
               if (recRows.length < rStep) rHasMore = false;
               else rFrom += rStep;
             } else {
               rHasMore = false;
             }
           }
-
-          allRecs.forEach(r => {
-            const bNo = (r.bill_no || '').trim().toUpperCase();
-            if (!bNo) return;
-            const amt = parseFloat(r.amount) || 0;
-            const acc = (r.bank_account || r.account_name || '').trim();
-            if (acc && acc.toLowerCase() !== 'not defined') {
-              if (!existingSettlements[bNo]) existingSettlements[bNo] = [];
-              existingSettlements[bNo].push({ account: acc, amount: amt });
-              if (!accountsMaster.includes(acc)) accountsMaster.push(acc);
-            }
-          });
         } catch(e) {
           console.warn("Could not load receivables:", e);
         }
         syncDatalistAndPills();
 
-        // 3. Fetch All Sales Rows from Supabase
-        let allSales = [];
-        let from = 0;
-        const step = 1000;
-        let hasMore = true;
+        // 3. Fetch Invoices from bills_master
+        let allMasterInvoices = [];
+        let from = 0, step = 1000, hasMore = true;
 
         while (hasMore) {
-          const { data, error } = await supabaseClient
-            .from('sales')
+          const { data: rows, error } = await supabaseClient
+            .from('bills_master')
             .select('*')
-            .order('id', { ascending: true })
+            .order('bill_date', { ascending: true })
+            .order('bill_no', { ascending: true })
             .range(from, from + step - 1);
 
           if (error) throw error;
-          if (data && data.length > 0) {
-            allSales.push(...data);
-            if (data.length < step) hasMore = false;
+          if (rows && rows.length > 0) {
+            allMasterInvoices.push(...rows);
+            if (rows.length < step) hasMore = false;
             else from += step;
           } else {
             hasMore = false;
           }
         }
 
-        // 4. Group line items by Bill No with Channel Detection
-        const billsObj = {};
         const storeSet = new Set();
         const allDates = [];
 
-        allSales.forEach(r => {
-          const bNo = getCleanBillNo(r);
-          if (!bNo || bNo === 'N/A') return;
+        billsList = allMasterInvoices.map(b => {
+          const bNo = (b.bill_no || '').toString().trim();
           const cleanKey = bNo.toUpperCase();
-
-          let dateISO = normalizeToDateString(r.bill_date || r['Bill Date'] || r.date);
-          if (!dateISO && r.created_at) {
-            const splitDate = (r.created_at || '').toString().split('T')[0].split(' ')[0];
-            dateISO = normalizeToDateString(splitDate);
-          }
-          if (!dateISO) dateISO = "2026-09-01";
-
-          const store = (r.store_name || r.store || r['Branch Name'] || 'Main Branch').trim();
-          const agent = (r.sm_name || r['SM Name'] || r['Agent'] || r.agent_name || 'No Agent').trim();
-          const amt = getRowAmount(r);
-          const channel = classifyRowChannel(r);
+          const dateISO = normalizeToDateString(b.bill_date) || "2026-09-01";
+          const store = (b.branch || 'Main Branch').trim();
+          const agent = (b.sm_name || 'No Agent').trim();
+          const amt = parseFloat(b.bill_amount) || 0;
+          const channel = b.channel || 'Offline';
 
           storeSet.add(store);
           allDates.push(dateISO);
 
-          if (!billsObj[cleanKey]) {
-            billsObj[cleanKey] = {
-              billNo: bNo,
-              dateDisplay: dateISO,
-              dateISO: dateISO,
-              store: store,
-              agent: agent,
-              channel: channel,
-              totalAmount: 0,
-              settlements: existingSettlements[cleanKey] || []
-            };
-          }
-          billsObj[cleanKey].totalAmount += amt;
+          return {
+            billNo: bNo,
+            dateDisplay: dateISO,
+            dateISO: dateISO,
+            store: store,
+            agent: agent,
+            channel: channel,
+            totalAmount: amt,
+            settlements: existingSettlements[cleanKey] || []
+          };
         });
 
-        billsList = Object.values(billsObj);
-
-        // Date Inputs
+        // Initialize Date Filters to all-time by default
         if (allDates.length > 0) {
           allDates.sort();
           const fromInput = document.getElementById('filter-from-date');
@@ -570,19 +466,19 @@
           if (toInput && !toInput.value) toInput.value = allDates[allDates.length - 1];
         }
 
-        // Store Dropdown
+        // Populate Store Filter
         const storeSelect = document.getElementById('filter-store');
         if (storeSelect) {
           storeSelect.innerHTML = `<option value="all">All Branches</option>` + Array.from(storeSet).map(s => `<option value="${s}">${s}</option>`).join('');
         }
 
-        // State Init
+        // Initialize state
         billsList.forEach(b => {
           if (!settlementRowsState[b.billNo]) {
             if (b.settlements && b.settlements.length > 0) {
               settlementRowsState[b.billNo] = JSON.parse(JSON.stringify(b.settlements));
             } else {
-              settlementRowsState[b.billNo] = [{ account: '', amount: Math.round(b.totalAmount) }];
+              settlementRowsState[b.billNo] = [{ account: accountsMaster[0] || 'Cash', amount: Math.round(b.totalAmount) }];
             }
           }
         });
@@ -591,29 +487,21 @@
       } catch (err) {
         console.error("Fetch error:", err);
         document.getElementById('bills-table-body').innerHTML = `
-          <tr><td colspan="7" class="p-6 text-center text-rose-700 font-bold">Failed to load Supabase records: ${err.message || 'Check network connection'}</td></tr>
+          <tr><td colspan="7" class="p-6 text-center text-rose-700 font-bold">Failed to load bills_master: ${err.message}</td></tr>
         `;
       } finally {
         if (icon) icon.classList.remove('animate-spin');
       }
     }
 
-    // -------------------------------------------------------------
-    // CHANNEL FILTER HANDLER
-    // -------------------------------------------------------------
     function setChannelFilter(channel) {
       selectedChannelFilter = channel;
 
-      // Update dropdown
-      const chSelect = document.getElementById('filter-channel-select');
-      if (chSelect) chSelect.value = channel;
-
-      // Update quick pill styling
       const buttons = {
         'All': document.getElementById('btn-channel-all'),
         'Online': document.getElementById('btn-channel-online'),
         'Offline': document.getElementById('btn-channel-offline'),
-        'Wholesale': document.getElementById('btn-channel-wholesale')
+        'Take by Hand': document.getElementById('btn-channel-wholesale')
       };
 
       Object.entries(buttons).forEach(([key, btn]) => {
@@ -624,7 +512,7 @@
           let baseBorder = 'border-stone-300 text-stone-700';
           if (key === 'Online') baseBorder = 'border-blue-300 text-blue-900 bg-[#FAF6EE]';
           else if (key === 'Offline') baseBorder = 'border-orange-300 text-orange-900 bg-[#FAF6EE]';
-          else if (key === 'Wholesale') baseBorder = 'border-purple-300 text-purple-900 bg-[#FAF6EE]';
+          else if (key === 'Take by Hand') baseBorder = 'border-purple-300 text-purple-900 bg-[#FAF6EE]';
           btn.className = `channel-btn px-3 py-1 text-xs font-bold rounded-xl border ${baseBorder} hover:opacity-80 transition-all flex items-center gap-1`;
         }
       });
@@ -641,9 +529,83 @@
       renderBillsTable();
     }
 
-    // -------------------------------------------------------------
-    // RENDER BILLS TABLE & UPDATE STATS
-    // -------------------------------------------------------------
+    function updateTopStatsSummary() {
+      let totalBillsCount = 0, totalBillsValue = 0, settledTotalVal = 0;
+      let onlineAmount = 0, onlineBills = 0;
+      let offlineAmount = 0, offlineBills = 0;
+      let tbhAmount = 0, tbhBills = 0;
+
+      const fromDate = document.getElementById('filter-from-date')?.value || '';
+      const toDate = document.getElementById('filter-to-date')?.value || '';
+      const storeFilter = document.getElementById('filter-store')?.value || 'all';
+
+      billsList.forEach(b => {
+        if (fromDate && b.dateISO && b.dateISO < fromDate) return;
+        if (toDate && b.dateISO && b.dateISO > toDate) return;
+        if (storeFilter !== 'all' && b.store !== storeFilter) return;
+
+        totalBillsCount++;
+        totalBillsValue += b.totalAmount;
+
+        if (b.channel === 'Online') {
+          onlineAmount += b.totalAmount;
+          onlineBills++;
+        } else if (b.channel === 'Take by Hand') {
+          tbhAmount += b.totalAmount;
+          tbhBills++;
+        } else {
+          offlineAmount += b.totalAmount;
+          offlineBills++;
+        }
+
+        const splits = settlementRowsState[b.billNo] || b.settlements || [];
+        splits.forEach(s => {
+          if (s.account && parseFloat(s.amount) > 0) {
+            settledTotalVal += (parseFloat(s.amount) || 0);
+          }
+        });
+      });
+
+      document.getElementById('stat-online-amount').textContent = `₹${Math.round(onlineAmount).toLocaleString('en-IN')}`;
+      document.getElementById('stat-online-bills').textContent = `${onlineBills} Invoices`;
+      document.getElementById('stat-offline-amount').textContent = `₹${Math.round(offlineAmount).toLocaleString('en-IN')}`;
+      document.getElementById('stat-offline-bills').textContent = `${offlineBills} Invoices`;
+      document.getElementById('stat-tbh-amount').textContent = `₹${Math.round(tbhAmount).toLocaleString('en-IN')}`;
+      document.getElementById('stat-tbh-bills').textContent = `${tbhBills} Invoices`;
+      document.getElementById('stat-total-bills').textContent = `${totalBillsCount} Bills`;
+      document.getElementById('stat-total-amount').textContent = `Total: ₹${Math.round(totalBillsValue).toLocaleString('en-IN')}`;
+      document.getElementById('stat-settled-amount').textContent = `₹${Math.round(settledTotalVal).toLocaleString('en-IN')}`;
+      document.getElementById('stat-pending-amount').textContent = `₹${Math.round(Math.max(0, totalBillsValue - settledTotalVal)).toLocaleString('en-IN')}`;
+    }
+
+    // Inline badge update without table DOM recreation (zero focus loss)
+    function updateSplitBadgeInline(billNo) {
+      const bill = billsList.find(b => b.billNo === billNo);
+      if (!bill) return;
+
+      const rows = settlementRowsState[billNo] || [];
+      let allocatedSum = 0;
+      rows.forEach(r => allocatedSum += (parseFloat(r.amount) || 0));
+      const rem = Math.round((bill.totalAmount - allocatedSum) * 100) / 100;
+
+      const safeId = billNo.replace(/[^a-zA-Z0-9]/g, '_');
+      const badge = document.getElementById(`rem-badge-${safeId}`);
+      if (badge) {
+        if (Math.abs(rem) < 0.01) {
+          badge.className = "font-numeric font-bold text-emerald-700";
+          badge.textContent = "Balanced (100%) ✅";
+        } else if (rem > 0) {
+          badge.className = "font-numeric font-bold text-amber-800";
+          badge.textContent = `Remaining: ₹${Math.round(rem).toLocaleString('en-IN')}`;
+        } else {
+          badge.className = "font-numeric font-bold text-rose-700";
+          badge.textContent = `Excess: +₹${Math.round(-rem).toLocaleString('en-IN')}`;
+        }
+      }
+
+      updateTopStatsSummary();
+    }
+
     function renderBillsTable() {
       const searchVal = (document.getElementById('table-search').value || '').toLowerCase().trim();
       const fromDate = document.getElementById('filter-from-date')?.value || '';
@@ -652,60 +614,23 @@
       const storeFilter = document.getElementById('filter-store').value;
       const tbody = document.getElementById('bills-table-body');
 
-      let totalBillsCount = 0, totalBillsValue = 0, settledTotalVal = 0;
-      let onlineAmount = 0, onlineBills = 0;
-      let offlineAmount = 0, offlineBills = 0;
-      let tbhAmount = 0, tbhBills = 0;
+      updateTopStatsSummary();
 
-      // 1. Calculate Channel Totals Across all filtered by date/store
-      billsList.forEach(b => {
-        if (fromDate && b.dateISO && b.dateISO < fromDate) return;
-        if (toDate && b.dateISO && b.dateISO > toDate) return;
-        if (storeFilter !== 'all' && b.store !== storeFilter) return;
-
-        if (b.channel === 'Online') {
-          onlineAmount += b.totalAmount;
-          onlineBills++;
-        } else if (b.channel === 'Wholesale') {
-          tbhAmount += b.totalAmount;
-          tbhBills++;
-        } else {
-          offlineAmount += b.totalAmount;
-          offlineBills++;
-        }
-      });
-
-      document.getElementById('stat-online-amount').textContent = `₹${Math.round(onlineAmount).toLocaleString('en-IN')}`;
-      document.getElementById('stat-online-bills').textContent = `${onlineBills} Invoices`;
-      document.getElementById('pill-count-online').textContent = onlineBills;
-
-      document.getElementById('stat-offline-amount').textContent = `₹${Math.round(offlineAmount).toLocaleString('en-IN')}`;
-      document.getElementById('stat-offline-bills').textContent = `${offlineBills} Invoices`;
-      document.getElementById('pill-count-offline').textContent = offlineBills;
-
-      document.getElementById('stat-tbh-amount').textContent = `₹${Math.round(tbhAmount).toLocaleString('en-IN')}`;
-      document.getElementById('stat-tbh-bills').textContent = `${tbhBills} Invoices`;
-      document.getElementById('pill-count-wholesale').textContent = tbhBills;
-
-      document.getElementById('pill-count-all').textContent = billsList.length;
-
-      // 2. Filter Rows for the Table
       let filtered = billsList.filter(b => {
         if (fromDate && b.dateISO && b.dateISO < fromDate) return false;
         if (toDate && b.dateISO && b.dateISO > toDate) return false;
         if (storeFilter !== 'all' && b.store !== storeFilter) return false;
-        
-        // Channel Filter Match
         if (selectedChannelFilter !== 'All' && b.channel !== selectedChannelFilter) return false;
 
         let billSettledSum = 0;
-        if (b.settlements && b.settlements.length > 0) {
-          b.settlements.forEach(s => billSettledSum += (parseFloat(s.amount) || 0));
-        }
+        const currentRows = settlementRowsState[b.billNo] || b.settlements || [];
+        currentRows.forEach(s => {
+          if (s.account) billSettledSum += (parseFloat(s.amount) || 0);
+        });
 
-        const isFullySettled = billSettledSum >= (b.totalAmount - 0.5) && b.settlements.length > 0;
+        const isFullySettled = billSettledSum >= (b.totalAmount - 0.5) && currentRows.length > 0;
         const isPartial = billSettledSum > 0 && billSettledSum < (b.totalAmount - 0.5);
-        const isUnsettled = billSettledSum === 0 || !b.settlements || b.settlements.length === 0;
+        const isUnsettled = billSettledSum === 0;
 
         if (statusFilter === 'settled' && !isFullySettled) return false;
         if (statusFilter === 'partial' && !isPartial) return false;
@@ -716,23 +641,11 @@
                  b.agent.toLowerCase().includes(searchVal) ||
                  b.store.toLowerCase().includes(searchVal) ||
                  b.channel.toLowerCase().includes(searchVal) ||
-                 (b.settlements && b.settlements.some(s => s.account.toLowerCase().includes(searchVal)));
+                 (currentRows.some(s => s.account && s.account.toLowerCase().includes(searchVal)));
         }
         return true;
       });
 
-      filtered.forEach(b => {
-        totalBillsCount++;
-        totalBillsValue += b.totalAmount;
-        if (b.settlements && b.settlements.length > 0) {
-          b.settlements.forEach(s => settledTotalVal += (parseFloat(s.amount) || 0));
-        }
-      });
-
-      document.getElementById('stat-total-bills').textContent = `${totalBillsCount} Bills`;
-      document.getElementById('stat-total-amount').textContent = `Total: ₹${Math.round(totalBillsValue).toLocaleString('en-IN')}`;
-      document.getElementById('stat-settled-amount').textContent = `₹${Math.round(settledTotalVal).toLocaleString('en-IN')}`;
-      document.getElementById('stat-pending-amount').textContent = `₹${Math.round(Math.max(0, totalBillsValue - settledTotalVal)).toLocaleString('en-IN')}`;
       document.getElementById('filtered-count-badge').textContent = `${filtered.length} Invoices`;
 
       filtered.sort((a, b) => {
@@ -745,19 +658,19 @@
       });
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-stone-400 font-traditional">No matching invoices found for this filter combination.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-stone-400 font-traditional">No matching invoices found.</td></tr>`;
         return;
       }
 
       tbody.innerHTML = filtered.map(b => {
-        const rows = settlementRowsState[b.billNo] || [{ account: '', amount: Math.round(b.totalAmount) }];
-        
+        const rows = settlementRowsState[b.billNo] || [{ account: accountsMaster[0] || 'Cash', amount: Math.round(b.totalAmount) }];
         let allocatedSum = 0;
         rows.forEach(r => allocatedSum += (parseFloat(r.amount) || 0));
         const rem = Math.round((b.totalAmount - allocatedSum) * 100) / 100;
+        const safeId = b.billNo.replace(/[^a-zA-Z0-9]/g, '_');
 
-        const isFullySettled = (b.settlements && b.settlements.length > 0) && Math.abs(b.totalAmount - allocatedSum) < 0.5;
-        const isPartial = (b.settlements && b.settlements.length > 0) && allocatedSum > 0 && allocatedSum < (b.totalAmount - 0.5);
+        const isFullySettled = rows.length > 0 && Math.abs(b.totalAmount - allocatedSum) < 0.5;
+        const isPartial = rows.length > 0 && allocatedSum > 0 && allocatedSum < (b.totalAmount - 0.5);
 
         let statusBadge = ``;
         if (isFullySettled) {
@@ -768,25 +681,28 @@
           statusBadge = `<span class="text-[8px] bg-rose-100 text-rose-800 border border-rose-300 px-1.5 py-0.5 rounded font-bold uppercase">Pending ⚠️</span>`;
         }
 
-        // Channel Badges
         let channelBadge = '';
         if (b.channel === 'Online') {
           channelBadge = `<span class="text-[8px] bg-blue-100 text-blue-800 border border-blue-300 px-1.5 py-0.5 rounded font-black uppercase">🌐 Online</span>`;
-        } else if (b.channel === 'Wholesale') {
+        } else if (b.channel === 'Take by Hand') {
           channelBadge = `<span class="text-[8px] bg-purple-100 text-purple-800 border border-purple-300 px-1.5 py-0.5 rounded font-black uppercase">🤝 Take by Hand</span>`;
         } else {
-          channelBadge = `<span class="text-[8px] bg-orange-100 text-orange-800 border border-orange-300 px-1.5 py-0.5 rounded font-black uppercase">🏬 Offline</span>`;
+          channelBadge = `<span class="text-[8px] bg-orange-100 text-orange-800 border border-orange-300 px-1.5 py-0.5 rounded font-black uppercase">🏬 Showroom</span>`;
         }
 
         const splitRowsHTML = rows.map((split, idx) => `
           <div class="flex items-center gap-1.5 mt-1 first:mt-0">
             <div class="relative w-44">
-              <select onchange="updateRowSplitAccount('${b.billNo}', ${idx}, this.value)" class="w-full text-xs font-bold bg-white border ${!split.account ? 'border-rose-300 bg-rose-50/20' : 'border-[#E5D5C6]'} rounded-lg py-1.5 pl-2 pr-4 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] font-sans">
-                <option value="">-- Select Server Bank --</option>
-                ${accountsMaster.map(acc => `<option value="${acc}" ${split.account === acc ? 'selected' : ''}>${acc}</option>`).join('')}
-              </select>
+              <input list="accounts-master-datalist" 
+                     value="${split.account || ''}" 
+                     placeholder="Select / Type Bank"
+                     onchange="updateRowSplitAccount('${b.billNo}', ${idx}, this.value)"
+                     class="w-full text-xs font-bold bg-white border ${!split.account ? 'border-rose-300 bg-rose-50/20' : 'border-[#E5D5C6]'} rounded-lg py-1.5 px-2.5 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] font-sans">
             </div>
-            <input type="number" step="any" placeholder="Amount (₹)" value="${split.amount !== undefined ? split.amount : ''}" oninput="updateRowSplitAmount('${b.billNo}', ${idx}, this.value)" class="w-28 text-xs font-bold font-numeric bg-white border border-[#E5D5C6] rounded-lg p-1.5 text-[#5C0612] focus:outline-none">
+            <input type="number" step="any" placeholder="Amount (₹)" 
+                   value="${split.amount !== undefined ? split.amount : ''}" 
+                   oninput="updateRowSplitAmountLive('${b.billNo}', ${idx}, this.value)"
+                   class="w-28 text-xs font-bold font-numeric bg-white border border-[#E5D5C6] rounded-lg p-1.5 text-[#5C0612] focus:outline-none">
             ${rows.length > 1 ? `<button onclick="removeRowSplit('${b.billNo}', ${idx})" class="text-stone-400 hover:text-rose-600 p-1 text-xs" tabindex="-1"><i class="fa-solid fa-xmark"></i></button>` : ''}
           </div>
         `).join('');
@@ -811,17 +727,17 @@
                 ${splitRowsHTML}
                 <div class="flex justify-between items-center pt-1 border-t border-[#E5D5C6]/40 text-[9px]">
                   <div class="flex items-center gap-2">
-                    <button onclick="addRowSplit('${b.billNo}')" tabindex="-1" class="text-[#5C0612] hover:underline font-bold font-traditional flex items-center gap-0.5"><i class="fa-solid fa-plus text-[8px]"></i> Split Account</button>
-                    ${Math.abs(rem) > 0.01 ? `<button onclick="autoFillBalance('${b.billNo}')" class="text-blue-700 hover:underline font-bold font-traditional"><i class="fa-solid fa-wand-magic-sparkles text-[8px]"></i> Auto-Fill Remainder</button>` : ''}
+                    <button onclick="addRowSplit('${b.billNo}')" tabindex="-1" class="text-[#5C0612] hover:underline font-bold font-traditional flex items-center gap-0.5"><i class="fa-solid fa-plus text-[8px]"></i> Split</button>
+                    ${Math.abs(rem) > 0.01 ? `<button onclick="autoFillBalance('${b.billNo}')" class="text-blue-700 hover:underline font-bold font-traditional"><i class="fa-solid fa-wand-magic-sparkles text-[8px]"></i> Auto-Fill</button>` : ''}
                   </div>
-                  <span class="font-numeric font-bold ${Math.abs(rem) < 0.01 ? 'text-emerald-700' : (rem > 0 ? 'text-amber-800' : 'text-rose-700')}">
+                  <span id="rem-badge-${safeId}" class="font-numeric font-bold ${Math.abs(rem) < 0.01 ? 'text-emerald-700' : (rem > 0 ? 'text-amber-800' : 'text-rose-700')}">
                     ${Math.abs(rem) < 0.01 ? 'Balanced (100%) ✅' : (rem > 0 ? `Remaining: ₹${Math.round(rem).toLocaleString('en-IN')}` : `Excess: +₹${Math.round(-rem).toLocaleString('en-IN')}`)}
                   </span>
                 </div>
               </div>
             </td>
             <td class="p-3 text-center">
-              <button onclick="saveRowSettlement('${b.billNo}')" id="btn-save-${b.billNo.replace(/[^a-zA-Z0-9]/g,'_')}" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm font-traditional border border-[#DAA520] active:scale-95 whitespace-nowrap">
+              <button onclick="saveRowSettlement('${b.billNo}')" id="btn-save-${safeId}" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm font-traditional border border-[#DAA520] active:scale-95 whitespace-nowrap">
                 Save
               </button>
             </td>
@@ -832,13 +748,23 @@
 
     function updateRowSplitAccount(billNo, index, account) {
       if (!settlementRowsState[billNo]) settlementRowsState[billNo] = [];
-      if (settlementRowsState[billNo][index]) settlementRowsState[billNo][index].account = account.trim();
+      const cleanAcc = (account || '').trim();
+      if (settlementRowsState[billNo][index]) {
+        settlementRowsState[billNo][index].account = cleanAcc;
+      }
+      if (cleanAcc && !accountsMaster.includes(cleanAcc)) {
+        accountsMaster.push(cleanAcc);
+        syncDatalistAndPills();
+      }
+      updateSplitBadgeInline(billNo);
     }
 
-    function updateRowSplitAmount(billNo, index, amount) {
+    function updateRowSplitAmountLive(billNo, index, amount) {
       if (!settlementRowsState[billNo]) settlementRowsState[billNo] = [];
-      if (settlementRowsState[billNo][index]) settlementRowsState[billNo][index].amount = parseFloat(amount) || 0;
-      renderBillsTable();
+      if (settlementRowsState[billNo][index]) {
+        settlementRowsState[billNo][index].amount = parseFloat(amount) || 0;
+      }
+      updateSplitBadgeInline(billNo);
     }
 
     function addRowSplit(billNo) {
@@ -871,10 +797,8 @@
       }
     }
 
-    // -------------------------------------------------------------
-    // SAVE INDIVIDUAL BILL SETTLEMENT DIRECTLY TO SUPABASE
-    // -------------------------------------------------------------
     async function saveRowSettlement(billNo) {
+      if (!isAdmin) return alert("🔒 Access Denied: Viewers cannot save bank settlements.");
       const bill = billsList.find(b => b.billNo === billNo);
       if (!bill) return;
 
@@ -882,7 +806,7 @@
       const validSplits = splits.filter(s => s.account && parseFloat(s.amount) > 0);
       
       if (validSplits.length === 0) {
-        return alert("⚠️ Error: Please select an active server bank account and enter a valid amount.");
+        return alert("⚠️ Please select a bank account and enter a valid amount.");
       }
 
       const btnId = `btn-save-${billNo.replace(/[^a-zA-Z0-9]/g,'_')}`;
@@ -915,19 +839,17 @@
         bill.settlements = validSplits;
         if (btn) btn.textContent = "Saved ✅";
         renderBillsTable();
-        alert(`✅ Invoice ${bill.billNo} (${bill.channel}) bank settlement saved to Supabase server!`);
+        alert(`✅ Invoice ${bill.billNo} bank settlement saved!`);
       } catch (err) {
         console.error("Save settlement error:", err);
-        alert("❌ Database Save Failed: " + (err.message || JSON.stringify(err)));
+        alert("Database Save Failed: " + err.message);
       } finally {
         if (btn) btn.disabled = false;
       }
     }
 
-    // -------------------------------------------------------------
-    // BULK SAVE ALL INVOICES TO SUPABASE
-    // -------------------------------------------------------------
     async function bulkSaveAllSettlements() {
+      if (!isAdmin) return alert("🔒 Access Denied: Viewers cannot save bank settlements.");
       const bulkBtn = document.getElementById('btn-bulk-save');
       const bulkText = document.getElementById('bulk-save-text');
 
@@ -973,21 +895,19 @@
           if (insErr) throw insErr;
         }
 
-        alert(`✅ Successfully synced and saved ${billNosToDelete.length} invoices across all channels to Supabase!`);
+        alert(`✅ Successfully synced ${billNosToDelete.length} invoices to Supabase!`);
         renderBillsTable();
       } catch (err) {
         console.error("Bulk save error:", err);
-        alert("❌ Bulk Save Failed: " + (err.message || JSON.stringify(err)));
+        alert("Bulk Save Failed: " + err.message);
       } finally {
         if (bulkBtn) bulkBtn.disabled = false;
         if (bulkText) bulkText.textContent = "💾 Save All to Server";
       }
     }
 
-    // -------------------------------------------------------------
-    // ADD NEW BANK DIRECTLY TO SUPABASE DATABASE
-    // -------------------------------------------------------------
     function openNewAccountModal() {
+      if (!isAdmin) return alert("🔒 Access Denied: Only Admins can add bank accounts.");
       document.getElementById('modal-account-name').value = '';
       document.getElementById('new-account-modal').classList.remove('hidden');
     }
@@ -997,6 +917,7 @@
     }
 
     async function submitNewAccount() {
+      if (!isAdmin) return alert("🔒 Access Denied: Only Admins can add bank accounts.");
       const nameInput = document.getElementById('modal-account-name');
       const typeInput = document.getElementById('modal-account-type');
       const saveBtn = document.getElementById('btn-save-modal-bank');
@@ -1023,22 +944,18 @@
         syncDatalistAndPills();
         closeNewAccountModal();
         renderBillsTable();
-
-        alert(`✅ Bank "${name}" (${type}) has been permanently saved in the server database!`);
+        alert(`✅ Bank "${name}" (${type}) saved to database!`);
       } catch (err) {
-        console.error("Failed to save bank to Supabase:", err);
-        alert("❌ Error saving bank to Supabase: " + err.message);
+        console.error("Save bank error:", err);
+        alert("Error saving bank: " + err.message);
       } finally {
         if (saveBtn) saveBtn.disabled = false;
         if (saveText) saveText.textContent = "Save Bank to Server";
       }
     }
 
-    // -------------------------------------------------------------
-    // EXCEL STATEMENT DOWNLOAD (WITH CHANNEL COLUMN)
-    // -------------------------------------------------------------
     function exportBankStatementExcel() {
-      if (typeof XLSX === 'undefined') return alert("Excel engine is loading. Please wait.");
+      if (typeof XLSX === 'undefined') return alert("Excel engine is loading.");
 
       const exportRows = [];
 
@@ -1053,7 +970,7 @@
           exportRows.push({
             "Bill Date": b.dateISO,
             "Bill No": splits.length > 1 ? `${b.billNo} (Split ${idx + 1})` : b.billNo,
-            "Sales Channel": b.channel === 'Wholesale' ? 'Take by Hand (Wholesale)' : b.channel,
+            "Sales Channel": b.channel === 'Take by Hand' ? 'Take by Hand (Wholesale)' : b.channel,
             "Store / Branch": b.store,
             "Sales Staff": b.agent,
             "Credited Bank Account": s.account || "Not Defined",

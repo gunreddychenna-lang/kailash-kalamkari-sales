@@ -53,13 +53,13 @@
         </a>
 
         <!-- ADD NEW EMPLOYEE BUTTON -->
-        <button onclick="openAddEmployeeModal()" class="bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#B38F4D] active:scale-95">
+        <button onclick="openAddEmployeeModal()" class="admin-only bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#B38F4D] active:scale-95">
           <i class="fa-solid fa-user-plus text-xs"></i>
           <span>+ Add Staff</span>
         </button>
 
         <!-- SAVE TO SUPABASE BUTTON -->
-        <button id="btn-save-attendance" onclick="saveAttendanceToSupabase()" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#DAA520] active:scale-95">
+        <button id="btn-save-attendance" onclick="saveAttendanceToSupabase()" class="admin-only bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#DAA520] active:scale-95">
           <i class="fa-solid fa-cloud-arrow-up text-xs text-[#DAA520]"></i>
           <span id="save-attendance-text">💾 Save to Supabase</span>
         </button>
@@ -99,7 +99,7 @@
           </select>
         </div>
 
-        <button onclick="openNewMonthModal()" class="bg-[#EFE5C9] text-[#5C0612] border border-[#DAA520] font-bold text-xs px-2.5 py-1.5 rounded-xl font-traditional">
+        <button onclick="openNewMonthModal()" class="admin-only bg-[#EFE5C9] text-[#5C0612] border border-[#DAA520] font-bold text-xs px-2.5 py-1.5 rounded-xl font-traditional">
           + New Month
         </button>
       </div>
@@ -131,7 +131,7 @@
         <strong id="payroll-staff-count" class="text-xl font-black text-stone-800">11 Staff</strong>
       </div>
       <div class="bg-[#FAF6EE] p-3 rounded-2xl border border-[#E5D5C6]">
-        <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Store Sales Achieved</span>
+        <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Month Store Sales</span>
         <strong id="profit-store-sales" class="text-xl font-black text-stone-800">₹0</strong>
       </div>
       <div class="bg-[#FAF6EE] p-3 rounded-2xl border border-[#E5D5C6]">
@@ -256,7 +256,7 @@
 
         <div>
           <label class="block text-[10px] font-bold text-stone-500 uppercase mb-1 font-traditional">Reason / Notes</label>
-          <input type="text" id="terminate-emp-reason" placeholder="e.g. Resigned, Performance, Relocated" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2 focus:outline-none">
+          <input type="text" id="terminate-emp-reason" placeholder="e.g. Resigned, Relocated" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2 focus:outline-none">
         </div>
 
         <button type="submit" class="w-full bg-rose-800 hover:bg-rose-900 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-md font-traditional tracking-wider uppercase mt-2">
@@ -295,6 +295,32 @@
       supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
 
+    // Auth & Session Guard
+    const activeUser = localStorage.getItem('kk_user');
+    const userRole = localStorage.getItem('kk_role') || 'Admin';
+    const loginTimestamp = localStorage.getItem('kk_login_time');
+    const isAdmin = (userRole === 'Admin');
+
+    if (!activeUser || !loginTimestamp || (Date.now() - parseInt(loginTimestamp, 10) > 6 * 60 * 60 * 1000)) {
+      alert("Session expired. Please log in through the Dashboard.");
+      window.location.href = 'index.html';
+    }
+
+    // MASTER STAFF ALIAS RESOLUTION MAP
+    const STAFF_ALIASES_MAP = {
+      'KS-103': ['varalakshmi', 'vara lakshmi', 'b varalakshmi', 'b. varalakshmi', 'varalaxmi', 'varalakshmi b'],
+      'KS-104': ['mouni', 'mounika', 'ty mounika', 't y mounika', 't.y. mounika', 'mounika ty'],
+      'KS-105': ['sanjana', 'r sanjana', 'r. sanjana', 'sanjana r'],
+      'KS-106': ['geethika', 'githika', 'gethika'],
+      'KS-107': ['sandhya', 'j sandhya', 'j. sandhya', 'sandhya j'],
+      'KS-108': ['pushpa', 'c pushpa', 'c. pushpa', 'pushpa c'],
+      'KS-109': ['bharathamma', 'barathamma', 'bharatamma'],
+      'KS-110': ['nandhini', 'nandini'],
+      'KS-111': ['harika'],
+      'KS-112': ['dhanalakshmi', 'dhana lakshmi', 'dhana laskhmi', 'dhana laskhmi akka', 'dhanalakshmi akka', 'dhanalaxmi'],
+      'KS-113': ['ammulu', 'm.ammulu', 'm ammulu', 'ammulu m']
+    };
+
     // Master 11 Staff List
     const DEFAULT_STAFF_LIST = [
       { emp_id: 'KS-103', name: 'B varalakshmi', role: 'Sales (Fabrics)', phone: '', salary: 10000, comm: 1.0, status: 'Active', days: { '5':'P', '6':'A', '7':'P' } },
@@ -312,11 +338,15 @@
 
     let rawAttendanceData = [];
     let salesByStaffMap = {};
+    let allMasterBills = [];
     let currentTotalStoreSales = 0;
     let selectedAttendanceMonth = "September 2026";
     let attendanceViewMode = "grid";
 
     window.addEventListener('DOMContentLoaded', () => {
+      if (!isAdmin) {
+        document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+      }
       fetchAttendanceAndSalesData();
     });
 
@@ -388,37 +418,32 @@
     }
 
     // -------------------------------------------------------------
-    // FETCH DATA FROM SUPABASE WITH DETERMINISTIC PAGINATION
+    // FETCH DIRECTLY FROM bills_master (ZERO INFLATION)
     // -------------------------------------------------------------
     async function fetchAttendanceAndSalesData() {
       const icon = document.getElementById('refresh-icon');
       if (icon) icon.classList.add('animate-spin');
 
       try {
-        // 1. Fetch ALL Sales from Supabase with chunked pagination
-        salesByStaffMap = {};
-        currentTotalStoreSales = 0;
+        // 1. Fetch Invoices from bills_master view with pagination
+        allMasterBills = [];
         let from = 0;
         const step = 1000;
         let hasMore = true;
 
         while (hasMore) {
-          const { data: salesRows, error: sErr } = await supabaseClient
-            .from('sales')
-            .select('sm_name, amount')
-            .order('id', { ascending: true })
+          const { data: billRows, error: sErr } = await supabaseClient
+            .from('bills_master')
+            .select('sm_name, bill_amount, bill_date')
+            .order('bill_date', { ascending: true })
+            .order('bill_no', { ascending: true })
             .range(from, from + step - 1);
 
           if (sErr) throw sErr;
 
-          if (salesRows && salesRows.length > 0) {
-            salesRows.forEach(r => {
-              const sm = (r.sm_name || '').trim().toLowerCase();
-              const amt = parseFloat(r.amount) || 0;
-              currentTotalStoreSales += amt;
-              if (sm) salesByStaffMap[sm] = (salesByStaffMap[sm] || 0) + amt;
-            });
-            if (salesRows.length < step) hasMore = false;
+          if (billRows && billRows.length > 0) {
+            allMasterBills.push(...billRows);
+            if (billRows.length < step) hasMore = false;
             else from += step;
           } else {
             hasMore = false;
@@ -464,6 +489,7 @@
         }
 
         populateMonthDropdown();
+        calculateStaffMonthlySales();
         renderAttendanceModule(currentTotalStoreSales);
       } catch (err) {
         console.error("Fetch attendance error:", err);
@@ -489,29 +515,59 @@
 
     function changeAttendanceMonth(m) {
       selectedAttendanceMonth = m;
+      calculateStaffMonthlySales();
       renderAttendanceModule(currentTotalStoreSales);
     }
 
-    // Intelligent fuzzy matching for sales agent names
-    function getStaffSalesAmount(empName) {
+    // Filter bills to the active calendar month
+    function calculateStaffMonthlySales() {
+      salesByStaffMap = {};
+      currentTotalStoreSales = 0;
+      const mCtx = getMonthYearContext(selectedAttendanceMonth);
+      const startIso = `${mCtx.year}-${String(mCtx.monthIndex + 1).padStart(2, '0')}-01`;
+      const endIso = `${mCtx.year}-${String(mCtx.monthIndex + 1).padStart(2, '0')}-${String(mCtx.daysInMonth).padStart(2, '0')}`;
+
+      allMasterBills.forEach(r => {
+        const bDate = (r.bill_date || '').toString().split('T')[0];
+        if (!bDate || bDate < startIso || bDate > endIso) return;
+
+        const sm = (r.sm_name || '').trim().toLowerCase();
+        const amt = parseFloat(r.bill_amount) || 0;
+        currentTotalStoreSales += amt;
+        if (sm && sm !== 'no agent') {
+          salesByStaffMap[sm] = (salesByStaffMap[sm] || 0) + amt;
+        }
+      });
+    }
+
+    // Multi-alias match for staff sales incentives
+    function getStaffSalesAmount(empName, empId) {
       if (!empName) return 0;
       const cleanEmp = empName.toLowerCase().replace(/[^a-z0-9]/g, '');
-      
-      // Direct exact match
-      for (let sm in salesByStaffMap) {
-        const cleanSm = sm.replace(/[^a-z0-9]/g, '');
-        if (cleanSm === cleanEmp) return salesByStaffMap[sm];
-      }
+      const allowedAliases = (empId && STAFF_ALIASES_MAP[empId]) ? STAFF_ALIASES_MAP[empId] : [];
+      let total = 0;
+      const countedKeys = new Set();
 
-      // Contains / partial match
-      let matchedAmount = 0;
       for (let sm in salesByStaffMap) {
         const cleanSm = sm.replace(/[^a-z0-9]/g, '');
-        if (cleanSm.length >= 4 && (cleanEmp.includes(cleanSm) || cleanSm.includes(cleanEmp))) {
-          matchedAmount += salesByStaffMap[sm];
+        let matched = false;
+
+        for (let alias of allowedAliases) {
+          const cleanAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (cleanSm === cleanAlias || cleanSm.includes(cleanAlias) || cleanAlias.includes(cleanSm)) {
+            matched = true;
+            break;
+          }
+        }
+
+        if (matched || cleanSm === cleanEmp || (cleanSm.length >= 4 && cleanEmp.includes(cleanSm))) {
+          if (!countedKeys.has(sm)) {
+            countedKeys.add(sm);
+            total += salesByStaffMap[sm];
+          }
         }
       }
-      return matchedAmount;
+      return total;
     }
 
     // -------------------------------------------------------------
@@ -554,7 +610,7 @@
         let commPct = parseFloat(emp['Commission Pct']) || 0;
         let advance = parseFloat(emp['Advance Taken']) || 0;
 
-        const totalSold = getStaffSalesAmount(name);
+        const totalSold = getStaffSalesAmount(name, empId);
         const calculatedIncentive = (commPct > 0) ? Math.round(totalSold * (commPct / 100)) : 0;
 
         let countP = 0, countHD = 0, countA = 0, countPL = 0, countWO = 0, countNA = 0;
@@ -649,10 +705,10 @@
                 <button onclick="exportSingleStaffPayslipPDF(${index})" class="text-[8px] bg-[#5C0612] text-[#EFE5C9] px-2 py-0.5 rounded-lg font-bold uppercase flex items-center gap-1 border border-[#DAA520]">
                   <i class="fa-solid fa-file-pdf"></i> PDF
                 </button>
-                ${isTerminated 
+                ${isAdmin ? (isTerminated 
                   ? `<button onclick="reactivateStaff(${index})" class="text-[8px] bg-emerald-700 text-white px-2 py-0.5 rounded-lg font-bold uppercase">Reactivate</button>` 
                   : `<button onclick="openTerminateModal(${index})" class="text-[8px] bg-rose-700 text-white px-2 py-0.5 rounded-lg font-bold uppercase">Terminate</button>`
-                }
+                ) : ''}
               </div>
             </div>
           </div>
@@ -668,7 +724,7 @@
           <!-- 31-DAY CALENDAR GRID -->
           <div class="space-y-1">
             <div class="flex justify-between items-center text-[9px] font-traditional text-stone-500">
-              <span>31-Day Attendance Grid (Click to change status)</span>
+              <span>31-Day Attendance Grid (Click to toggle status)</span>
               <span>${monthContext.monthName} ${monthContext.year}</span>
             </div>
             <div class="grid grid-cols-7 sm:grid-cols-11 gap-1 pt-0.5">
@@ -676,21 +732,21 @@
             </div>
           </div>
 
-          <!-- COMPENSATION INPUTS -->
+          <!-- COMPENSATION INPUTS (onchange PREVENTS FOCUS DROP) -->
           <div class="grid grid-cols-3 gap-2 bg-[#FAF6EE] p-2.5 rounded-2xl border border-[#E5D5C6] text-xs font-numeric">
             <div>
               <label class="block text-[8px] font-bold text-stone-500 uppercase mb-0.5">Base Salary (₹)</label>
-              <input type="number" value="${fullSalary}" oninput="updateEmployeePayrollField(${index}, 'salary', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none">
+              <input type="number" value="${fullSalary}" onchange="updateEmployeePayrollField(${index}, 'salary', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none" ${!isAdmin ? 'disabled' : ''}>
               <span class="text-[8px] text-stone-400 block mt-0.5">Earned: ₹${baseEarned.toLocaleString('en-IN')}</span>
             </div>
             <div>
               <label class="block text-[8px] font-bold text-stone-500 uppercase mb-0.5">Incentive Rate (%)</label>
-              <input type="number" value="${commPct}" step="0.1" oninput="updateEmployeePayrollField(${index}, 'commission', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none">
+              <input type="number" value="${commPct}" step="0.1" onchange="updateEmployeePayrollField(${index}, 'commission', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none" ${!isAdmin ? 'disabled' : ''}>
               <span class="text-[8px] text-emerald-800 font-bold block mt-0.5">+₹${calculatedIncentive.toLocaleString('en-IN')}</span>
             </div>
             <div>
               <label class="block text-[8px] font-bold text-stone-500 uppercase mb-0.5">Advance (₹)</label>
-              <input type="number" value="${advance}" oninput="updateEmployeePayrollField(${index}, 'advance', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none">
+              <input type="number" value="${advance}" onchange="updateEmployeePayrollField(${index}, 'advance', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none" ${!isAdmin ? 'disabled' : ''}>
               <span class="text-[8px] text-rose-800 font-bold block mt-0.5">-₹${advance.toLocaleString('en-IN')}</span>
             </div>
           </div>
@@ -738,7 +794,9 @@
     }
 
     function cycleDayStatus(staffIndex, dayNumber, isLocked) {
+      if (!isAdmin) return alert("🔒 Access Denied: Only Admins can modify attendance.");
       if (isLocked) return;
+
       const statusFilter = document.getElementById('filter-staff-status')?.value || 'All';
       const staffList = rawAttendanceData.filter(emp => {
         const matchesMonth = (emp['Month_Sheet'] || '').toLowerCase() === selectedAttendanceMonth.toLowerCase();
@@ -761,6 +819,8 @@
     }
 
     function updateEmployeePayrollField(staffIndex, field, value) {
+      if (!isAdmin) return alert("🔒 Access Denied: Only Admins can modify salary structures.");
+
       const statusFilter = document.getElementById('filter-staff-status')?.value || 'All';
       const staffList = rawAttendanceData.filter(emp => {
         const matchesMonth = (emp['Month_Sheet'] || '').toLowerCase() === selectedAttendanceMonth.toLowerCase();
@@ -799,6 +859,7 @@
     }
 
     function openAddEmployeeModal() {
+      if (!isAdmin) return alert("🔒 Access Denied: Only Admins can add staff.");
       document.getElementById('add-employee-form').reset();
       showEl('add-employee-modal');
     }
@@ -839,6 +900,7 @@
     }
 
     function openTerminateModal(index) {
+      if (!isAdmin) return alert("🔒 Access Denied: Only Admins can terminate staff.");
       const statusFilter = document.getElementById('filter-staff-status')?.value || 'All';
       const staffList = rawAttendanceData.filter(emp => {
         const matchesMonth = (emp['Month_Sheet'] || '').toLowerCase() === selectedAttendanceMonth.toLowerCase();
@@ -889,6 +951,7 @@
     }
 
     function reactivateStaff(index) {
+      if (!isAdmin) return alert("🔒 Access Denied: Only Admins can reactivate staff.");
       const statusFilter = document.getElementById('filter-staff-status')?.value || 'All';
       const staffList = rawAttendanceData.filter(emp => {
         const matchesMonth = (emp['Month_Sheet'] || '').toLowerCase() === selectedAttendanceMonth.toLowerCase();
@@ -909,6 +972,7 @@
     }
 
     async function saveAttendanceToSupabase() {
+      if (!isAdmin) return alert("🔒 Access Denied: Only Admins can save attendance to database.");
       const saveBtn = document.getElementById('btn-save-attendance');
       const saveText = document.getElementById('save-attendance-text');
       if (saveBtn) saveBtn.disabled = true;
@@ -949,13 +1013,14 @@
         alert(`✅ Attendance for ${selectedAttendanceMonth} saved cleanly to Supabase!`);
       } catch (err) {
         console.error("Supabase attendance save error:", err);
-        alert("Saved locally in session: " + err.message);
+        alert("Database Save Error: " + err.message);
       } finally {
         if (saveBtn) saveBtn.disabled = false;
         if (saveText) saveText.textContent = "💾 Save to Supabase";
       }
     }
 
+    // Pro-Rated WhatsApp Payslip Share
     function shareStaffPayslipWhatsApp(index) {
       const statusFilter = document.getElementById('filter-staff-status')?.value || 'All';
       const staffList = rawAttendanceData.filter(emp => {
@@ -969,36 +1034,49 @@
       const emp = staffList[index];
       if (!emp) return;
 
-      const name = emp['Employee Name'] || 'Staff';
-      const empId = emp['Emp ID'];
+      const mCtx = getMonthYearContext(selectedAttendanceMonth);
+      let countP = 0, countHD = 0, countA = 0, countPL = 0, countWO = 0;
+      for (let d = 1; d <= mCtx.daysInMonth; d++) {
+        const val = (emp[d.toString()] || '').toUpperCase().trim();
+        if (val === 'P') countP++;
+        else if (val === 'HD') countHD++;
+        else if (val === 'WO') countWO++;
+        else if (val === 'A') countA++;
+        else if (val) countPL++;
+      }
+
+      const payableDays = countP + (countHD * 0.5) + countPL + countWO;
       const fullSalary = parseFloat(emp['Monthly Salary']) || 10000;
-      const commPct = parseFloat(emp['Commission Pct']) || 1.0;
+      const baseEarned = Math.round(payableDays * (fullSalary / mCtx.daysInMonth));
+      const commPct = parseFloat(emp['Commission Pct']) || 0;
       const advance = parseFloat(emp['Advance Taken']) || 0;
-
-      const totalSold = getStaffSalesAmount(name);
+      const totalSold = getStaffSalesAmount(emp['Employee Name'], emp['Emp ID']);
       const calculatedIncentive = commPct > 0 ? Math.round(totalSold * (commPct / 100)) : 0;
-      const netSalary = Math.max(0, (fullSalary + calculatedIncentive) - advance);
+      const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
 
-      let msg = `🌸 *KAILASH KALAMKARI - MONTHLY PAYSLIP* 🌸\n\n`;
-      msg += `🆔 *Staff ID:* ${empId}\n`;
-      msg += `👤 *Staff Name:* ${name}\n`;
+      let msg = `🌸 *KAILASH KALAMKARI - OFFICIAL MONTHLY PAYSLIP* 🌸\n\n`;
+      msg += `🆔 *Staff ID:* ${emp['Emp ID']}\n`;
+      msg += `👤 *Staff Name:* ${emp['Employee Name']}\n`;
       msg += `📅 *Month / Period:* ${selectedAttendanceMonth}\n`;
+      msg += `📊 *Attendance:* ${payableDays} / ${mCtx.daysInMonth} Payable Days\n`;
       if (emp.joining_date) msg += `🚀 *Joining Date:* ${emp.joining_date}\n`;
       if (emp.relieving_date) msg += `🔴 *Relieving Date:* ${emp.relieving_date}\n`;
       msg += `--------------------------------------\n`;
-      msg += `💵 *Monthly Base Salary:* ₹${fullSalary.toLocaleString('en-IN')}\n`;
-      msg += `🛍️ *Store Sales Generated:* ₹${Math.round(totalSold).toLocaleString('en-IN')}\n`;
+      msg += `💵 *Monthly Base Salary (CTC):* ₹${fullSalary.toLocaleString('en-IN')}\n`;
+      msg += `✅ *Earned Base Pay:* ₹${baseEarned.toLocaleString('en-IN')}\n`;
+      msg += `🛍️ *Store Sales Achieved:* ₹${Math.round(totalSold).toLocaleString('en-IN')}\n`;
       if (calculatedIncentive > 0) msg += `🎁 *Sales Incentive (${commPct}%):* +₹${calculatedIncentive.toLocaleString('en-IN')}\n`;
       if (advance > 0) msg += `📉 *Advance Deducted:* -₹${advance.toLocaleString('en-IN')}\n`;
       msg += `--------------------------------------\n`;
       msg += `💰 *FINAL NET SALARY PAYABLE:* ₹${netSalary.toLocaleString('en-IN')}\n\n`;
-      msg += `_Thank you for your valuable service to Kailash Kalamkari!_`;
+      msg += `_Thank you for your valuable dedication to Kailash Kalamkari!_`;
 
       const phone = emp['Phone Number'] ? `91${emp['Phone Number'].replace(/\D/g, '')}` : '';
       if (phone) window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`, '_blank');
       else window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
     }
 
+    // Pro-Rated PDF Payslip Voucher
     function exportSingleStaffPayslipPDF(index) {
       const statusFilter = document.getElementById('filter-staff-status')?.value || 'All';
       const staffList = rawAttendanceData.filter(emp => {
@@ -1012,16 +1090,24 @@
       const emp = staffList[index];
       if (!emp || typeof html2pdf === 'undefined') return;
 
-      const name = emp['Employee Name'];
-      const empId = emp['Emp ID'];
-      const role = emp['Designation'] || 'Sales (Fabrics)';
-      const fullSalary = parseFloat(emp['Monthly Salary']) || 10000;
-      const commPct = parseFloat(emp['Commission Pct']) || 1.0;
-      const advance = parseFloat(emp['Advance Taken']) || 0;
+      const mCtx = getMonthYearContext(selectedAttendanceMonth);
+      let countP = 0, countHD = 0, countPL = 0, countWO = 0;
+      for (let d = 1; d <= mCtx.daysInMonth; d++) {
+        const val = (emp[d.toString()] || '').toUpperCase().trim();
+        if (val === 'P') countP++;
+        else if (val === 'HD') countHD++;
+        else if (val === 'WO') countWO++;
+        else if (val === 'PL') countPL++;
+      }
 
-      const totalSold = getStaffSalesAmount(name);
+      const payableDays = countP + (countHD * 0.5) + countPL + countWO;
+      const fullSalary = parseFloat(emp['Monthly Salary']) || 10000;
+      const baseEarned = Math.round(payableDays * (fullSalary / mCtx.daysInMonth));
+      const commPct = parseFloat(emp['Commission Pct']) || 0;
+      const advance = parseFloat(emp['Advance Taken']) || 0;
+      const totalSold = getStaffSalesAmount(emp['Employee Name'], emp['Emp ID']);
       const calculatedIncentive = commPct > 0 ? Math.round(totalSold * (commPct / 100)) : 0;
-      const netSalary = Math.max(0, (fullSalary + calculatedIncentive) - advance);
+      const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
 
       const payslipContainer = document.createElement('div');
       payslipContainer.className = "p-8 bg-[#FFFDF9] border-2 border-[#5C0612] max-w-xl mx-auto rounded-3xl font-numeric text-stone-800 space-y-4";
@@ -1034,19 +1120,20 @@
         <div class="grid grid-cols-2 gap-4 text-xs border-b border-[#E5D5C6] pb-3">
           <div>
             <p class="text-stone-500 text-[10px]">Employee ID</p>
-            <p class="font-black text-[#5C0612]">${empId}</p>
+            <p class="font-black text-[#5C0612]">${emp['Emp ID']}</p>
             <p class="text-stone-500 text-[10px] mt-1">Employee Name</p>
-            <p class="font-bold text-stone-800">${name}</p>
+            <p class="font-bold text-stone-800">${emp['Employee Name']}</p>
           </div>
           <div class="text-right">
             <p class="text-stone-500 text-[10px]">Designation</p>
-            <p class="font-bold text-stone-800">${role}</p>
-            ${emp.joining_date ? `<p class="text-stone-400 text-[9px]">Joined: ${emp.joining_date}</p>` : ''}
-            ${emp.relieving_date ? `<p class="text-rose-600 text-[9px] font-bold">Relieved: ${emp.relieving_date}</p>` : ''}
+            <p class="font-bold text-stone-800">${emp['Designation']}</p>
+            <p class="text-stone-500 text-[10px] mt-1">Payable Days</p>
+            <p class="font-bold text-emerald-800">${payableDays} / ${mCtx.daysInMonth} Days</p>
           </div>
         </div>
         <div class="space-y-1.5 text-xs">
-          <div class="flex justify-between py-1 border-b border-stone-200"><span>Base Monthly Salary</span><strong>₹${fullSalary.toLocaleString('en-IN')}</strong></div>
+          <div class="flex justify-between py-1 border-b border-stone-200"><span>Monthly Base Salary (Full CTC)</span><strong>₹${fullSalary.toLocaleString('en-IN')}</strong></div>
+          <div class="flex justify-between py-1 border-b border-stone-200 text-stone-800 font-bold"><span>Earned Base Salary</span><strong>₹${baseEarned.toLocaleString('en-IN')}</strong></div>
           <div class="flex justify-between py-1 border-b border-stone-200"><span>Store Sales Generated</span><strong>₹${Math.round(totalSold).toLocaleString('en-IN')}</strong></div>
           ${commPct > 0 ? `<div class="flex justify-between py-1 border-b border-stone-200 text-emerald-800"><span>Sales Incentive (${commPct}%)</span><strong>+₹${calculatedIncentive.toLocaleString('en-IN')}</strong></div>` : ''}
           ${advance > 0 ? `<div class="flex justify-between py-1 border-b border-stone-200 text-rose-800"><span>Advance Deducted</span><strong>-₹${advance.toLocaleString('en-IN')}</strong></div>` : ''}
@@ -1058,7 +1145,7 @@
       `;
 
       document.body.appendChild(payslipContainer);
-      html2pdf().set({ margin: 0.3, filename: `Payslip_${name}_${empId}.pdf` }).from(payslipContainer).save().then(() => {
+      html2pdf().set({ margin: 0.3, filename: `Payslip_${emp['Employee Name']}_${emp['Emp ID']}.pdf` }).from(payslipContainer).save().then(() => {
         document.body.removeChild(payslipContainer);
       });
     }
@@ -1085,7 +1172,7 @@
         const fullSalary = parseFloat(emp['Monthly Salary']) || 10000;
         const commPct = parseFloat(emp['Commission Pct']) || 0;
         const advance = parseFloat(emp['Advance Taken']) || 0;
-        const totalSold = getStaffSalesAmount(emp['Employee Name']);
+        const totalSold = getStaffSalesAmount(emp['Employee Name'], emp['Emp ID']);
         const incentive = commPct > 0 ? Math.round(totalSold * (commPct / 100)) : 0;
         const baseEarned = Math.round(payableDays * (fullSalary / monthContext.daysInMonth));
         const netPay = Math.max(0, (baseEarned + incentive) - advance);
@@ -1116,6 +1203,7 @@
     }
 
     function openNewMonthModal() {
+      if (!isAdmin) return alert("🔒 Access Denied: Only Admins can create new month sheets.");
       document.getElementById('modal-month-name').value = '';
       showEl('new-month-modal');
     }
@@ -1124,66 +1212,63 @@
       hideEl('new-month-modal');
     }
 
-   async function createNewMonthSheet() {
-  const monthName = (document.getElementById('modal-month-name').value || '').trim();
-  if (!monthName) return alert("Please enter a Month & Year name (e.g. October 2026).");
+    async function createNewMonthSheet() {
+      const monthName = (document.getElementById('modal-month-name').value || '').trim();
+      if (!monthName) return alert("Please enter a Month & Year name (e.g. October 2026).");
 
-  selectedAttendanceMonth = monthName;
+      selectedAttendanceMonth = monthName;
 
-  // 1. Prepare active staff rows for the new month
-  const activeStaff = DEFAULT_STAFF_LIST
-    .filter(s => s.status !== 'Terminated')
-    .map(m => ({
-      emp_id: m.emp_id,
-      employee_name: m.name,
-      designation: m.role,
-      month_sheet: selectedAttendanceMonth,
-      phone_number: m.phone,
-      monthly_salary: m.salary,
-      commission_pct: m.comm,
-      advance_taken: 0,
-      status: 'Active',
-      joining_date: null,
-      relieving_date: null,
-      termination_reason: '',
-      days_data: {}
-    }));
+      const activeStaff = DEFAULT_STAFF_LIST
+        .filter(s => s.status !== 'Terminated')
+        .map(m => ({
+          emp_id: m.emp_id,
+          employee_name: m.name,
+          designation: m.role,
+          month_sheet: selectedAttendanceMonth,
+          phone_number: m.phone,
+          monthly_salary: m.salary,
+          commission_pct: m.comm,
+          advance_taken: 0,
+          status: 'Active',
+          joining_date: null,
+          relieving_date: null,
+          termination_reason: '',
+          days_data: {}
+        }));
 
-  try {
-    // 2. Persist directly to Supabase immediately
-    const { data, error } = await supabaseClient
-      .from('attendance')
-      .upsert(activeStaff, { onConflict: 'emp_id,month_sheet' })
-      .select();
+      try {
+        const { error } = await supabaseClient
+          .from('attendance')
+          .upsert(activeStaff, { onConflict: 'emp_id,month_sheet' });
 
-    if (error) throw error;
+        if (error) throw error;
 
-    // 3. Update local state
-    activeStaff.forEach(emp => {
-      rawAttendanceData.push({
-        'Emp ID': emp.emp_id,
-        'Employee Name': emp.employee_name,
-        'Designation': emp.designation,
-        'Month_Sheet': emp.month_sheet,
-        'Phone Number': emp.phone_number,
-        'Monthly Salary': emp.monthly_salary,
-        'Commission Pct': emp.commission_pct,
-        'Advance Taken': 0,
-        'status': 'Active',
-        'joining_date': '',
-        'relieving_date': ''
-      });
-    });
+        activeStaff.forEach(emp => {
+          rawAttendanceData.push({
+            'Emp ID': emp.emp_id,
+            'Employee Name': emp.employee_name,
+            'Designation': emp.designation,
+            'Month_Sheet': emp.month_sheet,
+            'Phone Number': emp.phone_number,
+            'Monthly Salary': emp.monthly_salary,
+            'Commission Pct': emp.commission_pct,
+            'Advance Taken': 0,
+            'status': 'Active',
+            'joining_date': '',
+            'relieving_date': ''
+          });
+        });
 
-    closeNewMonthModal();
-    populateMonthDropdown();
-    renderAttendanceModule(currentTotalStoreSales);
-    alert(`✅ New attendance sheet for "${monthName}" has been created and saved directly in Supabase!`);
-  } catch (err) {
-    console.error("Failed to create new month sheet in Supabase:", err);
-    alert("❌ Error creating month in Supabase: " + err.message);
-  }
-}
+        closeNewMonthModal();
+        populateMonthDropdown();
+        calculateStaffMonthlySales();
+        renderAttendanceModule(currentTotalStoreSales);
+        alert(`✅ Attendance sheet for "${monthName}" created cleanly in Supabase!`);
+      } catch (err) {
+        console.error("Create month error:", err);
+        alert("Error creating month: " + err.message);
+      }
+    }
   </script>
 </body>
 </html>

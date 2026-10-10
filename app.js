@@ -1,12 +1,7 @@
 /**
  * =========================================================================
  * KAILASH KALAMKARI - ENTERPRISE SALES ANALYTICS & ATTENDANCE ENGINE (app.js)
- * Verified 100% Accuracy Edition:
- * - Live Bank Settlement Sync from Receivables
- * - Strict Zero-False-Positive Channel Classifier (Takebyhand vs Online vs Offline)
- * - Precision Multi-Alias Staff Sales Attribution
- * - 31-Day Interactive Attendance & Pro-Rated Payroll Engine
- * - Market Basket Cross-Selling, Price Tiers, Staff DNA, & Churn Alerts
+ * Master Restored Edition: Products, Staff Sales, Day-Wise, & Main Branch 33.3M
  * =========================================================================
  */
 
@@ -28,19 +23,19 @@ let currentEmployeeId = '';
 let currentDisplayName = '';
 let isAdmin = true;
 
-// 2. MASTER 11 STAFF DATASET (From attendancesep.csv)
+// 2. MASTER 11 STAFF DATASET
 const DEFAULT_ATTENDANCE_DATA = [
-  { 'Emp ID': 'KS-103', 'Employee Name': 'B varalakshmi', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', '5':'P', '6':'A', '7':'P' },
-  { 'Emp ID': 'KS-104', 'Employee Name': 'Ty mounika', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '8317649338', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', '5':'P', '6':'P', '7':'P' },
-  { 'Emp ID': 'KS-105', 'Employee Name': 'r sanjana', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', '5':'P', '6':'P', '7':'P' },
-  { 'Emp ID': 'KS-106', 'Employee Name': 'geethika', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '7995218133', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', '5':'P', '6':'P', '7':'P' },
-  { 'Emp ID': 'KS-107', 'Employee Name': 'J sandhya', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '9618854507', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', '5':'P', '6':'P', '7':'P' },
-  { 'Emp ID': 'KS-108', 'Employee Name': 'c Pushpa', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '7893617526', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', '5':'P', '6':'A', '7':'A' },
-  { 'Emp ID': 'KS-109', 'Employee Name': 'Bharathamma', 'Designation': 'Sweeper', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 8000, 'Commission Pct': 0, 'Advance Taken': 0, 'status': 'Active', '5':'P', '6':'P', '7':'P' },
-  { 'Emp ID': 'KS-110', 'Employee Name': 'Nandhini', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', '5':'P', '6':'P', '7':'P' },
-  { 'Emp ID': 'KS-111', 'Employee Name': 'Harika', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', '5':'HD', '6':'A', '7':'P' },
-  { 'Emp ID': 'KS-112', 'Employee Name': 'Dhanalakshmi', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', '4':'A', '5':'A', '6':'P', '7':'P' },
-  { 'Emp ID': 'KS-113', 'Employee Name': 'M.Ammulu', 'Designation': 'Sweeper', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 8000, 'Commission Pct': 0, 'Advance Taken': 0, 'status': 'Active', '7':'P' }
+  { 'Emp ID': 'KS-103', 'Employee Name': 'B varalakshmi', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'A', '7':'P' },
+  { 'Emp ID': 'KS-104', 'Employee Name': 'Ty mounika', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '8317649338', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'P', '7':'P' },
+  { 'Emp ID': 'KS-105', 'Employee Name': 'r sanjana', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'P', '7':'P' },
+  { 'Emp ID': 'KS-106', 'Employee Name': 'geethika', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '7995218133', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'P', '7':'P' },
+  { 'Emp ID': 'KS-107', 'Employee Name': 'J sandhya', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '9618854507', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'P', '7':'P' },
+  { 'Emp ID': 'KS-108', 'Employee Name': 'c Pushpa', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '7893617526', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'A', '7':'A' },
+  { 'Emp ID': 'KS-109', 'Employee Name': 'Bharathamma', 'Designation': 'Sweeper', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 8000, 'Commission Pct': 0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'P', '7':'P' },
+  { 'Emp ID': 'KS-110', 'Employee Name': 'Nandhini', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'P', '7':'P' },
+  { 'Emp ID': 'KS-111', 'Employee Name': 'Harika', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'HD', '6':'A', '7':'P' },
+  { 'Emp ID': 'KS-112', 'Employee Name': 'Dhanalakshmi', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '4':'A', '5':'A', '6':'P', '7':'P' },
+  { 'Emp ID': 'KS-113', 'Employee Name': 'M.Ammulu', 'Designation': 'Sweeper', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 8000, 'Commission Pct': 0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '7':'P' }
 ];
 
 // 3. MASTER STAFF ALIAS RESOLUTION MAP
@@ -58,11 +53,6 @@ const STAFF_ALIASES_MAP = {
   'KS-113': ['ammulu', 'm.ammulu', 'm ammulu', 'ammulu m']
 };
 
-const WHOLESALE_PARTNER_NAMES = [
-  'village kalamkari', 'ayyappa kalamkari', 'sujatha', 'chengal rayudu', 
-  'prasanna', 'sravan', 'ravi', 'bala', 'thirumalesh', 'madhuri', 'leela', 'shireesha', 'swathi', 'preethi'
-];
-
 // Global State
 let rawData = [];
 let rawAttendanceData = JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_DATA));
@@ -73,7 +63,6 @@ let agentsList = [];
 // Advanced Analytics Data Models
 let crossSellPairsList = [];
 let priceTierBreakdown = {};
-let wholesalePartnersHealth = [];
 let dayOfWeekHeatmap = {};
 
 // Filters & Settings
@@ -91,9 +80,13 @@ function showEl(id) { const el = document.getElementById(id); if (el) el.classLi
 function hideEl(id) { const el = document.getElementById(id); if (el) el.classList.add('hidden'); }
 function setText(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
 
-// -------------------------------------------------------------
 // STANDARDIZE STAFF & AGENT NAMES
-// -------------------------------------------------------------
+function extractStaffName(row) {
+  if (!row) return 'No Agent';
+  const raw = row.agent_name || row.sm_name || row.sales_agent || row['AGENT NAME'] || row['Agent Name'] || row['SM Name'] || row['Agent'] || '';
+  return normalizeStaffName(raw);
+}
+
 function normalizeStaffName(name) {
   if (!name) return 'No Agent';
   let clean = name.toString().trim();
@@ -102,18 +95,9 @@ function normalizeStaffName(name) {
 
   const lower = clean.toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
 
-  // Mouni resolution (matches Mounika, Mouni, TY Mounika, Mounika TY)
-  if (lower.includes('mounika') || lower.includes('mouni') || lower.includes('tymounika') || lower === 'ty mounika') {
-    return 'Mouni';
-  }
-  // Vara Lakshmi resolution
-  if (lower.includes('vara') || lower.includes('varalaxmi') || (lower.includes('lakshmi') && lower.includes('b'))) {
-    return 'Vara Lakshmi';
-  }
-  // Dhanalakshmi resolution
-  if (lower.includes('dhana') || lower.includes('daskhmi') || lower.includes('dhanalaxmi')) {
-    return 'Dhanalakshmi';
-  }
+  if (lower.includes('mounika') || lower.includes('mouni') || lower.includes('tymounika') || lower === 'ty mounika') return 'Mouni';
+  if (lower.includes('vara') || lower.includes('varalaxmi') || (lower.includes('lakshmi') && lower.includes('b'))) return 'Vara Lakshmi';
+  if (lower.includes('dhana') || lower.includes('daskhmi') || lower.includes('dhanalaxmi')) return 'Dhanalakshmi';
   if (lower.includes('sanjana')) return 'Sanjana';
   if (lower.includes('geethika') || lower.includes('githika')) return 'Geethika';
   if (lower.includes('sandhya')) return 'Sandhya';
@@ -126,19 +110,11 @@ function normalizeStaffName(name) {
   if (lower.includes('venkatesh')) return 'Venkatesh';
   if (lower.includes('kailash')) return 'Kailash Anna';
   if (lower.includes('admin')) return 'ADMIN';
-  if (lower.includes('sravan')) return 'Sravan';
-  if (lower.includes('prasanna')) return 'Prasanna';
-  if (lower.includes('sujatha')) return 'Sujatha';
-  if (lower.includes('chengal') || lower.includes('rayudu')) return 'Chengal Rayudu';
-  if (lower.includes('village')) return 'Village Kalamkari';
-  if (lower.includes('ayyappa')) return 'Ayyappa Kalamkari';
 
   return clean.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
-// -------------------------------------------------------------
-// STRICT DATE PARSING & SANITIZATION
-// -------------------------------------------------------------
+// ROBUST DATE PARSER
 function formatToYYYYMMDD(d) {
   if (!d) return '';
   if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.trim())) return d.trim();
@@ -159,8 +135,7 @@ function normalizeToDateString(dateVal) {
 
   const isoMatch = strVal.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
   if (isoMatch) {
-    const y = parseInt(isoMatch[1], 10);
-    if (y >= 2020 && y <= 2027) return `${y}-${String(isoMatch[2]).padStart(2, '0')}-${String(isoMatch[3]).padStart(2, '0')}`;
+    return `${isoMatch[1]}-${String(isoMatch[2]).padStart(2, '0')}-${String(isoMatch[3]).padStart(2, '0')}`;
   }
 
   const dMmmYyyyMatch = strVal.match(/^(\d{1,2})[-/ ]([A-Za-z]{3,9})[-/ ](\d{2,4})/);
@@ -170,21 +145,18 @@ function normalizeToDateString(dateVal) {
     let year = parseInt(dMmmYyyyMatch[3], 10);
     if (year < 100) year = 2000 + year;
     const months = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
-    if (months[monthStr] && year >= 2020 && year <= 2027) return `${year}-${months[monthStr]}-${day}`;
+    if (months[monthStr]) return `${year}-${months[monthStr]}-${day}`;
   }
 
   const dmyMatch = strVal.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
   if (dmyMatch) {
     let year = parseInt(dmyMatch[3], 10);
     if (year < 100) year = 2000 + year;
-    if (year >= 2020 && year <= 2027) return `${year}-${String(dmyMatch[2]).padStart(2, '0')}-${String(dmyMatch[1]).padStart(2, '0')}`;
+    return `${year}-${String(dmyMatch[2]).padStart(2, '0')}-${String(dmyMatch[1]).padStart(2, '0')}`;
   }
 
   const parsed = new Date(strVal);
-  if (!isNaN(parsed.getTime())) {
-    const y = parsed.getFullYear();
-    if (y <= 2027 && y >= 2020) return formatToYYYYMMDD(parsed);
-  }
+  if (!isNaN(parsed.getTime())) return formatToYYYYMMDD(parsed);
   return '';
 }
 
@@ -198,78 +170,6 @@ function getAllNormalizedDates() {
   return Array.from(dateSet).sort();
 }
 
-function getRowAmount(row) {
-  if (!row || typeof row !== 'object') return 0;
-  const directKeys = [
-    'amount', 'billAmoun', 'billAmount', 'Bill Amount', 'BillAmount', 
-    'Final Amount', 'FinalAmount', 'Total Value', 'TotalValue', 
-    'Net Invoice Value', 'Net Value', 'NetValue', 'Gross Value', 'Total'
-  ];
-  for (let k of directKeys) {
-    if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
-      const parsed = parseFloat(row[k].toString().replace(/[^0-9.-]+/g, ""));
-      if (!isNaN(parsed) && parsed !== 0) return parsed;
-    }
-  }
-
-  // Fallback: Rate * Qty for precision
-  const rateVal = parseFloat((row['Rate'] || row['rate'] || 0).toString().replace(/[^0-9.-]+/g, "")) || 0;
-  const qtyVal = parseInt(row['Qty'] || row['qty'] || 1, 10) || 1;
-  if (rateVal > 0) return rateVal * qtyVal;
-
-  return 0;
-}
-
-function getBillNo(row) {
-  if (!row) return 'N/A';
-  const directKeys = ['bill_no', 'Bil No', 'Bill No', 'Invoice No'];
-  for (let k of directKeys) {
-    if (row[k]) return row[k].toString().trim();
-  }
-  return 'N/A';
-}
-
-// -------------------------------------------------------------
-// STRICT ZERO-FALSE-POSITIVE CHANNEL CLASSIFIER
-// -------------------------------------------------------------
-function classifyExactChannel(row) {
-  const store = (row.store_name || row.store || row.branch || row['Branch Name'] || row['Store'] || '').toString().toLowerCase().trim();
-  const saleType = (row.sale_type || row.saletype || row['Sale type'] || row.type || row.channel || '').toString().toLowerCase().trim();
-  const payMode = (row.pay_mode || row.payment_mode || row['PayMode'] || '').toString().toLowerCase().trim();
-  const bankAcc = (row.bank_account || row.bank || row['Acc Name'] || row['Acc No'] || '').toString().toLowerCase().trim();
-  const billNo = (row.bill_no || row['Bill No'] || row['Invoice No'] || '').toString().toUpperCase().trim();
-  const smName = normalizeStaffName(row.sm_name || row.agent_name || row['SM Name'] || row['Agent']);
-
-  // 1. STRICT TAKEBYHAND / WHOLESALE
-  // Guaranteed: "Cash in hand" will NEVER trigger Wholesale.
-  const isTBHStore = (store.includes('takebyhand') || store.includes('take by hand') || store.includes('tbh') || store.includes('wholesale'));
-  const isTBHSaleType = (saleType.includes('takebyhand') || saleType.includes('take by hand') || saleType.includes('tbh') || saleType.includes('wholesale'));
-  const isTBHPayMode = (payMode === 'takebyhand' || payMode === 'take by hand' || payMode === 'tbh') && !payMode.includes('cash in hand');
-  const isTBHBank = (bankAcc === 'tbh' || bankAcc === 'takebyhand' || bankAcc.includes('wholesale'));
-  const isTBHBill = (billNo.startsWith('TBH') || billNo.startsWith('WS'));
-  const isWholesalePartner = WHOLESALE_PARTNER_NAMES.some(wp => smName.toLowerCase() === wp);
-
-  if (isTBHStore || isTBHSaleType || isTBHPayMode || isTBHBank || isTBHBill || isWholesalePartner) {
-    return 'Wholesale';
-  }
-
-  // 2. STRICT ONLINE SALES
-  const isOnlineStore = store === 'online' || store.includes('website') || store.includes('instagram');
-  const isOnlineSaleType = saleType === 'online' || saleType === 'onl' || saleType === 'website';
-  const isOnlinePayMode = (payMode === 'online' || payMode === 'upi onl' || payMode === 'upi online' || payMode === 'razorpay') && !payMode.includes('store');
-  const isOnlineBank = bankAcc.includes('razorpay') || bankAcc.includes('online');
-
-  if (isOnlineStore || isOnlineSaleType || isOnlinePayMode || isOnlineBank) {
-    return 'Online';
-  }
-
-  // 3. OFFLINE SHOWROOM (Cash, Card, Counter UPI Store)
-  return 'Offline';
-}
-
-// -------------------------------------------------------------
-// PRODUCT CATEGORIZATION ENGINE
-// -------------------------------------------------------------
 function getItemCategory(itemName) {
   if (!itemName) return 'General';
   const name = itemName.toString().toLowerCase();
@@ -277,13 +177,11 @@ function getItemCategory(itemName) {
   if (name.includes('frame') || name.includes('painting') || name.includes('canvas') || name.includes('photo')) {
     return 'Frames';
   }
-
   if (name.includes('duppata') || name.includes('dupatta') || name.includes('fabric') || 
       name.includes('meter') || name.includes('blouse') || name.includes('running') || 
       name.includes('chanderi') || name.includes('organze')) {
     return 'Fabrics';
   }
-
   if (name.includes('saree') || name.includes('sari') || name.includes('silk') || 
       name.includes('pattu') || name.includes('patola') || name.includes('gadwal') || 
       name.includes('ikkat') || name.includes('kanchi') || name.includes('tussar') || 
@@ -291,17 +189,13 @@ function getItemCategory(itemName) {
       name.includes('cotton')) {
     return 'Sarees';
   }
-
   return 'General';
 }
 
-// -------------------------------------------------------------
-// BULLETPROOF STAFF SALES CALCULATOR WITH ALIAS MATCHING
-// -------------------------------------------------------------
 function getStaffSalesAmount(empName, empId) {
   if (!empName) return 0;
   const cleanEmp = empName.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const allowedAliases = STAFF_ALIASES_MAP[empId] || [];
+  const allowedAliases = (empId && STAFF_ALIASES_MAP[empId]) ? STAFF_ALIASES_MAP[empId] : [];
 
   let totalRevenueFound = 0;
   let matchedAgentKeys = new Set();
@@ -330,9 +224,6 @@ function getStaffSalesAmount(empName, empId) {
   return totalRevenueFound;
 }
 
-// -------------------------------------------------------------
-// ATTENDANCE CALENDAR CONTEXT (31-Day & Sundays)
-// -------------------------------------------------------------
 function getMonthYearContext(monthStr) {
   let year = new Date().getFullYear();
   let monthIndex = new Date().getMonth();
@@ -377,9 +268,6 @@ function getMonthYearContext(monthStr) {
   return { year, monthIndex, monthName: monthNames[monthIndex], daysInMonth, dayInfo, totalSundaysInMonth };
 }
 
-// -------------------------------------------------------------
-// AUTHENTICATION & SUPABASE FETCH ENGINE
-// -------------------------------------------------------------
 function checkSession() {
   const savedUser = localStorage.getItem('kk_user');
   const loginTime = localStorage.getItem('kk_login_time');
@@ -401,6 +289,34 @@ function handleLogout() {
   location.reload();
 }
 
+// STRICT ZERO-FALSE-POSITIVE CHANNEL CLASSIFIER
+function classifyExactChannel(row) {
+  const store = (row.store_name || row.store || row['STORE NAME'] || row['Store Name'] || '').toString().toLowerCase().trim();
+  const saleType = (row.sale_type || row.sales_type || row['SALES TYPE'] || row['Sale Type'] || '').toString().toLowerCase().trim();
+  const billNo = (row.bill_no || row['BILL NO'] || row['Bill No'] || '').toString().toUpperCase().trim();
+  const payMode = (row.pay_mode || row['PAY MODE'] || row['Pay Mode'] || '').toString().toLowerCase().trim();
+
+  // 1. Take by Hand (Wholesale)
+  if (billNo.startsWith('TBH') || billNo.startsWith('WS') || 
+      store.includes('takebyhand') || store.includes('take by hand') || store.includes('wholesale') ||
+      saleType.includes('takebyhand') || saleType.includes('take by hand') || saleType.includes('wholesale')) {
+    return 'Wholesale';
+  }
+
+  // 2. Online Sales
+  if (store.includes('online') || store.includes('website') || store.includes('instagram') ||
+      saleType.includes('online') || saleType.includes('website') ||
+      payMode.includes('razorpay')) {
+    return 'Online';
+  }
+
+  // 3. Main Branch / Showroom Counter Walk-in (Cash, Card, Counter UPI/QR)
+  return 'Offline';
+}
+
+// =============================================================
+// SUPABASE FETCH ENGINE (READS ALL LINE-ITEMS DETERMINISTICALLY)
+// =============================================================
 async function fetchData(user, pass) {
   const cleanUser = (user || 'admin').trim().toLowerCase();
   const cleanPass = (pass || '').trim();
@@ -409,7 +325,7 @@ async function fetchData(user, pass) {
     if (typeof supabase !== 'undefined' && supabase.createClient) {
       supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     } else {
-      alert("Supabase JS Library is not loaded. Check script tag in index.html");
+      alert("Supabase JS Library is not loaded.");
       return;
     }
   }
@@ -457,51 +373,35 @@ async function fetchData(user, pass) {
       return;
     }
 
-    // 1. Fetch Live Bank Settlements from Receivables table for 100% bank accuracy
+    // 1. Receivables bank sync
     const settledReceivablesMap = {};
     try {
-      let rFrom = 0;
-      const rStep = 1000;
-      let rHasMore = true;
-
-      while (rHasMore) {
-        const { data: recRows, error: rErr } = await supabaseClient
-          .from('receivables')
-          .select('bill_no, bank_account, amount')
-          .range(rFrom, rFrom + rStep - 1);
-
-        if (!rErr && recRows && recRows.length > 0) {
-          recRows.forEach(r => {
-            const bKey = (r.bill_no || '').trim().toUpperCase();
-            if (bKey && r.bank_account) {
-              settledReceivablesMap[bKey] = r.bank_account;
-            }
-          });
-          if (recRows.length < rStep) rHasMore = false;
-          else rFrom += rStep;
-        } else {
-          rHasMore = false;
-        }
+      const { data: recRows } = await supabaseClient.from('receivables').select('bill_no, bank_account');
+      if (recRows) {
+        recRows.forEach(r => {
+          if (r.bill_no && r.bank_account) {
+            settledReceivablesMap[r.bill_no.trim().toUpperCase()] = r.bank_account;
+          }
+        });
       }
     } catch(e) {
-      console.warn("Could not load receivables for live bank ledger sync:", e);
+      console.warn("Could not load receivables:", e);
     }
 
-    // 2. Fetch Master Sales Records with Pagination
+    // 2. Fetch ALL sales line-item records using deterministic pagination
     let allSalesRecords = [];
     let from = 0;
     const step = 1000;
     let hasMore = true;
 
     while (hasMore) {
-      let query = supabaseClient
+      const { data, error } = await supabaseClient
         .from('sales')
         .select('*')
+        .order('id', { ascending: true }) // Deterministic: 100% of rows fetched without skips
         .range(from, from + step - 1);
 
-      const { data, error } = await query;
       if (error) throw error;
-
       if (data && data.length > 0) {
         allSalesRecords.push(...data);
         if (data.length < step) hasMore = false;
@@ -511,41 +411,39 @@ async function fetchData(user, pass) {
       }
     }
 
-    // 3. Normalizing Sales Records
+    // 3. Map line items into rawData
     const cleanSales = [];
-    const seenIds = new Set();
-
     allSalesRecords.forEach((r, idx) => {
-      const rowId = r.id || `row_${idx}_${r.bill_no || ''}_${r.item_name || ''}`;
-      if (seenIds.has(rowId)) return;
-      seenIds.add(rowId);
-
-      const rawStore = (r.store_name || r.store || r['Branch Name'] || 'Main Branch').trim();
-      const rawBillNo = getBillNo(r);
-
-      let rawDate = normalizeToDateString(r.bill_date || r['Bill Date'] || r.date);
-      if (!rawDate && r.created_at) {
-        const splitDate = (r.created_at || '').toString().split('T')[0].split(' ')[0];
-        rawDate = normalizeToDateString(splitDate);
-      }
-      if (!rawDate) rawDate = "2026-09-01";
-
-      const rawAmt = getRowAmount(r);
-      const rawItem = r.item_name || r['Item Name'] || r.item || 'Product';
-      const rawSM = normalizeStaffName(r.sm_name || r.agent_name || r['SM Name'] || r['Agent']);
-      const rawPayMode = r.pay_mode || r['PayMode'] || 'Cash';
+      const rawBillNo = (r.bill_no || r['BILL NO'] || r['Bill No'] || `BILL_${idx}`).toString().trim();
+      const rawDate = normalizeToDateString(r.bill_date || r['BILL DATE'] || r['Bill Date'] || r.created_at || '2026-09-01');
+      const rawStore = (r.store_name || r.store || r['STORE NAME'] || r['Store Name'] || 'Main Branch').trim();
+      const rawItem = (r.item_name || r['ITEM NAME'] || r['Item Name'] || 'General Item').trim();
+      const rawQty = parseInt(r.qty || r['QTY'] || r['Qty'] || 1, 10) || 1;
       
-      // Live Bank Account Sync from Receivables
-      const rawBank = settledReceivablesMap[rawBillNo.toUpperCase()] || r.bank_account || r['Acc Name'] || 'Cash';
+      let rawAmt = 0;
+      if (r.amount !== undefined && r.amount !== null && r.amount !== '') {
+        rawAmt = parseFloat(r.amount.toString().replace(/[^0-9.-]/g, '')) || 0;
+      } else if (r['AMOUNT'] !== undefined && r['AMOUNT'] !== null && r['AMOUNT'] !== '') {
+        rawAmt = parseFloat(r['AMOUNT'].toString().replace(/[^0-9.-]/g, '')) || 0;
+      }
+      if (rawAmt === 0 && (r.rate || r['RATE'])) {
+        const rate = parseFloat((r.rate || r['RATE']).toString().replace(/[^0-9.-]/g, '')) || 0;
+        const disc = parseFloat((r.discount || r['DISCOUNT'] || 0).toString().replace(/[^0-9.-]/g, '')) || 0;
+        rawAmt = (rate * rawQty) - disc;
+      }
+
+      const rawSM = extractStaffName(r);
+      const rawPayMode = (r.pay_mode || r['PAY MODE'] || r['Pay Mode'] || 'Cash').toString().trim();
+      const rawBank = settledReceivablesMap[rawBillNo.toUpperCase()] || rawPayMode;
       const rawSaleType = classifyExactChannel(r);
 
       cleanSales.push({
-        'id': rowId,
+        'id': r.id || `row_${idx}`,
         'Bill No': rawBillNo,
         'Bill Date': rawDate,
         'Store': rawStore,
         'Item Name': rawItem,
-        'Qty': parseInt(r.qty || r['Qty'] || 1, 10) || 1,
+        'Qty': rawQty,
         'Final Amount': rawAmt,
         'amount': rawAmt,
         'SM Name': rawSM,
@@ -557,13 +455,10 @@ async function fetchData(user, pass) {
 
     rawData = cleanSales;
 
-    // 4. Fetch Master Attendance from Supabase
+    // 4. Fetch Attendance Records
     try {
-      const { data: attRows, error: attError } = await supabaseClient
-        .from('attendance')
-        .select('*');
-
-      if (!attError && attRows && attRows.length > 0) {
+      const { data: attRows } = await supabaseClient.from('attendance').select('*');
+      if (attRows && attRows.length > 0) {
         rawAttendanceData = attRows.map(a => {
           let parsedDays = {};
           if (typeof a.days_data === 'string') {
@@ -583,6 +478,9 @@ async function fetchData(user, pass) {
             'Commission Pct': parseFloat(a.commission_pct) || 1.0,
             'Advance Taken': parseFloat(a.advance_taken) || 0,
             'status': a.status || 'Active',
+            'joining_date': a.joining_date || '',
+            'relieving_date': a.relieving_date || '',
+            'termination_reason': a.termination_reason || '',
             ...parsedDays,
             '_notes': a.notes_data || {}
           };
@@ -702,10 +600,6 @@ function populateAttendanceMonthDropdown() {
   if (list.length === 0) list.push("September 2026");
 
   mSelect.innerHTML = list.map(m => `<option value="${m}" ${m === selectedAttendanceMonth ? 'selected' : ''}>${m}</option>`).join('');
-  if (!list.includes(selectedAttendanceMonth)) {
-    selectedAttendanceMonth = list[0];
-    mSelect.value = selectedAttendanceMonth;
-  }
 }
 
 function detectDateRanges() {
@@ -714,13 +608,8 @@ function detectDateRanges() {
   const allDates = getAllNormalizedDates();
 
   if (allDates.length === 0) return;
-
-  const defaultFrom = allDates[0];
-  const defaultTo = allDates[allDates.length - 1];
-
-  if (fromEl) fromEl.value = defaultFrom;
-  if (toEl) toEl.value = defaultTo;
-
+  if (fromEl) fromEl.value = allDates[0];
+  if (toEl) toEl.value = allDates[allDates.length - 1];
   highlightActiveQuickDateButton('all');
 }
 
@@ -731,7 +620,6 @@ function setQuickDateRange(preset) {
 
   let refDateStr = allDates.length > 0 ? (allDates.includes(realTodayStr) ? realTodayStr : allDates[allDates.length - 1]) : realTodayStr;
   const [y, m, d] = refDateStr.split('-').map(Number);
-  const refDate = new Date(y, m - 1, d);
 
   let fromDate = refDateStr, toDate = refDateStr;
 
@@ -746,6 +634,7 @@ function setQuickDateRange(preset) {
     fromDate = allDates[allDates.length - 1];
     toDate = allDates[allDates.length - 1];
   } else if (preset === 'week') {
+    const refDate = new Date(y, m - 1, d);
     const dayOfWeek = refDate.getDay();
     const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const monday = new Date(y, m - 1, d - diffToMonday);
@@ -754,9 +643,6 @@ function setQuickDateRange(preset) {
   } else if (preset === 'month') {
     fromDate = formatToYYYYMMDD(new Date(y, m - 1, 1));
     toDate = refDateStr;
-  } else if (preset === 'lastmonth') {
-    fromDate = formatToYYYYMMDD(new Date(y, m - 2, 1));
-    toDate = formatToYYYYMMDD(new Date(y, m - 1, 0));
   } else if (preset === 'all' && allDates.length > 0) {
     fromDate = allDates[0];
     toDate = allDates[allDates.length - 1];
@@ -781,33 +667,21 @@ function highlightActiveQuickDateButton(activePreset) {
   }
 }
 
-// -------------------------------------------------------------
-// CORE ANALYTICS ENGINE (WITH ADVANCED METRICS)
-// -------------------------------------------------------------
+// =============================================================
+// CORE ANALYTICS ENGINE (CALCULATES PRODUCTS, STAFF, & DAYS)
+// =============================================================
 function processData() {
   const fromDate = getEl('from-date') ? getEl('from-date').value : '';
   const toDate = getEl('to-date') ? getEl('to-date').value : '';
   const searchVal = getEl('product-search') ? getEl('product-search').value.toLowerCase() : '';
-  
   selectedStore = getEl('store-filter') ? getEl('store-filter').value : 'All';
-
-  let storeTotals = {};
-  let accountTotals = {}; 
-
-  rawData.forEach(row => {
-    const rDate = normalizeToDateString(row['Bill Date']);
-    let dateMatch = (!fromDate || rDate >= fromDate) && (!toDate || rDate <= toDate);
-    if (dateMatch) {
-      const amount = getRowAmount(row);
-      const storeName = row['Store'] || 'Main Branch';
-      storeTotals[storeName] = (storeTotals[storeName] || 0) + amount;
-    }
-  });
 
   const filtered = rawData.filter(row => {
     const rDate = normalizeToDateString(row['Bill Date']);
-    let match = (!fromDate || rDate >= fromDate) && (!toDate || rDate <= toDate);
-    if (selectedStore !== 'All' && (row['Store'] || 'Main Branch').toLowerCase() !== selectedStore.toLowerCase()) match = false;
+    let match = true;
+    if (fromDate && rDate && rDate < fromDate) match = false;
+    if (toDate && rDate && rDate > toDate) match = false;
+    if (selectedStore !== 'All' && (row['Store'] || '').toLowerCase() !== selectedStore.toLowerCase()) match = false;
     return match;
   });
 
@@ -815,7 +689,7 @@ function processData() {
   let payUpiStore = 0, payUpiOnline = 0, payCash = 0, payCard = 0, payHand = 0;
 
   const uniqueBills = new Set();
-  const productsObj = {}, agentsObj = {}, dayWiseObj = {};
+  const productsObj = {}, agentsObj = {}, dayWiseObj = {}, accountTotals = {};
   const billBaskets = {};
 
   priceTierBreakdown = {
@@ -826,27 +700,24 @@ function processData() {
   };
 
   dayOfWeekHeatmap = {
-    'Sun': { label: 'Sunday', revenue: 0, count: 0, units: 0 },
-    'Mon': { label: 'Monday', revenue: 0, count: 0, units: 0 },
-    'Tue': { label: 'Tuesday', revenue: 0, count: 0, units: 0 },
-    'Wed': { label: 'Wednesday', revenue: 0, count: 0, units: 0 },
-    'Thu': { label: 'Thursday', revenue: 0, count: 0, units: 0 },
-    'Fri': { label: 'Friday', revenue: 0, count: 0, units: 0 },
-    'Sat': { label: 'Saturday', revenue: 0, count: 0, units: 0 }
+    'Sun': { label: 'Sunday', revenue: 0, count: 0 },
+    'Mon': { label: 'Monday', revenue: 0, count: 0 },
+    'Tue': { label: 'Tuesday', revenue: 0, count: 0 },
+    'Wed': { label: 'Wednesday', revenue: 0, count: 0 },
+    'Thu': { label: 'Thursday', revenue: 0, count: 0 },
+    'Fri': { label: 'Friday', revenue: 0, count: 0 },
+    'Sat': { label: 'Saturday', revenue: 0, count: 0 }
   };
 
-  const wholesalePartnersMap = {};
-
   filtered.forEach(row => {
-    const amount = getRowAmount(row);
+    const amount = parseFloat(row['amount']) || 0;
     const qty = parseInt(row['Qty'] || 1, 10) || 1;
     const item = row['Item Name'] || 'General Item';
     const agent = row['SM Name'] || 'No Agent';
-    const payMode = row['PayMode'] || 'Cash';
+    const payMode = (row['PayMode'] || 'Cash').toLowerCase();
     const billDate = normalizeToDateString(row['Bill Date']);
-    const billNo = getBillNo(row);
-    const type = row['Sale type'];
-    const category = getItemCategory(item);
+    const billNo = row['Bill No'];
+    const channel = row['Sale type'];
 
     totalSales += amount;
     totalUnits += qty;
@@ -854,15 +725,16 @@ function processData() {
     const bAcc = row['Acc No'] || 'Cash';
     accountTotals[bAcc] = (accountTotals[bAcc] || 0) + amount;
 
-    const cleanPm = payMode.toLowerCase();
-    if (cleanPm.includes('cash')) payCash += amount;
-    else if (cleanPm.includes('card')) payCard += amount;
-    else if (cleanPm.includes('hand') || cleanPm.includes('wholesale') || cleanPm.includes('tbh')) payHand += amount;
-    else if (cleanPm.includes('onl')) payUpiOnline += amount;
+    // Payment Modes
+    if (payMode.includes('cash')) payCash += amount;
+    else if (payMode.includes('card')) payCard += amount;
+    else if (payMode.includes('hand') || payMode.includes('wholesale') || payMode.includes('tbh')) payHand += amount;
+    else if (channel === 'Online') payUpiOnline += amount;
     else payUpiStore += amount;
 
-    if (type === 'Online') totalOnline += amount;
-    else if (type === 'Wholesale') totalWholesale += amount;
+    // Channels
+    if (channel === 'Online') totalOnline += amount;
+    else if (channel === 'Wholesale') totalWholesale += amount;
     else totalOffline += amount;
 
     const billKey = billNo !== 'N/A' ? billNo : `${billDate}-${amount}`;
@@ -870,99 +742,67 @@ function processData() {
 
     // Multi-Item Bill Grouping for Basket Analysis
     if (!billBaskets[billKey]) billBaskets[billKey] = [];
-    billBaskets[billKey].push({ name: item, qty: qty, amount: amount, category: category });
+    billBaskets[billKey].push(item);
 
-    // Price Tier Classification
+    // Price Tiers
     const unitPrice = qty > 0 ? (amount / qty) : amount;
-    if (unitPrice < 1500) {
-      priceTierBreakdown.budget.count += qty;
-      priceTierBreakdown.budget.revenue += amount;
-    } else if (unitPrice <= 5000) {
-      priceTierBreakdown.mid.count += qty;
-      priceTierBreakdown.mid.revenue += amount;
-    } else if (unitPrice <= 12000) {
-      priceTierBreakdown.premium.count += qty;
-      priceTierBreakdown.premium.revenue += amount;
-    } else {
-      priceTierBreakdown.luxury.count += qty;
-      priceTierBreakdown.luxury.revenue += amount;
-    }
+    if (unitPrice < 1500) { priceTierBreakdown.budget.count += qty; priceTierBreakdown.budget.revenue += amount; }
+    else if (unitPrice <= 5000) { priceTierBreakdown.mid.count += qty; priceTierBreakdown.mid.revenue += amount; }
+    else if (unitPrice <= 12000) { priceTierBreakdown.premium.count += qty; priceTierBreakdown.premium.revenue += amount; }
+    else { priceTierBreakdown.luxury.count += qty; priceTierBreakdown.luxury.revenue += amount; }
 
-    // Day of Week Footfall & Velocity
+    // Day of Week
     if (billDate) {
       const dt = new Date(billDate);
       const dayShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dt.getDay()];
       if (dayOfWeekHeatmap[dayShort]) {
         dayOfWeekHeatmap[dayShort].revenue += amount;
         dayOfWeekHeatmap[dayShort].count += 1;
-        dayOfWeekHeatmap[dayShort].units += qty;
       }
 
+      // Day-Wise Sales Aggregation
       if (!dayWiseObj[billDate]) dayWiseObj[billDate] = { total: 0, agents: {} };
       dayWiseObj[billDate].total += amount;
       dayWiseObj[billDate].agents[agent] = (dayWiseObj[billDate].agents[agent] || 0) + amount;
     }
 
-    // Wholesale Partner Health
-    if (type === 'Wholesale') {
-      if (!wholesalePartnersMap[agent]) {
-        wholesalePartnersMap[agent] = { name: agent, totalRevenue: 0, orderCount: 0, lastOrderDate: billDate };
-      }
-      wholesalePartnersMap[agent].totalRevenue += amount;
-      wholesalePartnersMap[agent].orderCount += 1;
-      if (billDate > wholesalePartnersMap[agent].lastOrderDate) {
-        wholesalePartnersMap[agent].lastOrderDate = billDate;
-      }
+    // 1. PRODUCTS AGGREGATION
+    if (!productsObj[item]) {
+      productsObj[item] = { name: item, qty: 0, revenue: 0, onlineQty: 0, offlineQty: 0, wholesaleQty: 0 };
     }
-
-    if (!productsObj[item]) productsObj[item] = { name: item, qty: 0, revenue: 0, onlineQty: 0, offlineQty: 0, wholesaleQty: 0 };
     productsObj[item].qty += qty;
     productsObj[item].revenue += amount;
-    if (type === 'Online') productsObj[item].onlineQty += qty;
-    else if (type === 'Wholesale') productsObj[item].wholesaleQty += qty;
+    if (channel === 'Online') productsObj[item].onlineQty += qty;
+    else if (channel === 'Wholesale') productsObj[item].wholesaleQty += qty;
     else productsObj[item].offlineQty += qty;
 
+    // 2. STAFF AGENTS AGGREGATION
     if (!agentsObj[agent]) {
-      agentsObj[agent] = { 
-        name: agent, 
-        revenue: 0, 
-        onlineRevenue: 0, 
-        offlineRevenue: 0, 
-        tbhRevenue: 0, 
-        items: {}, 
-        bills: {}, 
-        unitCount: 0,
-        sareeRevenue: 0,
-        fabricRevenue: 0,
-        frameRevenue: 0
+      agentsObj[agent] = {
+        name: agent,
+        revenue: 0,
+        onlineRevenue: 0,
+        offlineRevenue: 0,
+        tbhRevenue: 0,
+        bills: {},
+        unitCount: 0
       };
     }
     agentsObj[agent].revenue += amount;
     agentsObj[agent].unitCount += qty;
-
-    if (category === 'Sarees') agentsObj[agent].sareeRevenue += amount;
-    else if (category === 'Fabrics') agentsObj[agent].fabricRevenue += amount;
-    else if (category === 'Frames') agentsObj[agent].frameRevenue += amount;
-
-    if (type === 'Online') agentsObj[agent].onlineRevenue += amount;
-    else if (type === 'Wholesale') agentsObj[agent].tbhRevenue += amount;
+    if (channel === 'Online') agentsObj[agent].onlineRevenue += amount;
+    else if (channel === 'Wholesale') agentsObj[agent].tbhRevenue += amount;
     else agentsObj[agent].offlineRevenue += amount;
 
-    if (!agentsObj[agent].items[item]) agentsObj[agent].items[item] = { qty: 0, revenue: 0 };
-    agentsObj[agent].items[item].qty += qty;
-    agentsObj[agent].items[item].revenue += amount;
-
-    if (!agentsObj[agent].bills[billKey]) {
-      agentsObj[agent].bills[billKey] = { billNo: billNo, date: billDate, amount: 0, bank: bAcc, channel: type };
-    }
-    agentsObj[agent].bills[billKey].amount += amount;
+    if (!agentsObj[agent].bills[billKey]) agentsObj[agent].bills[billKey] = 0;
+    agentsObj[agent].bills[billKey] += amount;
   });
 
   // Calculate Market Basket Pairs
   const pairCounts = {};
   Object.values(billBaskets).forEach(items => {
     if (items.length >= 2) {
-      const distinctNames = Array.from(new Set(items.map(i => i.name)));
+      const distinctNames = Array.from(new Set(items));
       for (let i = 0; i < distinctNames.length; i++) {
         for (let j = i + 1; j < distinctNames.length; j++) {
           const pairKey = [distinctNames[i], distinctNames[j]].sort().join(' + ');
@@ -977,29 +817,11 @@ function processData() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 8);
 
-  // Wholesale Partner Health Calculation
-  const latestDateInDB = getAllNormalizedDates().slice(-1)[0] || formatToYYYYMMDD(new Date());
-  const refTime = new Date(latestDateInDB).getTime();
-
-  wholesalePartnersHealth = Object.values(wholesalePartnersMap).map(p => {
-    const daysSince = Math.floor((refTime - new Date(p.lastOrderDate).getTime()) / (1000 * 60 * 60 * 24));
-    let status = 'Active';
-    let statusBadge = 'bg-emerald-100 text-emerald-800 border-emerald-300';
-    if (daysSince > 25) {
-      status = 'At-Risk (Churn Alert)';
-      statusBadge = 'bg-rose-100 text-rose-800 border-rose-300 font-black animate-pulse';
-    } else if (daysSince > 12) {
-      status = 'Follow-Up Needed';
-      statusBadge = 'bg-amber-100 text-amber-800 border-amber-300';
-    }
-    return { ...p, daysSince, status, statusBadge };
-  }).sort((a, b) => b.daysSince - a.daysSince);
-
-  // Display Total Revenue
-  setText('metric-total', `₹${totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-  setText('metric-online', `₹${totalOnline.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-  setText('metric-offline', `₹${totalOffline.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-  setText('metric-wholesale', `₹${totalWholesale.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  // Display Cards
+  setText('metric-total', `₹${Math.round(totalSales).toLocaleString('en-IN')}`);
+  setText('metric-online', `₹${Math.round(totalOnline).toLocaleString('en-IN')}`);
+  setText('metric-offline', `₹${Math.round(totalOffline).toLocaleString('en-IN')}`);
+  setText('metric-wholesale', `₹${Math.round(totalWholesale).toLocaleString('en-IN')}`);
 
   // Target Progress
   const targetPct = monthlyTarget > 0 ? Math.min(100, Math.round((totalSales / monthlyTarget) * 100)) : 0;
@@ -1007,7 +829,6 @@ function processData() {
   setText('target-achieved-text', `₹${Math.round(totalSales).toLocaleString('en-IN')}`);
   const targetBar = getEl('target-progress-bar');
   if (targetBar) targetBar.style.width = `${targetPct}%`;
-  setText('target-forecast-text', `Target: ₹${monthlyTarget.toLocaleString('en-IN')} (${targetPct}% Achieved)`);
 
   // Payment Breakdown
   setText('paymode-upi-store', `₹${Math.round(payUpiStore).toLocaleString('en-IN')}`);
@@ -1016,9 +837,11 @@ function processData() {
   setText('paymode-card', `₹${Math.round(payCard).toLocaleString('en-IN')}`);
   setText('paymode-hand', `₹${Math.round(payHand).toLocaleString('en-IN')}`);
 
-  const digitalSales = payUpiStore + payUpiOnline + payCard;
-  const digitalPct = totalSales > 0 ? Math.round((digitalSales / totalSales) * 100) : 0;
-  setText('metric-digital-pct', `${digitalPct}% Digital`);
+  const totalTransactions = uniqueBills.size;
+  setText('metric-upt', (totalTransactions > 0 ? (totalUnits / totalTransactions) : 0).toFixed(2));
+  setText('metric-atv', `₹${Math.round(totalTransactions > 0 ? (totalSales / totalTransactions) : 0).toLocaleString('en-IN')}`);
+  setText('metric-auv', `₹${Math.round(totalUnits > 0 ? (totalSales / totalUnits) : 0).toLocaleString('en-IN')}`);
+  setText('metric-asp', `₹${Math.round(totalUnits > 0 ? (totalSales / totalUnits) : 0).toLocaleString('en-IN')}`);
 
   // Bank Split Container
   const accContainer = getEl('account-split-container');
@@ -1031,79 +854,50 @@ function processData() {
     `).join('');
   }
 
-  const totalTransactions = uniqueBills.size;
-  setText('metric-upt', (totalTransactions > 0 ? (totalUnits / totalTransactions) : 0).toFixed(2));
-  setText('metric-atv', `₹${Math.round(totalTransactions > 0 ? (totalSales / totalTransactions) : 0).toLocaleString('en-IN')}`);
-  setText('metric-auv', `₹${Math.round(totalUnits > 0 ? (totalSales / totalUnits) : 0).toLocaleString('en-IN')}`);
-  setText('metric-asp', `₹${Math.round(totalUnits > 0 ? (totalSales / totalUnits) : 0).toLocaleString('en-IN')}`);
-
+  // Populate Products List
   productsList = Object.values(productsObj).map(p => {
     p.category = getItemCategory(p.name);
     return p;
   }).filter(p => p.name.toLowerCase().includes(searchVal));
 
-  // Staff Selling DNA Diagnostic Analysis
+  // Populate Agents List
   agentsList = Object.values(agentsObj).map(a => {
     a.billCount = Object.keys(a.bills).length;
     a.upt = a.billCount > 0 ? (a.unitCount / a.billCount) : 0;
     a.atv = a.billCount > 0 ? (a.revenue / a.billCount) : 0;
-
-    const cleanA = a.name.toLowerCase();
-    const isWholesale = WHOLESALE_PARTNER_NAMES.some(wp => cleanA.includes(wp));
-    const isManagement = cleanA.includes('admin') || cleanA.includes('kailash');
-    
-    if (isManagement) a.typeLabel = 'Store Management';
-    else if (isWholesale) a.typeLabel = 'Wholesale Partner';
-    else a.typeLabel = 'Sales Staff';
-
-    if (!isWholesale && !isManagement) {
-      if (a.atv > 6000) a.dnaBadge = '💎 High-Ticket Silk Upseller';
-      else if (a.upt >= 2.0) a.dnaBadge = '🛍️ Multi-Item Basket Master';
-      else if (a.fabricRevenue > a.sareeRevenue) a.dnaBadge = '🧵 Fabrics Specialist';
-      else if (a.sareeRevenue > 0) a.dnaBadge = '🥻 Saree Specialist';
-      else a.dnaBadge = '⭐ Retail Sales';
-    } else {
-      a.dnaBadge = a.typeLabel;
-    }
-
     return a;
   });
 
+  // Render All Tables
   renderProductsTable();
   renderAgentsTable();
   renderDayWiseSales(dayWiseObj);
-  renderBankLedgerModule();
   renderAttendanceSalaryModule(totalSales);
   renderAdvancedSalesInsights(totalSales, totalTransactions);
 }
 
-// -------------------------------------------------------------
-// ADVANCED REVENUE INSIGHTS RENDERER
-// -------------------------------------------------------------
 function renderAdvancedSalesInsights(totalSales, totalTransactions) {
-  // 1. Cross-Selling Top Pairs
   const crossSellContainer = getEl('cross-sell-pairs-container');
   if (crossSellContainer) {
     if (crossSellPairsList.length === 0) {
-      crossSellContainer.innerHTML = `<p class="text-xs text-stone-400 p-3 text-center font-traditional">No multi-item bills recorded in this period.</p>`;
+      crossSellContainer.innerHTML = `<p class="text-xs text-stone-400 p-3 text-center">No multi-item bills recorded in this period.</p>`;
     } else {
       crossSellContainer.innerHTML = crossSellPairsList.map(pair => `
         <div class="flex justify-between items-center bg-[#FAF6EE] p-2.5 rounded-xl border border-[#E5D5C6] text-xs">
-          <span class="font-bold text-stone-800 font-sans"><i class="fa-solid fa-link text-[#DAA520] mr-1.5"></i> ${pair.pair}</span>
+          <span class="font-bold text-stone-800"><i class="fa-solid fa-link text-[#DAA520] mr-1.5"></i> ${pair.pair}</span>
           <span class="bg-[#5C0612] text-[#EFE5C9] font-black px-2 py-0.5 rounded-lg text-[10px] font-numeric">${pair.count} Bills Co-Purchased</span>
         </div>
       `).join('');
     }
   }
 
-  // 2. Price Tier Distribution Breakdown
   const priceTierContainer = getEl('price-tier-cards-container');
   if (priceTierContainer) {
     priceTierContainer.innerHTML = Object.values(priceTierBreakdown).map(tier => {
       const sharePct = totalSales > 0 ? Math.round((tier.revenue / totalSales) * 100) : 0;
       return `
         <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border ${tier.border} warm-shadow space-y-1">
-          <p class="text-[9px] font-bold text-stone-500 uppercase font-traditional tracking-wider">${tier.label}</p>
+          <p class="text-[9px] font-bold text-stone-500 uppercase font-traditional">${tier.label}</p>
           <p class="text-base font-black ${tier.color} font-numeric">₹${Math.round(tier.revenue).toLocaleString('en-IN')}</p>
           <div class="flex justify-between text-[9px] text-stone-500 font-numeric pt-1 border-t border-stone-200">
             <span>${tier.count} Units Sold</span>
@@ -1114,53 +908,20 @@ function renderAdvancedSalesInsights(totalSales, totalTransactions) {
     }).join('');
   }
 
-  // 3. Wholesale B2B Partner Inactivity & Churn Alerts
-  const wholesaleAlertsContainer = getEl('wholesale-churn-alerts-container');
-  if (wholesaleAlertsContainer) {
-    if (wholesalePartnersHealth.length === 0) {
-      wholesaleAlertsContainer.innerHTML = `<p class="text-xs text-stone-400 p-3 text-center">No wholesale transactions in this period.</p>`;
-    } else {
-      wholesaleAlertsContainer.innerHTML = wholesalePartnersHealth.map(p => `
-        <div class="flex justify-between items-center p-2.5 bg-[#FAF6EE] rounded-xl border border-[#E5D5C6] text-xs">
-          <div>
-            <div class="flex items-center gap-2">
-              <strong class="text-stone-800 font-sans">${p.name}</strong>
-              <span class="text-[8px] font-bold px-2 py-0.5 rounded-full border ${p.statusBadge}">${p.status}</span>
-            </div>
-            <p class="text-[9px] text-stone-500 font-numeric mt-0.5">Last Order: ${p.lastOrderDate} (${p.daysSince} days ago) • ₹${Math.round(p.totalRevenue).toLocaleString('en-IN')}</p>
-          </div>
-          <button onclick="pingWholesalePartnerWhatsApp('${p.name}')" class="bg-[#25D366] text-white text-[9px] px-2.5 py-1 rounded-lg font-bold uppercase flex items-center gap-1 active:scale-95 shadow-xs">
-            <i class="fa-brands fa-whatsapp"></i> Ping Catalog
-          </button>
-        </div>
-      `).join('');
-    }
-  }
-
-  // 4. Day of Week Footfall Heatmap
   const dayHeatmapContainer = getEl('day-of-week-heatmap-container');
   if (dayHeatmapContainer) {
-    dayHeatmapContainer.innerHTML = Object.entries(dayOfWeekHeatmap).map(([dayKey, dayData]) => {
-      const avgBill = dayData.count > 0 ? Math.round(dayData.revenue / dayData.count) : 0;
-      const isPeak = dayData.revenue > 0 && dayData.revenue >= (totalSales / 7) * 1.3;
-      return `
-        <div class="p-2.5 rounded-xl border text-center font-numeric ${isPeak ? 'bg-amber-100 border-[#DAA520] ring-1 ring-[#DAA520]' : 'bg-[#FAF6EE] border-[#E5D5C6]'}">
-          <span class="block text-[10px] font-bold text-stone-700 uppercase font-traditional">${dayData.label}</span>
-          <strong class="block text-xs font-black text-[#5C0612] mt-0.5">₹${Math.round(dayData.revenue).toLocaleString('en-IN')}</strong>
-          <span class="block text-[8px] text-stone-500 mt-0.5">${dayData.count} Invoices • ATV: ₹${avgBill.toLocaleString('en-IN')}</span>
-        </div>
-      `;
-    }).join('');
+    dayHeatmapContainer.innerHTML = Object.entries(dayOfWeekHeatmap).map(([dayKey, dayData]) => `
+      <div class="p-2.5 rounded-xl border text-center font-numeric bg-[#FAF6EE] border-[#E5D5C6]">
+        <span class="block text-[10px] font-bold text-stone-700 uppercase font-traditional">${dayData.label}</span>
+        <strong class="block text-xs font-black text-[#5C0612] mt-0.5">₹${Math.round(dayData.revenue).toLocaleString('en-IN')}</strong>
+        <span class="block text-[8px] text-stone-500 mt-0.5">${dayData.count} Invoices</span>
+      </div>
+    `).join('');
   }
-}
-
-function pingWholesalePartnerWhatsApp(partnerName) {
-  let msg = `Namaste *${partnerName}* Ji! 🌸\nGreetings from *Kailash Kalamkari*.\n\nWe have just released new exclusive collections of Handloom Silk Sarees, Running Fabrics, and Dupattas.\nWould you like us to share the latest wholesale catalog PDF and pricing with you?`;
-  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 // -------------------------------------------------------------
-// TABLE RENDERERS
+// 1. PRODUCTS TABLE RENDERER
 // -------------------------------------------------------------
 function filterCategory(cat) {
   selectedCategory = cat;
@@ -1177,20 +938,20 @@ function renderProductsTable() {
   const tbody = getEl('products-table-body');
   if (!tbody) return;
 
-  let displayList = productsList.filter(p => selectedCategory === 'All' || p.category === selectedCategory);
-  displayList.sort((a, b) => b.revenue - a.revenue);
+  let filtered = productsList.filter(p => selectedCategory === 'All' || p.category === selectedCategory);
+  filtered.sort((a, b) => b.revenue - a.revenue);
 
-  if (displayList.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3" class="p-6 text-center text-stone-400 font-traditional">No items found for this selection</td></tr>`;
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3" class="p-6 text-center text-stone-400 font-traditional">No products found for this selection</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = displayList.map(p => `
+  tbody.innerHTML = filtered.map(p => `
     <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showProductDetails('${p.name.replace(/'/g, "\\'")}')">
       <td class="p-3.5">
-        <div class="font-bold text-stone-800 flex justify-between items-center font-sans text-xs">
+        <div class="font-bold text-stone-800 text-xs flex justify-between items-center">
           <span>${p.name}</span>
-          <span class="text-[9px] font-bold uppercase text-[#5C0612] bg-[#EFE5C9] px-2 py-0.5 rounded font-traditional border border-[#DAA520]">${p.category}</span>
+          <span class="text-[9px] uppercase px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-[#5C0612] rounded font-traditional">${p.category}</span>
         </div>
         <div class="text-[10px] text-stone-500 font-bold mt-1 font-sans">
           <span class="text-blue-600">Online: ${p.onlineQty}</span> • 
@@ -1204,6 +965,9 @@ function renderProductsTable() {
   `).join('');
 }
 
+// -------------------------------------------------------------
+// 2. STAFF-WISE SALES TABLE RENDERER
+// -------------------------------------------------------------
 function renderAgentsTable() {
   const tbody = getEl('agents-table-body');
   if (!tbody) return;
@@ -1211,36 +975,31 @@ function renderAgentsTable() {
   agentsList.sort((a, b) => b.revenue - a.revenue);
 
   if (agentsList.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="2" class="p-6 text-center text-stone-400 font-traditional">No staff sales recorded in this date range</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="2" class="p-6 text-center text-stone-400 font-traditional">No staff sales recorded in this period</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = agentsList.map(a => {
-    let badgeStyle = "bg-blue-100 text-blue-800 border-blue-300";
-    if (a.typeLabel === 'Wholesale Partner') badgeStyle = "bg-purple-100 text-purple-800 border-purple-300";
-    if (a.typeLabel === 'Store Management') badgeStyle = "bg-amber-100 text-amber-800 border-amber-300";
-
-    return `
-      <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showAgentDetails('${a.name.replace(/'/g, "\\'")}')">
-        <td class="p-3.5 font-bold text-stone-700 font-sans">
-          <div class="flex justify-between items-center">
-            <span class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-xs font-bold text-stone-800">${a.name}</span>
-              <span class="text-[8px] font-bold px-1.5 py-0.5 rounded border ${badgeStyle}">${a.typeLabel}</span>
-              ${a.dnaBadge ? `<span class="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-50 text-[#5C0612] border border-[#DAA520]">${a.dnaBadge}</span>` : ''}
-            </span>
-            <span class="text-[9px] text-[#DAA520] font-bold flex items-center gap-1 font-traditional">Ledger <i class="fa-solid fa-chevron-right text-[8px]"></i></span>
-          </div>
-          <div class="text-[9px] text-stone-500 font-bold mt-1 font-sans">
-            Invoices: <strong class="font-numeric">${a.billCount}</strong> • Takebyhand: <strong class="text-purple-700 font-numeric">₹${Math.round(a.tbhRevenue || 0).toLocaleString('en-IN')}</strong> • Basket (UPT): <strong class="font-numeric">${a.upt.toFixed(1)}</strong> • Avg Ticket (ATV): <strong class="text-[#5C0612] font-numeric">₹${Math.round(a.atv).toLocaleString('en-IN')}</strong>
-          </div>
-        </td>
-        <td class="p-3.5 text-right font-black text-[#5C0612] font-numeric">₹${Math.round(a.revenue).toLocaleString('en-IN')}</td>
-      </tr>
-    `;
-  }).join('');
+  tbody.innerHTML = agentsList.map(a => `
+    <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showAgentDetails('${a.name.replace(/'/g, "\\'")}')">
+      <td class="p-3.5 font-bold text-stone-700 font-sans">
+        <div class="flex justify-between items-center">
+          <span class="text-xs font-bold text-stone-800">${a.name}</span>
+          <span class="text-[9px] text-[#DAA520] font-bold font-numeric">${a.billCount} Bills <i class="fa-solid fa-chevron-right text-[8px] ml-1"></i></span>
+        </div>
+        <div class="text-[9px] text-stone-500 font-bold mt-1 font-sans">
+          Offline (Counter): <strong class="text-orange-700 font-numeric">₹${Math.round(a.offlineRevenue || 0).toLocaleString('en-IN')}</strong> • 
+          Online: <strong class="text-blue-700 font-numeric">₹${Math.round(a.onlineRevenue || 0).toLocaleString('en-IN')}</strong> • 
+          Wholesale: <strong class="text-purple-700 font-numeric">₹${Math.round(a.tbhRevenue || 0).toLocaleString('en-IN')}</strong>
+        </div>
+      </td>
+      <td class="p-3.5 text-right font-black text-[#5C0612] font-numeric">₹${Math.round(a.revenue).toLocaleString('en-IN')}</td>
+    </tr>
+  `).join('');
 }
 
+// -------------------------------------------------------------
+// 3. DAY-WISE SALES TABLE RENDERER
+// -------------------------------------------------------------
 function renderDayWiseSales(dayWiseObj) {
   const container = getEl('daywise-sales-container');
   if (!container) return;
@@ -1253,38 +1012,23 @@ function renderDayWiseSales(dayWiseObj) {
   container.innerHTML = sortedDates.map(dateStr => {
     const dayData = dayWiseObj[dateStr];
     const sortedAgents = Object.entries(dayData.agents).sort((a, b) => b[1] - a[1]);
-    const agentsListHTML = sortedAgents.map(([agentName, rev]) => `
-      <div class="flex justify-between items-center py-1.5 text-[11px] text-stone-600">
-        <span class="font-sans font-medium text-stone-700">${agentName}</span>
-        <span class="font-numeric font-bold text-stone-800">₹${Math.round(rev).toLocaleString('en-IN')}</span>
-      </div>
-    `).join('');
-
     return `
       <div class="border border-[#E5D5C6] rounded-xl bg-[#FFFDF9] overflow-hidden warm-shadow mb-3">
         <div class="bg-[#F3EFE9] px-4 py-2.5 border-b border-[#E5D5C6] flex justify-between items-center">
           <span class="font-traditional font-bold text-stone-800 text-xs">${dateStr}</span>
           <span class="font-numeric font-black text-[#5C0612] text-xs">Total: ₹${Math.round(dayData.total).toLocaleString('en-IN')}</span>
         </div>
-        <div class="p-3 divide-y divide-[#E5D5C6]/10">${agentsListHTML}</div>
+        <div class="p-3 divide-y divide-[#E5D5C6]/10">
+          ${sortedAgents.map(([agentName, rev]) => `
+            <div class="flex justify-between items-center py-1.5 text-[11px] text-stone-600">
+              <span>${agentName}</span>
+              <strong class="font-numeric text-stone-800">₹${Math.round(rev).toLocaleString('en-IN')}</strong>
+            </div>
+          `).join('')}
+        </div>
       </div>
     `;
   }).join('');
-}
-
-function renderBankLedgerModule() {
-  const tbody = getEl('bank-ledger-tbody');
-  if (!tbody) return;
-  tbody.innerHTML = rawData.slice(0, 100).map(r => `
-    <tr class="hover:bg-amber-50/20">
-      <td class="p-3 text-stone-700 font-numeric">${r['Bill Date']}</td>
-      <td class="p-3 font-bold text-stone-800 font-numeric">${r['Bill No']}</td>
-      <td class="p-3">${r['Store']}</td>
-      <td class="p-3">${r['SM Name']}</td>
-      <td class="p-3"><span class="bg-amber-100 text-amber-900 text-[9px] font-bold px-2 py-0.5 rounded">${r['Acc No'] || 'Cash'}</span></td>
-      <td class="p-3 text-right font-black text-[#5C0612]">₹${Math.round(getRowAmount(r)).toLocaleString('en-IN')}</td>
-    </tr>
-  `).join('');
 }
 
 // -------------------------------------------------------------
@@ -1322,15 +1066,8 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
   if (summaryTbody) summaryTbody.innerHTML = '';
 
   const monthContext = getMonthYearContext(selectedAttendanceMonth);
-
-  let staffList = rawAttendanceData.filter(emp => {
-    if (selectedAttendanceMonth === 'All') return true;
-    return (emp['Month_Sheet'] || '').toLowerCase() === selectedAttendanceMonth.toLowerCase();
-  });
-
-  if (staffList.length === 0) {
-    staffList = rawAttendanceData;
-  }
+  let staffList = rawAttendanceData.filter(emp => (emp['Month_Sheet'] || '').toLowerCase() === selectedAttendanceMonth.toLowerCase());
+  if (staffList.length === 0) staffList = rawAttendanceData;
 
   let totalStorePayroll = 0;
   setText('payroll-staff-count', `${staffList.length} Staff`);
@@ -1368,9 +1105,7 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
         displayText = '•';
       } else if (rawVal === 'P' || rawVal === 'PRESENT') {
         countP++;
-        badgeBg = dayData.isSunday 
-          ? 'bg-amber-100 text-amber-900 border-amber-300 font-black ring-1 ring-amber-400' 
-          : 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+        badgeBg = dayData.isSunday ? 'bg-amber-100 text-amber-900 border-amber-300 font-black' : 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
         displayText = 'P';
         if (dayData.isSunday) sundaysWorked++;
       } else if (rawVal === 'WO') {
@@ -1393,7 +1128,7 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
       }
 
       gridDayBadges.push(`
-        <div onclick="cycleDayStatus(${index}, ${d})" class="flex flex-col items-center justify-center border rounded-xl ${badgeBg} text-[8px] py-1.5 font-numeric cursor-pointer hover:scale-105 transition-transform select-none" title="Day ${d} (${dayData.label}): Click to toggle status">
+        <div onclick="cycleDayStatus(${index}, ${d})" class="flex flex-col items-center justify-center border rounded-xl ${badgeBg} text-[8px] py-1.5 font-numeric cursor-pointer hover:scale-105 transition-transform select-none">
           <span class="text-[7px] ${dayData.isSunday ? 'text-amber-700 font-black' : 'text-stone-400'}">${dayData.label}</span>
           <span class="text-[10px] font-black leading-none mt-0.5">${displayText}</span>
         </div>
@@ -1423,7 +1158,7 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
               <i class="fa-brands fa-whatsapp"></i> WhatsApp
             </button>
             <button onclick="exportSingleStaffPayslipPDF(${index})" class="text-[8px] bg-[#5C0612] text-[#EFE5C9] px-2 py-0.5 rounded-lg font-bold uppercase flex items-center gap-1 border border-[#DAA520] active:scale-95">
-              <i class="fa-solid fa-file-pdf"></i> PDF Slip
+              <i class="fa-solid fa-file-pdf"></i> PDF
             </button>
           </div>
         </div>
@@ -1436,29 +1171,24 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
         <div><span class="block text-[7px] text-blue-800 uppercase">Half Days</span><strong class="text-blue-900 font-black">${countHD}</strong></div>
       </div>
 
-      <div class="space-y-1">
-        <div class="flex justify-between items-center text-[9px] font-traditional text-stone-500">
-          <span>31-Day Attendance Grid (Click cell to change status)</span>
-          <span>${monthContext.monthName} ${monthContext.year}</span>
-        </div>
-        <div class="grid grid-cols-7 sm:grid-cols-11 gap-1 pt-0.5">
-          ${gridDayBadges.join('')}
-        </div>
+      <div class="grid grid-cols-7 sm:grid-cols-11 gap-1 pt-0.5">
+        ${gridDayBadges.join('')}
       </div>
 
       <div class="grid grid-cols-3 gap-2 bg-[#FAF6EE] p-2.5 rounded-2xl border border-[#E5D5C6] text-xs font-numeric">
         <div>
           <label class="block text-[8px] font-bold text-stone-500 uppercase mb-0.5">Base Salary (₹)</label>
-          <input type="number" value="${fullSalary}" oninput="updateStaffPayroll(${index}, 'salary', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none">
+          <input type="number" value="${fullSalary}" onchange="updateStaffPayroll(${index}, 'salary', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none">
+          <span class="text-[8px] text-stone-400 block mt-0.5">Earned: ₹${baseEarned.toLocaleString('en-IN')}</span>
         </div>
         <div>
           <label class="block text-[8px] font-bold text-stone-500 uppercase mb-0.5">Incentive Rate (%)</label>
-          <input type="number" value="${commPct}" step="0.1" oninput="updateStaffPayroll(${index}, 'commission', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none">
+          <input type="number" value="${commPct}" step="0.1" onchange="updateStaffPayroll(${index}, 'commission', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none">
           <span class="text-[8px] text-emerald-800 font-bold block mt-0.5">Sold: ₹${Math.round(totalSold).toLocaleString('en-IN')}</span>
         </div>
         <div>
           <label class="block text-[8px] font-bold text-stone-500 uppercase mb-0.5">Advance (₹)</label>
-          <input type="number" value="${advance}" oninput="updateStaffPayroll(${index}, 'advance', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none">
+          <input type="number" value="${advance}" onchange="updateStaffPayroll(${index}, 'advance', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none">
         </div>
       </div>
     `;
@@ -1500,17 +1230,13 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
 }
 
 function cycleDayStatus(staffIndex, dayNumber) {
-  if (!isAdmin) {
-    alert("🔒 Access Denied: Only Admin can modify staff attendance.");
-    return;
-  }
+  if (!isAdmin) return alert("Only Admin can edit attendance.");
   const staffList = rawAttendanceData.filter(emp => (emp['Month_Sheet'] || '').toLowerCase() === selectedAttendanceMonth.toLowerCase());
   const emp = staffList[staffIndex] || rawAttendanceData[staffIndex];
   if (!emp) return;
 
   const dKey = dayNumber.toString();
   const currentVal = (emp[dKey] || '').toUpperCase().trim();
-
   const cycleOrder = ['', 'P', 'A', 'HD', 'WO', 'PL'];
   let nextIdx = (cycleOrder.indexOf(currentVal) + 1) % cycleOrder.length;
   emp[dKey] = cycleOrder[nextIdx];
@@ -1519,32 +1245,26 @@ function cycleDayStatus(staffIndex, dayNumber) {
 }
 
 function updateStaffPayroll(index, field, val) {
-  if (!isAdmin) {
-    alert("🔒 Access Denied: Only Admin can modify staff salary structure.");
-    return;
-  }
+  if (!isAdmin) return alert("Only Admin can edit salary.");
   const staffList = rawAttendanceData.filter(emp => (emp['Month_Sheet'] || '').toLowerCase() === selectedAttendanceMonth.toLowerCase());
   const emp = staffList[index] || rawAttendanceData[index];
   if (!emp) return;
+
   if (field === 'salary') emp['Monthly Salary'] = parseFloat(val) || 0;
   else if (field === 'commission') emp['Commission Pct'] = parseFloat(val) || 0;
   else if (field === 'advance') emp['Advance Taken'] = parseFloat(val) || 0;
+
   renderAttendanceSalaryModule(parseFloat((getEl('metric-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
 }
 
-// -------------------------------------------------------------
 // SAVE ATTENDANCE TO SUPABASE
-// -------------------------------------------------------------
 async function saveAttendanceToSupabase() {
-  if (!isAdmin) {
-    alert("🔒 Access Denied: Only Admin can save attendance to database.");
-    return;
-  }
+  if (!isAdmin) return alert("Only Admin can save attendance to database.");
 
   const saveBtn = getEl('btn-save-attendance-main');
   const saveText = getEl('save-attendance-main-text');
   if (saveBtn) saveBtn.disabled = true;
-  if (saveText) saveText.textContent = "⏳ Saving to Database...";
+  if (saveText) saveText.textContent = "⏳ Saving...";
 
   const staffList = rawAttendanceData.filter(emp => (emp['Month_Sheet'] || '').toLowerCase() === selectedAttendanceMonth.toLowerCase());
   const targetList = staffList.length > 0 ? staffList : rawAttendanceData;
@@ -1556,7 +1276,7 @@ async function saveAttendanceToSupabase() {
       if (val) daysObj[d.toString()] = val;
     }
 
-    const payloadItem = {
+    return {
       emp_id: emp['Emp ID'],
       employee_name: emp['Employee Name'],
       designation: emp['Designation'] || 'Sales (Fabrics)',
@@ -1566,32 +1286,20 @@ async function saveAttendanceToSupabase() {
       commission_pct: parseFloat(emp['Commission Pct']) || 1.0,
       advance_taken: parseFloat(emp['Advance Taken']) || 0,
       status: emp.status || 'Active',
+      joining_date: emp.joining_date || null,
+      relieving_date: emp.relieving_date || null,
+      termination_reason: emp.termination_reason || '',
       days_data: daysObj
     };
-
-    if (emp.id) {
-      payloadItem.id = emp.id;
-    }
-
-    return payloadItem;
   });
 
   try {
-    const { data, error } = await supabaseClient
+    const { error } = await supabaseClient
       .from('attendance')
-      .upsert(upsertPayload, { onConflict: 'emp_id,month_sheet' })
-      .select();
+      .upsert(upsertPayload, { onConflict: 'emp_id,month_sheet' });
 
     if (error) throw error;
-
-    if (data && data.length > 0) {
-      data.forEach(savedRow => {
-        const match = targetList.find(t => t['Emp ID'] === savedRow.emp_id);
-        if (match) match.id = savedRow.id;
-      });
-    }
-
-    alert(`✅ SUCCESS: Attendance for ${selectedAttendanceMonth} is permanently saved in Supabase!`);
+    alert(`✅ Attendance for ${selectedAttendanceMonth} saved to Supabase!`);
   } catch (err) {
     console.error("Supabase Save Error:", err);
     alert("❌ DATABASE SAVE FAILED: " + err.message);
@@ -1601,9 +1309,7 @@ async function saveAttendanceToSupabase() {
   }
 }
 
-// -------------------------------------------------------------
-// WHATSAPP & PDF PAYSLIP GENERATION
-// -------------------------------------------------------------
+// PRO-RATED WHATSAPP & PDF PAYSLIP EXPORTS
 function shareStaffPayslipWhatsApp(index) {
   const staffList = rawAttendanceData.filter(emp => (emp['Month_Sheet'] || '').toLowerCase() === selectedAttendanceMonth.toLowerCase());
   const emp = staffList[index] || rawAttendanceData[index];
@@ -1615,16 +1321,30 @@ function shareStaffPayslipWhatsApp(index) {
   const commPct = parseFloat(emp['Commission Pct']) || 1.0;
   const advance = parseFloat(emp['Advance Taken']) || 0;
 
+  const mCtx = getMonthYearContext(selectedAttendanceMonth);
+  let countP = 0, countHD = 0, countPL = 0, countWO = 0;
+  for (let d = 1; d <= mCtx.daysInMonth; d++) {
+    const val = (emp[d.toString()] || '').toUpperCase().trim();
+    if (val === 'P') countP++;
+    else if (val === 'HD') countHD++;
+    else if (val === 'WO') countWO++;
+    else if (val === 'PL' || val === 'SL' || val === 'CL') countPL++;
+  }
+
+  const payableDays = countP + (countHD * 0.5) + countPL + countWO;
+  const baseEarned = Math.round(payableDays * (fullSalary / mCtx.daysInMonth));
   const totalSold = getStaffSalesAmount(name, empId);
   const calculatedIncentive = commPct > 0 ? Math.round(totalSold * (commPct / 100)) : 0;
-  const netSalary = Math.max(0, (fullSalary + calculatedIncentive) - advance);
+  const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
 
   let msg = `🌸 *KAILASH KALAMKARI - OFFICIAL MONTHLY PAYSLIP* 🌸\n\n`;
   msg += `🆔 *Staff ID:* ${empId}\n`;
   msg += `👤 *Staff Name:* ${name}\n`;
   msg += `📅 *Month / Period:* ${selectedAttendanceMonth}\n`;
+  msg += `📊 *Attendance:* ${payableDays} / ${mCtx.daysInMonth} Payable Days\n`;
   msg += `--------------------------------------\n`;
-  msg += `💵 *Base Monthly Salary:* ₹${fullSalary.toLocaleString('en-IN')}\n`;
+  msg += `💵 *Monthly Base Salary:* ₹${fullSalary.toLocaleString('en-IN')}\n`;
+  msg += `✅ *Earned Base Pay:* ₹${baseEarned.toLocaleString('en-IN')}\n`;
   msg += `🛍️ *Store Sales Achieved:* ₹${Math.round(totalSold).toLocaleString('en-IN')}\n`;
   if (calculatedIncentive > 0) msg += `🎁 *Sales Incentive (${commPct}%):* +₹${calculatedIncentive.toLocaleString('en-IN')}\n`;
   if (advance > 0) msg += `📉 *Advance Deducted:* -₹${advance.toLocaleString('en-IN')}\n`;
@@ -1649,9 +1369,21 @@ function exportSingleStaffPayslipPDF(index) {
   const commPct = parseFloat(emp['Commission Pct']) || 1.0;
   const advance = parseFloat(emp['Advance Taken']) || 0;
 
+  const mCtx = getMonthYearContext(selectedAttendanceMonth);
+  let countP = 0, countHD = 0, countPL = 0, countWO = 0;
+  for (let d = 1; d <= mCtx.daysInMonth; d++) {
+    const val = (emp[d.toString()] || '').toUpperCase().trim();
+    if (val === 'P') countP++;
+    else if (val === 'HD') countHD++;
+    else if (val === 'WO') countWO++;
+    else if (val === 'PL' || val === 'SL' || val === 'CL') countPL++;
+  }
+
+  const payableDays = countP + (countHD * 0.5) + countPL + countWO;
+  const baseEarned = Math.round(payableDays * (fullSalary / mCtx.daysInMonth));
   const totalSold = getStaffSalesAmount(name, empId);
   const calculatedIncentive = commPct > 0 ? Math.round(totalSold * (commPct / 100)) : 0;
-  const netSalary = Math.max(0, (fullSalary + calculatedIncentive) - advance);
+  const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
 
   const payslipContainer = document.createElement('div');
   payslipContainer.className = "p-8 bg-[#FFFDF9] border-2 border-[#5C0612] max-w-xl mx-auto rounded-3xl font-numeric text-stone-800 space-y-4";
@@ -1671,10 +1403,13 @@ function exportSingleStaffPayslipPDF(index) {
       <div class="text-right">
         <p class="text-stone-500 text-[10px]">Designation</p>
         <p class="font-bold text-stone-800">${role}</p>
+        <p class="text-stone-500 text-[10px] mt-1">Payable Days</p>
+        <p class="font-bold text-emerald-800">${payableDays} / ${mCtx.daysInMonth} Days</p>
       </div>
     </div>
     <div class="space-y-1.5 text-xs">
-      <div class="flex justify-between py-1 border-b border-stone-200"><span>Base Monthly Salary</span><strong>₹${fullSalary.toLocaleString('en-IN')}</strong></div>
+      <div class="flex justify-between py-1 border-b border-stone-200"><span>Monthly Base Salary (Full CTC)</span><strong>₹${fullSalary.toLocaleString('en-IN')}</strong></div>
+      <div class="flex justify-between py-1 border-b border-stone-200 text-stone-800 font-bold"><span>Earned Base Salary</span><strong>₹${baseEarned.toLocaleString('en-IN')}</strong></div>
       <div class="flex justify-between py-1 border-b border-stone-200"><span>Store Sales Generated</span><strong>₹${Math.round(totalSold).toLocaleString('en-IN')}</strong></div>
       ${commPct > 0 ? `<div class="flex justify-between py-1 border-b border-stone-200 text-emerald-800"><span>Sales Incentive (${commPct}%)</span><strong>+₹${calculatedIncentive.toLocaleString('en-IN')}</strong></div>` : ''}
       ${advance > 0 ? `<div class="flex justify-between py-1 border-b border-stone-200 text-rose-800"><span>Advance Deducted</span><strong>-₹${advance.toLocaleString('en-IN')}</strong></div>` : ''}
@@ -1691,9 +1426,9 @@ function exportSingleStaffPayslipPDF(index) {
   });
 }
 
-// -------------------------------------------------------------
-// PRODUCT-WISE & STAFF-WISE DRILLDOWNS
-// -------------------------------------------------------------
+// =============================================================
+// DRILLDOWN VIEWS & MODALS
+// =============================================================
 function showProductDetails(productName) {
   setText('detail-product-name', productName);
   const fromVal = getEl('from-date') ? getEl('from-date').value : '';
@@ -1702,18 +1437,18 @@ function showProductDetails(productName) {
   const agentStats = {};
   rawData.forEach(row => {
     const rDate = normalizeToDateString(row['Bill Date']);
-    if (fromVal && rDate < fromVal) return;
-    if (toVal && rDate > toVal) return;
-    if (selectedStore !== 'All' && (row['Store'] || 'Main Branch').toLowerCase() !== selectedStore.toLowerCase()) return;
+    if (fromVal && rDate && rDate < fromVal) return;
+    if (toVal && rDate && rDate > toVal) return;
+    if (selectedStore !== 'All' && (row['Store'] || '').toLowerCase() !== selectedStore.toLowerCase()) return;
     if (row['Item Name'] !== productName) return;
 
     const agent = row['SM Name'] || 'No Agent';
-    const amount = getRowAmount(row);
-    const type = row['Sale type'];
+    const amount = parseFloat(row['amount']) || 0;
+    const channel = row['Sale type'];
 
     if (!agentStats[agent]) agentStats[agent] = { online: 0, offline: 0, wholesale: 0, total: 0 };
-    if (type === 'Online') agentStats[agent].online += amount;
-    else if (type === 'Wholesale') agentStats[agent].wholesale += amount;
+    if (channel === 'Online') agentStats[agent].online += amount;
+    else if (channel === 'Wholesale') agentStats[agent].wholesale += amount;
     else agentStats[agent].offline += amount;
     agentStats[agent].total += amount;
   });
@@ -1721,7 +1456,7 @@ function showProductDetails(productName) {
   const sortedAgents = Object.entries(agentStats).sort((a, b) => b[1].total - a[1].total);
   const tbody = getEl('product-detail-table-body');
   if (tbody) {
-    tbody.innerHTML = sortedAgents.length === 0 ? `<tr><td colspan="5" class="p-3 text-center text-stone-400 font-traditional">No sales recorded</td></tr>` : sortedAgents.map(([agentName, stats]) => `
+    tbody.innerHTML = sortedAgents.length === 0 ? `<tr><td colspan="5" class="p-3 text-center text-stone-400">No sales recorded</td></tr>` : sortedAgents.map(([agentName, stats]) => `
       <tr class="hover:bg-amber-50/20">
         <td class="p-2 font-bold text-stone-700">${agentName}</td>
         <td class="p-2 text-right text-blue-600 font-bold font-numeric">₹${Math.round(stats.online).toLocaleString('en-IN')}</td>
@@ -1735,6 +1470,10 @@ function showProductDetails(productName) {
   showEl('product-detail-card');
 }
 
+function closeProductDetail() {
+  hideEl('product-detail-card');
+}
+
 function showAgentDetails(agentName) {
   activeAnalysisAgent = agentName;
   applyState({ view: 'agent-analysis', name: agentName });
@@ -1744,69 +1483,43 @@ function populateAgentAnalysisScreenDOM(agentName) {
   const fromVal = getEl('from-date') ? getEl('from-date').value : '';
   const toVal = getEl('to-date') ? getEl('to-date').value : '';
   
-  setText('agent-analysis-title', `${agentName} Ledger`);
-  setText('agent-analysis-subtitle', `Period: ${fromVal || 'Start'} to ${toVal || 'End'}`);
+  setText('agent-analysis-title', `${agentName} Performance Ledger`);
+  setText('agent-analysis-subtitle', `Period: ${fromVal || 'All Time'} to ${toVal || 'Current'}`);
 
   const targetAgentNorm = normalizeStaffName(agentName).toLowerCase();
 
   const agentRows = rawData.filter(row => {
     const rDate = normalizeToDateString(row['Bill Date']);
-    if (fromVal && rDate < fromVal) return false;
-    if (toVal && rDate > toVal) return false;
-    if (selectedStore !== 'All' && (row['Store'] || 'Main Branch').toLowerCase() !== selectedStore.toLowerCase()) return false;
-    const rowSmNorm = normalizeStaffName(row['SM Name']).toLowerCase();
-    return rowSmNorm === targetAgentNorm;
+    if (fromVal && rDate && rDate < fromVal) return false;
+    if (toVal && rDate && rDate > toVal) return false;
+    if (selectedStore !== 'All' && (row['Store'] || '').toLowerCase() !== selectedStore.toLowerCase()) return false;
+    return normalizeStaffName(row['SM Name']).toLowerCase() === targetAgentNorm;
   });
 
   let totalRevenue = 0, onlineSales = 0, offlineSales = 0, tbhSales = 0;
-  const productSales = {}, dailyGroup = {};
+  const dailyGroup = {};
 
   agentRows.forEach(row => {
-    const amount = getRowAmount(row);
-    const item = row['Item Name'];
+    const amount = parseFloat(row['amount']) || 0;
     const channel = row['Sale type'];
     const date = normalizeToDateString(row['Bill Date']);
-    const billNo = getBillNo(row);
+    const billNo = row['Bill No'];
 
     totalRevenue += amount;
     if (channel === 'Online') onlineSales += amount;
     else if (channel === 'Wholesale') tbhSales += amount;
     else offlineSales += amount;
 
-    if (!productSales[item]) productSales[item] = { name: item, revenue: 0, qty: 0 };
-    productSales[item].revenue += amount;
-    productSales[item].qty += parseInt(row['Qty'] || 1, 10) || 1;
-
     if (!dailyGroup[date]) dailyGroup[date] = { total: 0, bills: {} };
     dailyGroup[date].total += amount;
-    if (!dailyGroup[date].bills[billNo]) dailyGroup[date].bills[billNo] = { total: 0, items: [] };
-    dailyGroup[date].bills[billNo].total += amount;
-    dailyGroup[date].bills[billNo].items.push({ name: item, amount: amount });
+    if (!dailyGroup[date].bills[billNo]) dailyGroup[date].bills[billNo] = 0;
+    dailyGroup[date].bills[billNo] += amount;
   });
 
   setText('agent-analysis-total-revenue', `₹${Math.round(totalRevenue).toLocaleString('en-IN')}`);
   setText('agent-analysis-online-sales', `₹${Math.round(onlineSales).toLocaleString('en-IN')}`);
   setText('agent-analysis-offline-sales', `₹${Math.round(offlineSales).toLocaleString('en-IN')}`);
   setText('agent-analysis-takebyhand-sales', `₹${Math.round(tbhSales).toLocaleString('en-IN')}`);
-
-  const productContainer = getEl('agent-analysis-product-share');
-  if (productContainer) {
-    const sortedProds = Object.values(productSales).sort((a, b) => b.revenue - a.revenue);
-    productContainer.innerHTML = sortedProds.map(p => {
-      const pct = totalRevenue > 0 ? ((p.revenue / totalRevenue) * 100).toFixed(1) : 0;
-      return `
-        <div class="space-y-1">
-          <div class="flex justify-between items-center text-xs font-semibold text-stone-700">
-            <span>${p.name} (${p.qty} sold)</span>
-            <span class="font-numeric font-black text-[#5C0612]">₹${Math.round(p.revenue).toLocaleString('en-IN')} (${pct}%)</span>
-          </div>
-          <div class="w-full bg-[#E5D5C6]/40 h-2 rounded-full overflow-hidden">
-            <div class="bg-[#DAA520] h-full rounded-full" style="width: ${pct}%"></div>
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
 
   const dailyContainer = getEl('agent-analysis-daily-list');
   if (dailyContainer) {
@@ -1818,10 +1531,10 @@ function populateAgentAnalysisScreenDOM(agentName) {
           <span class="font-numeric font-black text-[#5C0612] text-xs">Day Total: ₹${Math.round(dailyGroup[dateStr].total).toLocaleString('en-IN')}</span>
         </div>
         <div class="p-3 divide-y divide-[#E5D5C6]/10">
-          ${Object.entries(dailyGroup[dateStr].bills).map(([bNo, bData]) => `
+          ${Object.entries(dailyGroup[dateStr].bills).map(([bNo, bAmt]) => `
             <div class="flex justify-between items-center py-1 text-xs">
-              <span>Bill No: <strong>${bNo}</strong></span>
-              <strong class="text-[#5C0612] font-numeric">₹${Math.round(bData.total).toLocaleString('en-IN')}</strong>
+              <span>Invoice: <strong>${bNo}</strong></span>
+              <strong class="text-[#5C0612] font-numeric">₹${Math.round(bAmt).toLocaleString('en-IN')}</strong>
             </div>
           `).join('')}
         </div>
@@ -1830,9 +1543,6 @@ function populateAgentAnalysisScreenDOM(agentName) {
   }
 }
 
-// -------------------------------------------------------------
-// CHANNEL SALES SCREEN (Takebyhand / Online / Offline)
-// -------------------------------------------------------------
 function selectChannel(channel) {
   if (channel === 'All') {
     applyState({ view: 'home' });
@@ -1845,35 +1555,29 @@ function populateChannelScreenDOM(channel) {
   const fromVal = getEl('from-date') ? getEl('from-date').value : '';
   const toVal = getEl('to-date') ? getEl('to-date').value : '';
 
-  const displayTitle = channel === 'Wholesale' ? 'Take By Hand / Wholesale' : `${channel} Channel`;
+  const displayTitle = channel === 'Wholesale' ? 'Take by Hand (Wholesale)' : `${channel} Channel`;
   setText('channel-view-title', `${displayTitle} Sales`);
-  setText('channel-view-subtitle', `Period: ${fromVal || 'Start'} to ${toVal || 'End'}`);
+  setText('channel-view-subtitle', `Period: ${fromVal || 'All Time'} to ${toVal || 'Current'}`);
 
   const filtered = rawData.filter(row => {
     const rDate = normalizeToDateString(row['Bill Date']);
-    if (fromVal && rDate < fromVal) return false;
-    if (toVal && rDate > toVal) return false;
-    if (selectedStore !== 'All' && (row['Store'] || 'Main Branch').toLowerCase() !== selectedStore.toLowerCase()) return false;
+    if (fromVal && rDate && rDate < fromVal) return false;
+    if (toVal && rDate && rDate > toVal) return false;
+    if (selectedStore !== 'All' && (row['Store'] || '').toLowerCase() !== selectedStore.toLowerCase()) return false;
     return row['Sale type'] === channel;
   });
 
   let totalChannelRevenue = 0;
-  const agentsObj = {}, productsObj = {};
+  const agentsObj = {};
 
   filtered.forEach(row => {
-    const amount = getRowAmount(row);
-    const qty = parseInt(row['Qty'] || 1, 10) || 1;
-    const item = row['Item Name'] || 'Item';
+    const amount = parseFloat(row['amount']) || 0;
     const agent = row['SM Name'] || 'No Agent';
-
     totalChannelRevenue += amount;
     agentsObj[agent] = (agentsObj[agent] || 0) + amount;
-    if (!productsObj[item]) productsObj[item] = { qty: 0, revenue: 0 };
-    productsObj[item].qty += qty;
-    productsObj[item].revenue += amount;
   });
 
-  setText('channel-view-total', `₹${totalChannelRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  setText('channel-view-total', `₹${Math.round(totalChannelRevenue).toLocaleString('en-IN')}`);
 
   const agentTable = getEl('channel-agents-table');
   if (agentTable) {
@@ -1885,23 +1589,11 @@ function populateChannelScreenDOM(channel) {
       </tr>
     `).join('');
   }
-
-  const prodTable = getEl('channel-products-table');
-  if (prodTable) {
-    const sortedP = Object.entries(productsObj).sort((a, b) => b[1].revenue - a[1].revenue);
-    prodTable.innerHTML = sortedP.length === 0 ? `<tr><td colspan="3" class="p-4 text-center text-stone-400">No products sold via ${displayTitle}</td></tr>` : sortedP.map(([pName, pObj]) => `
-      <tr class="hover:bg-amber-50/20">
-        <td class="p-3 font-bold text-stone-700 font-sans">${pName}</td>
-        <td class="p-3 text-center font-bold text-stone-600 font-numeric">${pObj.qty}</td>
-        <td class="p-3 text-right font-black text-[#5C0612] font-numeric">₹${Math.round(pObj.revenue).toLocaleString('en-IN')}</td>
-      </tr>
-    `).join('');
-  }
 }
 
-// -------------------------------------------------------------
-// SPA NAVIGATION & TAB SWITCHER
-// -------------------------------------------------------------
+function closeChannelScreen() { applyState({ view: 'home' }); }
+function closeAgentAnalysisScreen() { applyState({ view: 'home' }); }
+
 function applyState(state, isPopState = false) {
   if (!state) state = { view: 'home' };
   const session = checkSession();
@@ -1931,9 +1623,9 @@ function applyState(state, isPopState = false) {
   if (!isPopState) history.pushState(state, '');
 }
 
-function closeChannelScreen() { applyState({ view: 'home' }); }
-function closeAgentAnalysisScreen() { applyState({ view: 'home' }); }
-function closeProductDetail() { hideEl('product-detail-card'); }
+window.addEventListener('popstate', (e) => {
+  applyState(e.state, true);
+});
 
 function switchTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -1959,10 +1651,7 @@ function switchTab(tabId) {
 }
 
 function updateMonthlyTarget(val) {
-  if (!isAdmin) {
-    alert("🔒 Access Denied: Only Admin can update monthly target.");
-    return;
-  }
+  if (!isAdmin) return alert("Only Admin can update target.");
   monthlyTarget = parseFloat(val) || 0;
   localStorage.setItem('kk_monthly_target', monthlyTarget.toString());
   processData();
@@ -1989,9 +1678,7 @@ function shareOwnerDailySummaryWhatsApp() {
   window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
-// -------------------------------------------------------------
 // BOOTSTRAP INITIALIZATION
-// -------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
   const loginForm = getEl('login-form');
   if (loginForm) {
