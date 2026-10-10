@@ -1,7 +1,7 @@
 /**
  * =========================================================================
  * KAILASH KALAMKARI - ENTERPRISE SALES ANALYTICS & ATTENDANCE ENGINE (app.js)
- * Master Restored Edition: Products, Staff Sales, Day-Wise, & Main Branch 33.3M
+ * Master Edition: Products, Staff Sales, Day-Wise Velocity & Bank Settlement
  * =========================================================================
  */
 
@@ -289,7 +289,7 @@ function handleLogout() {
   location.reload();
 }
 
-// STRICT ZERO-FALSE-POSITIVE CHANNEL CLASSIFIER
+// STRICT CHANNEL CLASSIFIER
 function classifyExactChannel(row) {
   const store = (row.store_name || row.store || row['STORE NAME'] || row['Store Name'] || '').toString().toLowerCase().trim();
   const saleType = (row.sale_type || row.sales_type || row['SALES TYPE'] || row['Sale Type'] || '').toString().toLowerCase().trim();
@@ -310,12 +310,12 @@ function classifyExactChannel(row) {
     return 'Online';
   }
 
-  // 3. Main Branch / Showroom Counter Walk-in (Cash, Card, Counter UPI/QR)
+  // 3. Main Branch / Counter Offline
   return 'Offline';
 }
 
 // =============================================================
-// SUPABASE FETCH ENGINE (READS ALL LINE-ITEMS DETERMINISTICALLY)
+// SUPABASE FETCH ENGINE
 // =============================================================
 async function fetchData(user, pass) {
   const cleanUser = (user || 'admin').trim().toLowerCase();
@@ -388,7 +388,7 @@ async function fetchData(user, pass) {
       console.warn("Could not load receivables:", e);
     }
 
-    // 2. Fetch ALL sales line-item records using deterministic pagination
+    // 2. Fetch sales records with deterministic pagination
     let allSalesRecords = [];
     let from = 0;
     const step = 1000;
@@ -398,7 +398,7 @@ async function fetchData(user, pass) {
       const { data, error } = await supabaseClient
         .from('sales')
         .select('*')
-        .order('id', { ascending: true }) // Deterministic: 100% of rows fetched without skips
+        .order('id', { ascending: true })
         .range(from, from + step - 1);
 
       if (error) throw error;
@@ -668,7 +668,7 @@ function highlightActiveQuickDateButton(activePreset) {
 }
 
 // =============================================================
-// CORE ANALYTICS ENGINE (CALCULATES PRODUCTS, STAFF, & DAYS)
+// CORE ANALYTICS ENGINE
 // =============================================================
 function processData() {
   const fromDate = getEl('from-date') ? getEl('from-date').value : '';
@@ -699,14 +699,15 @@ function processData() {
     luxury: { label: 'Luxury Heritage (>₹12k)', count: 0, revenue: 0, color: 'text-[#5C0612]', border: 'border-[#DAA520]' }
   };
 
+  // Day of Week Velocity initialized with bill-tracking Sets
   dayOfWeekHeatmap = {
-    'Sun': { label: 'Sunday', revenue: 0, count: 0 },
-    'Mon': { label: 'Monday', revenue: 0, count: 0 },
-    'Tue': { label: 'Tuesday', revenue: 0, count: 0 },
-    'Wed': { label: 'Wednesday', revenue: 0, count: 0 },
-    'Thu': { label: 'Thursday', revenue: 0, count: 0 },
-    'Fri': { label: 'Friday', revenue: 0, count: 0 },
-    'Sat': { label: 'Saturday', revenue: 0, count: 0 }
+    'Sun': { label: 'Sunday', revenue: 0, bills: new Set() },
+    'Mon': { label: 'Monday', revenue: 0, bills: new Set() },
+    'Tue': { label: 'Tuesday', revenue: 0, bills: new Set() },
+    'Wed': { label: 'Wednesday', revenue: 0, bills: new Set() },
+    'Thu': { label: 'Thursday', revenue: 0, bills: new Set() },
+    'Fri': { label: 'Friday', revenue: 0, bills: new Set() },
+    'Sat': { label: 'Saturday', revenue: 0, bills: new Set() }
   };
 
   filtered.forEach(row => {
@@ -737,7 +738,7 @@ function processData() {
     else if (channel === 'Wholesale') totalWholesale += amount;
     else totalOffline += amount;
 
-    const billKey = billNo !== 'N/A' ? billNo : `${billDate}-${amount}`;
+    const billKey = billNo && billNo !== 'N/A' ? billNo : `${billDate}-${amount}`;
     uniqueBills.add(billKey);
 
     // Multi-Item Bill Grouping for Basket Analysis
@@ -751,16 +752,18 @@ function processData() {
     else if (unitPrice <= 12000) { priceTierBreakdown.premium.count += qty; priceTierBreakdown.premium.revenue += amount; }
     else { priceTierBreakdown.luxury.count += qty; priceTierBreakdown.luxury.revenue += amount; }
 
-    // Day of Week
-    if (billDate) {
+    // Day of Week Velocity — EXCLUDES Take by Hand / Wholesale
+    if (billDate && channel !== 'Wholesale' && channel !== 'Take by Hand') {
       const dt = new Date(billDate);
       const dayShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dt.getDay()];
       if (dayOfWeekHeatmap[dayShort]) {
         dayOfWeekHeatmap[dayShort].revenue += amount;
-        dayOfWeekHeatmap[dayShort].count += 1;
+        dayOfWeekHeatmap[dayShort].bills.add(billKey);
       }
+    }
 
-      // Day-Wise Sales Aggregation
+    // Day-Wise Sales Aggregation (all sales)
+    if (billDate) {
       if (!dayWiseObj[billDate]) dayWiseObj[billDate] = { total: 0, agents: {} };
       dayWiseObj[billDate].total += amount;
       dayWiseObj[billDate].agents[agent] = (dayWiseObj[billDate].agents[agent] || 0) + amount;
@@ -876,21 +879,26 @@ function processData() {
   renderAdvancedSalesInsights(totalSales, totalTransactions);
 }
 
+// -------------------------------------------------------------
+// ADVANCED SALES INSIGHTS & DAY-OF-WEEK VELOCITY
+// -------------------------------------------------------------
 function renderAdvancedSalesInsights(totalSales, totalTransactions) {
+  // 1. Cross-Sell Co-Purchase Pairs
   const crossSellContainer = getEl('cross-sell-pairs-container');
   if (crossSellContainer) {
     if (crossSellPairsList.length === 0) {
-      crossSellContainer.innerHTML = `<p class="text-xs text-stone-400 p-3 text-center">No multi-item bills recorded in this period.</p>`;
+      crossSellContainer.innerHTML = `<p class="text-xs text-stone-400 p-3 text-center col-span-2">No multi-item bills recorded in this period.</p>`;
     } else {
       crossSellContainer.innerHTML = crossSellPairsList.map(pair => `
         <div class="flex justify-between items-center bg-[#FAF6EE] p-2.5 rounded-xl border border-[#E5D5C6] text-xs">
           <span class="font-bold text-stone-800"><i class="fa-solid fa-link text-[#DAA520] mr-1.5"></i> ${pair.pair}</span>
-          <span class="bg-[#5C0612] text-[#EFE5C9] font-black px-2 py-0.5 rounded-lg text-[10px] font-numeric">${pair.count} Bills Co-Purchased</span>
+          <span class="bg-[#5C0612] text-[#EFE5C9] font-black px-2 py-0.5 rounded-lg text-[10px] font-numeric">${pair.count} Bills</span>
         </div>
       `).join('');
     }
   }
 
+  // 2. Price Tier Cards
   const priceTierContainer = getEl('price-tier-cards-container');
   if (priceTierContainer) {
     priceTierContainer.innerHTML = Object.values(priceTierBreakdown).map(tier => {
@@ -908,27 +916,51 @@ function renderAdvancedSalesInsights(totalSales, totalTransactions) {
     }).join('');
   }
 
+  // 3. Day of Week Sales Velocity (EXCLUDES Take by Hand Wholesale)
   const dayHeatmapContainer = getEl('day-of-week-heatmap-container');
   if (dayHeatmapContainer) {
-    dayHeatmapContainer.innerHTML = Object.entries(dayOfWeekHeatmap).map(([dayKey, dayData]) => `
-      <div class="p-2.5 rounded-xl border text-center font-numeric bg-[#FAF6EE] border-[#E5D5C6]">
-        <span class="block text-[10px] font-bold text-stone-700 uppercase font-traditional">${dayData.label}</span>
-        <strong class="block text-xs font-black text-[#5C0612] mt-0.5">₹${Math.round(dayData.revenue).toLocaleString('en-IN')}</strong>
-        <span class="block text-[8px] text-stone-500 mt-0.5">${dayData.count} Invoices</span>
-      </div>
-    `).join('');
+    const totalWeeklyVelocity = Object.values(dayOfWeekHeatmap).reduce((sum, d) => sum + d.revenue, 0);
+
+    dayHeatmapContainer.innerHTML = Object.entries(dayOfWeekHeatmap).map(([dayKey, dayData]) => {
+      const sharePct = totalWeeklyVelocity > 0 
+        ? ((dayData.revenue / totalWeeklyVelocity) * 100).toFixed(1) 
+        : '0.0';
+      const invoiceCount = dayData.bills ? dayData.bills.size : (dayData.count || 0);
+
+      return `
+        <div class="p-3 rounded-2xl border text-center font-numeric bg-[#FAF6EE] border-[#E5D5C6] warm-shadow flex flex-col justify-between hover:border-[#DAA520] transition-all">
+          <div>
+            <div class="flex items-center justify-between gap-1 mb-1">
+              <span class="text-[10px] font-bold text-stone-700 uppercase font-traditional tracking-wider">${dayData.label}</span>
+              <span class="bg-[#5C0612] text-[#EFE5C9] font-black px-1.5 py-0.5 rounded text-[9px] font-numeric">${sharePct}%</span>
+            </div>
+            <strong class="block text-sm sm:text-base font-black text-[#5C0612] mt-0.5">
+              ₹${Math.round(dayData.revenue).toLocaleString('en-IN')}
+            </strong>
+            <div class="w-full bg-[#E5D5C6]/40 h-1.5 rounded-full overflow-hidden my-1.5">
+              <div class="bg-[#DAA520] h-full rounded-full transition-all duration-300" style="width: ${sharePct}%"></div>
+            </div>
+          </div>
+          <div class="pt-1 border-t border-[#E5D5C6]/50 text-[9px] text-stone-500 font-semibold">
+            ${invoiceCount} Invoices
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 }
 
 // -------------------------------------------------------------
-// 1. PRODUCTS TABLE RENDERER
+// 1. PRODUCTS TABLE RENDERER (WITH OVERALL & CHANNEL % BREAKDOWN)
 // -------------------------------------------------------------
 function filterCategory(cat) {
   selectedCategory = cat;
   ['All', 'Sarees', 'Fabrics', 'Frames'].forEach(c => {
     const btn = getEl(`cat-btn-${c.toLowerCase()}`);
     if (btn) {
-      btn.className = c === cat ? "px-3 py-1 rounded-full bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-bold shadow-sm" : "px-3 py-1 rounded-full bg-[#FFFDF9] text-stone-600 border border-[#E5D5C6] hover:bg-stone-100 font-bold";
+      btn.className = c === cat 
+        ? "px-3 py-1 rounded-full bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-bold shadow-sm" 
+        : "px-3 py-1 rounded-full bg-[#FFFDF9] text-stone-600 border border-[#E5D5C6] hover:bg-stone-100 font-bold";
     }
   });
   renderProductsTable();
@@ -946,27 +978,48 @@ function renderProductsTable() {
     return;
   }
 
-  tbody.innerHTML = filtered.map(p => `
-    <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showProductDetails('${p.name.replace(/'/g, "\\'")}')">
-      <td class="p-3.5">
-        <div class="font-bold text-stone-800 text-xs flex justify-between items-center">
-          <span>${p.name}</span>
-          <span class="text-[9px] uppercase px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-[#5C0612] rounded font-traditional">${p.category}</span>
-        </div>
-        <div class="text-[10px] text-stone-500 font-bold mt-1 font-sans">
-          <span class="text-blue-600">Online: ${p.onlineQty}</span> • 
-          <span class="text-orange-600">Offline: ${p.offlineQty}</span> • 
-          <span class="text-purple-600">Takebyhand: ${p.wholesaleQty}</span>
-        </div>
-      </td>
-      <td class="p-3.5 text-center font-bold text-stone-700">${p.qty}</td>
-      <td class="p-3.5 text-right font-black text-[#5C0612]">₹${Math.round(p.revenue).toLocaleString('en-IN')}</td>
-    </tr>
-  `).join('');
+  // Calculate total store sales across all products for exact percentage attribution
+  const totalStoreSales = productsList.reduce((sum, pr) => sum + (pr.revenue || 0), 0);
+
+  tbody.innerHTML = filtered.map(p => {
+    // 1. Product revenue share of total store sales
+    const prodSharePct = totalStoreSales > 0 ? ((p.revenue / totalStoreSales) * 100).toFixed(1) : '0.0';
+
+    // 2. Channel unit percentage breakdown for this product
+    const onlQtyPct = p.qty > 0 ? ((p.onlineQty / p.qty) * 100).toFixed(1) : '0.0';
+    const offQtyPct = p.qty > 0 ? ((p.offlineQty / p.qty) * 100).toFixed(1) : '0.0';
+    const wsQtyPct  = p.qty > 0 ? ((p.wholesaleQty / p.qty) * 100).toFixed(1) : '0.0';
+
+    return `
+      <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showProductDetails('${p.name.replace(/'/g, "\\'")}')">
+        <td class="p-3.5">
+          <div class="font-bold text-stone-800 text-xs flex justify-between items-center">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span>${p.name}</span>
+              <!-- Overall % of total sales badge -->
+              <span class="bg-[#5C0612] text-[#EFE5C9] font-black px-1.5 py-0.5 rounded text-[9px] font-numeric">${prodSharePct}% of Total Sales</span>
+            </div>
+            <span class="text-[9px] uppercase px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-[#5C0612] rounded font-traditional">${p.category}</span>
+          </div>
+          <!-- Channel breakdown with individual percentages -->
+          <div class="text-[10px] text-stone-500 font-bold mt-1 font-sans flex flex-wrap gap-x-2 gap-y-0.5">
+            <span class="text-blue-600">Online: ${p.onlineQty} (${onlQtyPct}%)</span> • 
+            <span class="text-orange-600">Offline: ${p.offlineQty} (${offQtyPct}%)</span> • 
+            <span class="text-purple-600">Takebyhand: ${p.wholesaleQty} (${wsQtyPct}%)</span>
+          </div>
+        </td>
+        <td class="p-3.5 text-center font-bold text-stone-700">${p.qty}</td>
+        <td class="p-3.5 text-right font-black text-[#5C0612]">
+          <div>₹${Math.round(p.revenue).toLocaleString('en-IN')}</div>
+          <span class="text-[9px] text-stone-500 font-bold font-numeric">${prodSharePct}%</span>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 // -------------------------------------------------------------
-// 2. STAFF-WISE SALES TABLE RENDERER
+// 2. STAFF-WISE SALES TABLE RENDERER (WITH OVERALL & CHANNEL % BREAKDOWN)
 // -------------------------------------------------------------
 function renderAgentsTable() {
   const tbody = getEl('agents-table-body');
@@ -979,22 +1032,43 @@ function renderAgentsTable() {
     return;
   }
 
-  tbody.innerHTML = agentsList.map(a => `
-    <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showAgentDetails('${a.name.replace(/'/g, "\\'")}')">
-      <td class="p-3.5 font-bold text-stone-700 font-sans">
-        <div class="flex justify-between items-center">
-          <span class="text-xs font-bold text-stone-800">${a.name}</span>
-          <span class="text-[9px] text-[#DAA520] font-bold font-numeric">${a.billCount} Bills <i class="fa-solid fa-chevron-right text-[8px] ml-1"></i></span>
-        </div>
-        <div class="text-[9px] text-stone-500 font-bold mt-1 font-sans">
-          Offline (Counter): <strong class="text-orange-700 font-numeric">₹${Math.round(a.offlineRevenue || 0).toLocaleString('en-IN')}</strong> • 
-          Online: <strong class="text-blue-700 font-numeric">₹${Math.round(a.onlineRevenue || 0).toLocaleString('en-IN')}</strong> • 
-          Wholesale: <strong class="text-purple-700 font-numeric">₹${Math.round(a.tbhRevenue || 0).toLocaleString('en-IN')}</strong>
-        </div>
-      </td>
-      <td class="p-3.5 text-right font-black text-[#5C0612] font-numeric">₹${Math.round(a.revenue).toLocaleString('en-IN')}</td>
-    </tr>
-  `).join('');
+  // Calculate total store sales across all staff for percentage calculation
+  const totalStoreSales = agentsList.reduce((sum, ag) => sum + (ag.revenue || 0), 0);
+
+  tbody.innerHTML = agentsList.map(a => {
+    // 1. Staff revenue share of total store sales
+    const staffSharePct = totalStoreSales > 0 ? ((a.revenue / totalStoreSales) * 100).toFixed(1) : '0.0';
+
+    // 2. Channel revenue percentage breakdown for this staff member
+    const offPct = a.revenue > 0 ? ((a.offlineRevenue / a.revenue) * 100).toFixed(1) : '0.0';
+    const onlPct = a.revenue > 0 ? ((a.onlineRevenue / a.revenue) * 100).toFixed(1) : '0.0';
+    const wsPct  = a.revenue > 0 ? ((a.tbhRevenue / a.revenue) * 100).toFixed(1) : '0.0';
+
+    return `
+      <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showAgentDetails('${a.name.replace(/'/g, "\\'")}')">
+        <td class="p-3.5 font-bold text-stone-700 font-sans">
+          <div class="flex justify-between items-center">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-xs font-bold text-stone-800">${a.name}</span>
+              <!-- Overall % of total sales badge -->
+              <span class="bg-[#5C0612] text-[#EFE5C9] font-black px-1.5 py-0.5 rounded text-[9px] font-numeric">${staffSharePct}% of Total Sales</span>
+            </div>
+            <span class="text-[9px] text-[#DAA520] font-bold font-numeric">${a.billCount} Bills <i class="fa-solid fa-chevron-right text-[8px] ml-1"></i></span>
+          </div>
+          <!-- Channel revenue breakdown with individual percentages -->
+          <div class="text-[9px] text-stone-500 font-bold mt-1 font-sans flex flex-wrap gap-x-2 gap-y-0.5">
+            <span>Offline (Counter): <strong class="text-orange-700 font-numeric">₹${Math.round(a.offlineRevenue || 0).toLocaleString('en-IN')} (${offPct}%)</strong></span> • 
+            <span>Online: <strong class="text-blue-700 font-numeric">₹${Math.round(a.onlineRevenue || 0).toLocaleString('en-IN')} (${onlPct}%)</strong></span> • 
+            <span>Wholesale: <strong class="text-purple-700 font-numeric">₹${Math.round(a.tbhRevenue || 0).toLocaleString('en-IN')} (${wsPct}%)</strong></span>
+          </div>
+        </td>
+        <td class="p-3.5 text-right font-black text-[#5C0612] font-numeric">
+          <div>₹${Math.round(a.revenue).toLocaleString('en-IN')}</div>
+          <span class="text-[9px] text-stone-500 font-bold font-numeric">${staffSharePct}%</span>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 // -------------------------------------------------------------
@@ -1040,13 +1114,13 @@ function setAttendanceViewMode(mode) {
   const sumBtn = getEl('btn-attendance-mode-summary');
 
   if (mode === 'grid') {
-    if (gridBtn) gridBtn.className = "flex-1 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-traditional flex items-center justify-center gap-1.5 shadow-sm";
-    if (sumBtn) sumBtn.className = "flex-1 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-white text-stone-600 border border-[#E5D5C6] font-traditional flex items-center justify-center gap-1.5";
+    if (gridBtn) gridBtn.className = "px-3.5 py-1.5 text-xs font-bold rounded-xl bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-traditional flex items-center gap-1.5 shadow-sm";
+    if (sumBtn) sumBtn.className = "px-3.5 py-1.5 text-xs font-bold rounded-xl bg-white text-stone-600 border border-[#E5D5C6] font-traditional flex items-center gap-1.5";
     showEl('staff-salary-list');
     hideEl('staff-salary-summary-view');
   } else {
-    if (gridBtn) gridBtn.className = "flex-1 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-white text-stone-600 border border-[#E5D5C6] font-traditional flex items-center justify-center gap-1.5";
-    if (sumBtn) sumBtn.className = "flex-1 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-traditional flex items-center justify-center gap-1.5 shadow-sm";
+    if (gridBtn) gridBtn.className = "px-3.5 py-1.5 text-xs font-bold rounded-xl bg-white text-stone-600 border border-[#E5D5C6] font-traditional flex items-center gap-1.5";
+    if (sumBtn) sumBtn.className = "px-3.5 py-1.5 text-xs font-bold rounded-xl bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-traditional flex items-center gap-1.5 shadow-sm";
     hideEl('staff-salary-list');
     showEl('staff-salary-summary-view');
   }
@@ -1178,17 +1252,17 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
       <div class="grid grid-cols-3 gap-2 bg-[#FAF6EE] p-2.5 rounded-2xl border border-[#E5D5C6] text-xs font-numeric">
         <div>
           <label class="block text-[8px] font-bold text-stone-500 uppercase mb-0.5">Base Salary (₹)</label>
-          <input type="number" value="${fullSalary}" onchange="updateStaffPayroll(${index}, 'salary', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none">
+          <input type="number" value="${fullSalary}" onchange="updateStaffPayroll(${index}, 'salary', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none" ${!isAdmin ? 'disabled' : ''}>
           <span class="text-[8px] text-stone-400 block mt-0.5">Earned: ₹${baseEarned.toLocaleString('en-IN')}</span>
         </div>
         <div>
           <label class="block text-[8px] font-bold text-stone-500 uppercase mb-0.5">Incentive Rate (%)</label>
-          <input type="number" value="${commPct}" step="0.1" onchange="updateStaffPayroll(${index}, 'commission', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none">
+          <input type="number" value="${commPct}" step="0.1" onchange="updateStaffPayroll(${index}, 'commission', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none" ${!isAdmin ? 'disabled' : ''}>
           <span class="text-[8px] text-emerald-800 font-bold block mt-0.5">Sold: ₹${Math.round(totalSold).toLocaleString('en-IN')}</span>
         </div>
         <div>
           <label class="block text-[8px] font-bold text-stone-500 uppercase mb-0.5">Advance (₹)</label>
-          <input type="number" value="${advance}" onchange="updateStaffPayroll(${index}, 'advance', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none">
+          <input type="number" value="${advance}" onchange="updateStaffPayroll(${index}, 'advance', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none" ${!isAdmin ? 'disabled' : ''}>
         </div>
       </div>
     `;
@@ -1305,7 +1379,7 @@ async function saveAttendanceToSupabase() {
     alert("❌ DATABASE SAVE FAILED: " + err.message);
   } finally {
     if (saveBtn) saveBtn.disabled = false;
-    if (saveText) saveText.textContent = "💾 Save Attendance to Supabase";
+    if (saveText) saveText.textContent = "💾 Save to Supabase";
   }
 }
 
@@ -1635,7 +1709,6 @@ function switchTab(tabId) {
     'products-tab': 'btn-products-tab',
     'agents-tab': 'btn-agents-tab',
     'daywise-tab': 'btn-daywise-tab',
-    'banks-tab': 'btn-banks-tab',
     'attendance-tab': 'btn-attendance-tab',
     'insights-tab': 'btn-insights-tab'
   };

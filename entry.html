@@ -64,6 +64,12 @@
           <i class="fa-solid fa-cloud-arrow-up text-xs text-[#DAA520]"></i>
           <span id="bulk-save-text">💾 Save All to Server</span>
         </button>
+
+        <!-- RESET ALL TO PENDING (FOR ACCIDENTAL BULK SAVES) -->
+        <button onclick="resetAllSettlementsToPending()" class="admin-only bg-rose-800 hover:bg-rose-900 text-white font-black text-xs px-3 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-rose-600 active:scale-95" title="Clear all saved bank assignments and return bills to Pending">
+          <i class="fa-solid fa-rotate-left text-xs"></i>
+          <span>Reset All to Pending</span>
+        </button>
         
         <button onclick="exportBankStatementExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-emerald-500 active:scale-95 duration-100" title="Download Excel Bank Reconciliation">
           <i class="fa-solid fa-file-excel text-emerald-300 text-xs"></i>
@@ -116,13 +122,13 @@
       <div class="bg-[#FFFDF9] p-3 rounded-2xl border border-emerald-200 warm-shadow">
         <span class="block text-[8px] font-bold text-emerald-700 uppercase font-traditional">Settled in Banks</span>
         <strong id="stat-settled-amount" class="text-base sm:text-lg font-black text-emerald-800 font-numeric">₹0</strong>
-        <span class="block text-[10px] text-emerald-600 font-bold font-traditional mt-0.5">Credited 100%</span>
+        <span id="stat-settled-subtext" class="block text-[10px] text-emerald-600 font-bold font-traditional mt-0.5">0% Credited</span>
       </div>
 
       <div class="bg-[#FFFDF9] p-3 rounded-2xl border border-rose-200 warm-shadow">
         <span class="block text-[8px] font-bold text-rose-700 uppercase font-traditional">Pending Allocation</span>
         <strong id="stat-pending-amount" class="text-base sm:text-lg font-black text-rose-800 font-numeric">₹0</strong>
-        <span class="block text-[10px] text-rose-600 font-bold font-traditional mt-0.5">Needs Bank Split</span>
+        <span id="stat-pending-subtext" class="block text-[10px] text-rose-600 font-bold font-traditional mt-0.5">Needs Bank Split</span>
       </div>
     </div>
 
@@ -221,7 +227,7 @@
                 <div class="flex items-center justify-end gap-1"><span>BILL TOTAL</span><span id="sort-icon-amount"><i class="fa-solid fa-sort text-[8px] text-stone-400"></i></span></div>
               </th>
               <th class="p-3.5 font-traditional text-center min-w-[380px]">CREDITED BANK ACCOUNT & MULTI-SPLIT ALLOCATION</th>
-              <th class="p-3.5 text-center font-traditional w-28">ACTION</th>
+              <th class="p-3.5 text-center font-traditional w-32">ACTION</th>
             </tr>
           </thead>
           <tbody id="bills-table-body" class="divide-y divide-[#E5D5C6]/40 font-numeric">
@@ -391,7 +397,7 @@
                 if (!bNo) return;
                 const amt = parseFloat(r.amount) || 0;
                 const acc = (r.bank_account || '').trim();
-                if (acc && acc.toLowerCase() !== 'not defined') {
+                if (acc && acc.toLowerCase() !== 'not defined' && acc.toLowerCase() !== 'pending') {
                   if (!existingSettlements[bNo]) existingSettlements[bNo] = [];
                   existingSettlements[bNo].push({ account: acc, amount: amt });
                   if (!accountsMaster.includes(acc)) accountsMaster.push(acc);
@@ -472,14 +478,18 @@
           storeSelect.innerHTML = `<option value="all">All Branches</option>` + Array.from(storeSet).map(s => `<option value="${s}">${s}</option>`).join('');
         }
 
-        // Initialize state
+        // ============================================================
+        // INITIALIZE STATE:
+        // Invoices WITHOUT existing settlements in the DB must have
+        // account: '' so that they properly appear as PENDING!
+        // ============================================================
+        settlementRowsState = {};
         billsList.forEach(b => {
-          if (!settlementRowsState[b.billNo]) {
-            if (b.settlements && b.settlements.length > 0) {
-              settlementRowsState[b.billNo] = JSON.parse(JSON.stringify(b.settlements));
-            } else {
-              settlementRowsState[b.billNo] = [{ account: accountsMaster[0] || 'Cash', amount: Math.round(b.totalAmount) }];
-            }
+          if (b.settlements && b.settlements.length > 0) {
+            settlementRowsState[b.billNo] = JSON.parse(JSON.stringify(b.settlements));
+          } else {
+            // Leave account empty so it asks the user to pick a bank!
+            settlementRowsState[b.billNo] = [{ account: '', amount: Math.round(b.totalAmount) }];
           }
         });
 
@@ -550,7 +560,7 @@
         if (b.channel === 'Online') {
           onlineAmount += b.totalAmount;
           onlineBills++;
-        } else if (b.channel === 'Take by Hand') {
+        } else if (b.channel === 'Take by Hand' || b.channel === 'Wholesale') {
           tbhAmount += b.totalAmount;
           tbhBills++;
         } else {
@@ -558,14 +568,26 @@
           offlineBills++;
         }
 
+        // Only count as settled if a bank account is genuinely filled
         const splits = settlementRowsState[b.billNo] || b.settlements || [];
         splits.forEach(s => {
-          if (s.account && parseFloat(s.amount) > 0) {
+          if (s.account && s.account.trim() !== '' && parseFloat(s.amount) > 0) {
             settledTotalVal += (parseFloat(s.amount) || 0);
           }
         });
       });
 
+      // Update Channel Pills
+      const elAll = document.getElementById('pill-count-all');
+      if (elAll) elAll.textContent = totalBillsCount;
+      const elOnl = document.getElementById('pill-count-online');
+      if (elOnl) elOnl.textContent = onlineBills;
+      const elOff = document.getElementById('pill-count-offline');
+      if (elOff) elOff.textContent = offlineBills;
+      const elWholesale = document.getElementById('pill-count-wholesale');
+      if (elWholesale) elWholesale.textContent = tbhBills;
+
+      // Update Top Summary Cards
       document.getElementById('stat-online-amount').textContent = `₹${Math.round(onlineAmount).toLocaleString('en-IN')}`;
       document.getElementById('stat-online-bills').textContent = `${onlineBills} Invoices`;
       document.getElementById('stat-offline-amount').textContent = `₹${Math.round(offlineAmount).toLocaleString('en-IN')}`;
@@ -574,8 +596,15 @@
       document.getElementById('stat-tbh-bills').textContent = `${tbhBills} Invoices`;
       document.getElementById('stat-total-bills').textContent = `${totalBillsCount} Bills`;
       document.getElementById('stat-total-amount').textContent = `Total: ₹${Math.round(totalBillsValue).toLocaleString('en-IN')}`;
+      
+      const pendingVal = Math.max(0, totalBillsValue - settledTotalVal);
+      const settledPct = totalBillsValue > 0 ? Math.round((settledTotalVal / totalBillsValue) * 100) : 0;
+
       document.getElementById('stat-settled-amount').textContent = `₹${Math.round(settledTotalVal).toLocaleString('en-IN')}`;
-      document.getElementById('stat-pending-amount').textContent = `₹${Math.round(Math.max(0, totalBillsValue - settledTotalVal)).toLocaleString('en-IN')}`;
+      document.getElementById('stat-settled-subtext').textContent = `${settledPct}% Credited`;
+
+      document.getElementById('stat-pending-amount').textContent = `₹${Math.round(pendingVal).toLocaleString('en-IN')}`;
+      document.getElementById('stat-pending-subtext').textContent = pendingVal > 0 ? "Needs Bank Split" : "All Allocated ✅";
     }
 
     // Inline badge update without table DOM recreation (zero focus loss)
@@ -620,21 +649,31 @@
         if (fromDate && b.dateISO && b.dateISO < fromDate) return false;
         if (toDate && b.dateISO && b.dateISO > toDate) return false;
         if (storeFilter !== 'all' && b.store !== storeFilter) return false;
-        if (selectedChannelFilter !== 'All' && b.channel !== selectedChannelFilter) return false;
+
+        if (selectedChannelFilter !== 'All') {
+          if (selectedChannelFilter === 'Take by Hand' || selectedChannelFilter === 'Wholesale') {
+            if (b.channel !== 'Take by Hand' && b.channel !== 'Wholesale') return false;
+          } else if (b.channel !== selectedChannelFilter) {
+            return false;
+          }
+        }
 
         let billSettledSum = 0;
         const currentRows = settlementRowsState[b.billNo] || b.settlements || [];
         currentRows.forEach(s => {
-          if (s.account) billSettledSum += (parseFloat(s.amount) || 0);
+          if (s.account && s.account.trim() !== '') {
+            billSettledSum += (parseFloat(s.amount) || 0);
+          }
         });
 
-        const isFullySettled = billSettledSum >= (b.totalAmount - 0.5) && currentRows.length > 0;
-        const isPartial = billSettledSum > 0 && billSettledSum < (b.totalAmount - 0.5);
-        const isUnsettled = billSettledSum === 0;
+        const hasValidBank = currentRows.some(s => s.account && s.account.trim() !== '');
+        const isFullySettled = hasValidBank && billSettledSum >= (b.totalAmount - 0.5);
+        const isPartial = hasValidBank && billSettledSum > 0 && billSettledSum < (b.totalAmount - 0.5);
+        const isPending = !isFullySettled; // Any bill not 100% credited is pending!
 
         if (statusFilter === 'settled' && !isFullySettled) return false;
         if (statusFilter === 'partial' && !isPartial) return false;
-        if (statusFilter === 'unsettled' && !isUnsettled) return false;
+        if (statusFilter === 'unsettled' && !isPending) return false;
 
         if (searchVal) {
           return b.billNo.toLowerCase().includes(searchVal) ||
@@ -658,19 +697,20 @@
       });
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-stone-400 font-traditional">No matching invoices found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-stone-400 font-traditional">No matching invoices found for the current filters.</td></tr>`;
         return;
       }
 
       tbody.innerHTML = filtered.map(b => {
-        const rows = settlementRowsState[b.billNo] || [{ account: accountsMaster[0] || 'Cash', amount: Math.round(b.totalAmount) }];
+        const rows = settlementRowsState[b.billNo] || [{ account: '', amount: Math.round(b.totalAmount) }];
         let allocatedSum = 0;
         rows.forEach(r => allocatedSum += (parseFloat(r.amount) || 0));
         const rem = Math.round((b.totalAmount - allocatedSum) * 100) / 100;
         const safeId = b.billNo.replace(/[^a-zA-Z0-9]/g, '_');
 
-        const isFullySettled = rows.length > 0 && Math.abs(b.totalAmount - allocatedSum) < 0.5;
-        const isPartial = rows.length > 0 && allocatedSum > 0 && allocatedSum < (b.totalAmount - 0.5);
+        const hasValidBank = rows.some(s => s.account && s.account.trim() !== '');
+        const isFullySettled = hasValidBank && Math.abs(b.totalAmount - allocatedSum) < 0.5;
+        const isPartial = hasValidBank && allocatedSum > 0 && allocatedSum < (b.totalAmount - 0.5);
 
         let statusBadge = ``;
         if (isFullySettled) {
@@ -684,7 +724,7 @@
         let channelBadge = '';
         if (b.channel === 'Online') {
           channelBadge = `<span class="text-[8px] bg-blue-100 text-blue-800 border border-blue-300 px-1.5 py-0.5 rounded font-black uppercase">🌐 Online</span>`;
-        } else if (b.channel === 'Take by Hand') {
+        } else if (b.channel === 'Take by Hand' || b.channel === 'Wholesale') {
           channelBadge = `<span class="text-[8px] bg-purple-100 text-purple-800 border border-purple-300 px-1.5 py-0.5 rounded font-black uppercase">🤝 Take by Hand</span>`;
         } else {
           channelBadge = `<span class="text-[8px] bg-orange-100 text-orange-800 border border-orange-300 px-1.5 py-0.5 rounded font-black uppercase">🏬 Showroom</span>`;
@@ -737,9 +777,14 @@
               </div>
             </td>
             <td class="p-3 text-center">
-              <button onclick="saveRowSettlement('${b.billNo}')" id="btn-save-${safeId}" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm font-traditional border border-[#DAA520] active:scale-95 whitespace-nowrap">
-                Save
-              </button>
+              <div class="flex items-center justify-center gap-1">
+                <button onclick="saveRowSettlement('${b.billNo}')" id="btn-save-${safeId}" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm font-traditional border border-[#DAA520] active:scale-95 whitespace-nowrap">
+                  Save
+                </button>
+                <button onclick="resetSingleBillToPending('${b.billNo}')" class="text-stone-400 hover:text-rose-600 p-1.5 rounded-lg border border-transparent hover:border-stone-300" title="Reset this bill back to Pending">
+                  <i class="fa-solid fa-trash-can text-xs"></i>
+                </button>
+              </div>
             </td>
           </tr>
         `;
@@ -773,7 +818,7 @@
       let allocated = 0;
       settlementRowsState[billNo].forEach(s => allocated += parseFloat(s.amount) || 0);
       const rem = bill ? Math.max(0, bill.totalAmount - allocated) : '';
-      settlementRowsState[billNo].push({ account: accountsMaster[0] || 'Cash', amount: Math.round(rem) });
+      settlementRowsState[billNo].push({ account: '', amount: Math.round(rem) });
       renderBillsTable();
     }
 
@@ -803,7 +848,7 @@
       if (!bill) return;
 
       const splits = settlementRowsState[billNo] || [];
-      const validSplits = splits.filter(s => s.account && parseFloat(s.amount) > 0);
+      const validSplits = splits.filter(s => s.account && s.account.trim() !== '' && parseFloat(s.amount) > 0);
       
       if (validSplits.length === 0) {
         return alert("⚠️ Please select a bank account and enter a valid amount.");
@@ -848,6 +893,54 @@
       }
     }
 
+    async function resetSingleBillToPending(billNo) {
+      if (!isAdmin) return alert("🔒 Access Denied.");
+      if (!confirm(`Reset Invoice ${billNo} back to Pending? This will delete its bank record.`)) return;
+
+      try {
+        const { error } = await supabaseClient
+          .from('receivables')
+          .delete()
+          .eq('bill_no', billNo);
+
+        if (error) throw error;
+
+        const bill = billsList.find(b => b.billNo === billNo);
+        if (bill) bill.settlements = [];
+        settlementRowsState[billNo] = [{ account: '', amount: Math.round(bill ? bill.totalAmount : 0) }];
+
+        renderBillsTable();
+      } catch(err) {
+        alert("Error resetting bill: " + err.message);
+      }
+    }
+
+    async function resetAllSettlementsToPending() {
+      if (!isAdmin) return alert("🔒 Access Denied.");
+      if (!confirm("⚠️ Are you sure you want to RESET ALL BILLS back to Pending? This will clear all bank assignments from the database so you can start fresh.")) {
+        return;
+      }
+
+      try {
+        const { error } = await supabaseClient
+          .from('receivables')
+          .delete()
+          .neq('id', 0); // Deletes all rows
+
+        if (error) throw error;
+
+        billsList.forEach(b => {
+          b.settlements = [];
+          settlementRowsState[b.billNo] = [{ account: '', amount: Math.round(b.totalAmount) }];
+        });
+
+        alert("✅ All bills have been reset to Pending!");
+        renderBillsTable();
+      } catch(err) {
+        alert("Error clearing settlements: " + err.message);
+      }
+    }
+
     async function bulkSaveAllSettlements() {
       if (!isAdmin) return alert("🔒 Access Denied: Viewers cannot save bank settlements.");
       const bulkBtn = document.getElementById('btn-bulk-save');
@@ -858,7 +951,7 @@
 
       billsList.forEach(b => {
         const splits = settlementRowsState[b.billNo] || [];
-        const validSplits = splits.filter(s => s.account && parseFloat(s.amount) > 0);
+        const validSplits = splits.filter(s => s.account && s.account.trim() !== '' && parseFloat(s.amount) > 0);
         if (validSplits.length > 0) {
           billNosToDelete.push(b.billNo);
           validSplits.forEach(s => {
@@ -876,7 +969,7 @@
       });
 
       if (allValidSplits.length === 0) {
-        return alert("No invoices have bank accounts assigned yet.");
+        return alert("⚠️ No invoices have bank accounts assigned yet. Please select bank accounts first.");
       }
 
       if (bulkBtn) bulkBtn.disabled = true;
@@ -970,7 +1063,7 @@
           exportRows.push({
             "Bill Date": b.dateISO,
             "Bill No": splits.length > 1 ? `${b.billNo} (Split ${idx + 1})` : b.billNo,
-            "Sales Channel": b.channel === 'Take by Hand' ? 'Take by Hand (Wholesale)' : b.channel,
+            "Sales Channel": (b.channel === 'Take by Hand' || b.channel === 'Wholesale') ? 'Take by Hand (Wholesale)' : b.channel,
             "Store / Branch": b.store,
             "Sales Staff": b.agent,
             "Credited Bank Account": s.account || "Not Defined",
