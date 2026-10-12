@@ -1,7 +1,7 @@
 /**
  * =========================================================================
  * KAILASH KALAMKARI - ENTERPRISE SALES ANALYTICS & ATTENDANCE ENGINE (app.js)
- * Master Edition: Products, Staff Sales, Day-Wise Velocity & Bank Settlement
+ * Master Reconciled Edition: Zero-Inflation Audited Ledger & Dual-Criteria Engine
  * =========================================================================
  */
 
@@ -60,7 +60,7 @@ let bankAccountsList = ['Cash', '42441-TJ', 'KC'];
 let productsList = [];
 let agentsList = [];
 
-// Advanced Analytics Data Models
+// Advanced Analytics Models
 let crossSellPairsList = [];
 let priceTierBreakdown = {};
 let dayOfWeekHeatmap = {};
@@ -74,100 +74,162 @@ let activeAnalysisAgent = "";
 let monthlyTarget = parseFloat(localStorage.getItem('kk_monthly_target')) || 1000000;
 let attendanceViewMode = 'grid';
 
-// Safe DOM Helpers
+// DOM Helpers
 function getEl(id) { return document.getElementById(id); }
 function showEl(id) { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); }
 function hideEl(id) { const el = document.getElementById(id); if (el) el.classList.add('hidden'); }
 function setText(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
 
-// STANDARDIZE STAFF & AGENT NAMES
-function extractStaffName(row) {
-  if (!row) return 'No Agent';
-  const raw = row.agent_name || row.sm_name || row.sales_agent || row['AGENT NAME'] || row['Agent Name'] || row['SM Name'] || row['Agent'] || '';
-  return normalizeStaffName(raw);
+// =============================================================
+// 1. ROBUST BRANCH NORMALIZER
+// =============================================================
+function normalizeBranch(b) {
+  if (!b) return 'Main Branch';
+  const clean = b.toString().trim();
+  const upper = clean.toUpperCase();
+  if (!upper || upper === 'ALL' || upper === 'UNDEFINED' || upper === 'NULL') return 'All';
+  if (upper === 'KHPS' || upper === 'KHPS-FR' || upper.startsWith('KHPS')) {
+    return 'KHPS';
+  }
+  return clean;
 }
 
-function normalizeStaffName(name) {
-  if (!name) return 'No Agent';
-  let clean = name.toString().trim();
+function extractStoreBranch(r) {
+  if (!r) return 'Main Branch';
+  const val = r.branch || r.branch_name || r.store_name || r.store ||
+              r['Branch'] || r['Branch Name'] || r['BRANCH'] ||
+              r['STORE NAME'] || r['Store Name'] || r['Store'] || '';
+  return normalizeBranch(val);
+}
+
+// =============================================================
+// 2. BULLETPROOF DATE PARSER (YYYY-MM-DD)
+// =============================================================
+function parseToYYYYMMDD(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return '';
+    const yyyy = val.getFullYear();
+    const mm = String(val.getMonth() + 1).padStart(2, '0');
+    const dd = String(val.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  let str = String(val).trim();
+  if (!str) return '';
+
+  if (/^\d{10,13}$/.test(str)) {
+    const num = parseInt(str, 10);
+    const d = new Date(num > 1e11 ? num : num * 1000);
+    if (!isNaN(d.getTime())) return parseToYYYYMMDD(d);
+  }
+
+  const iso = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (iso) {
+    return `${iso[1]}-${String(iso[2]).padStart(2, '0')}-${String(iso[3]).padStart(2, '0')}`;
+  }
+
+  const dMmmY = str.match(/^(\d{1,2})[-/ ]([A-Za-z]{3,9})[-/ ](\d{2,4})/);
+  if (dMmmY) {
+    const day = String(dMmmY[1]).padStart(2, '0');
+    const mStr = dMmmY[2].substring(0, 3).toLowerCase();
+    let yr = parseInt(dMmmY[3], 10);
+    if (yr < 100) yr += 2000;
+    const months = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
+    if (months[mStr]) return `${yr}-${months[mStr]}-${day}`;
+  }
+
+  const dmy = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
+  if (dmy) {
+    let day = parseInt(dmy[1], 10);
+    let month = parseInt(dmy[2], 10);
+    let yr = parseInt(dmy[3], 10);
+    if (yr < 100) yr += 2000;
+    if (month > 12 && day <= 12) {
+      const temp = day; day = month; month = temp;
+    }
+    return `${yr}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return '';
+}
+
+// =============================================================
+// 3. MASTER STAFF RESOLUTION
+// =============================================================
+function resolveStaffToMasterName(rawName) {
+  if (!rawName) return 'No Agent';
+  const clean = rawName.toString().trim();
   if (!clean || clean === '-' || clean === 'N/A' || clean === 'null' || clean === 'undefined') return 'No Agent';
   if (/^\d+$/.test(clean)) return 'No Agent';
 
-  const lower = clean.toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+  const cleanSm = clean.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!cleanSm) return 'No Agent';
 
-  if (lower.includes('mounika') || lower.includes('mouni') || lower.includes('tymounika') || lower === 'ty mounika') return 'Mouni';
-  if (lower.includes('vara') || lower.includes('varalaxmi') || (lower.includes('lakshmi') && lower.includes('b'))) return 'Vara Lakshmi';
-  if (lower.includes('dhana') || lower.includes('daskhmi') || lower.includes('dhanalaxmi')) return 'Dhanalakshmi';
-  if (lower.includes('sanjana')) return 'Sanjana';
-  if (lower.includes('geethika') || lower.includes('githika')) return 'Geethika';
-  if (lower.includes('sandhya')) return 'Sandhya';
-  if (lower.includes('pushpa')) return 'Pushpa';
-  if (lower.includes('harika')) return 'Harika';
-  if (lower.includes('nandhini') || lower.includes('nandini')) return 'Nandhini';
-  if (lower.includes('ammulu')) return 'Ammulu';
-  if (lower.includes('bharath')) return 'Bharathamma';
-  if (lower.includes('chenna') || lower.includes('kesava')) return 'Chenna Kesava Reddy';
-  if (lower.includes('venkatesh')) return 'Venkatesh';
-  if (lower.includes('kailash')) return 'Kailash Anna';
-  if (lower.includes('admin')) return 'ADMIN';
+  for (let [empId, aliases] of Object.entries(STAFF_ALIASES_MAP)) {
+    const staffObj = DEFAULT_ATTENDANCE_DATA.find(s => s['Emp ID'] === empId);
+    const displayName = staffObj ? staffObj['Employee Name'] : empId;
+
+    for (let alias of aliases) {
+      const cleanAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (cleanSm === cleanAlias || cleanSm.includes(cleanAlias) || cleanAlias.includes(cleanSm)) {
+        return displayName;
+      }
+    }
+  }
+
+  if (cleanSm.includes('chenna') || cleanSm.includes('kesava')) return 'Chenna Kesava Reddy';
+  if (cleanSm.includes('venkatesh')) return 'Venkatesh';
+  if (cleanSm.includes('kailash')) return 'Kailash Anna';
+  if (cleanSm.includes('admin')) return 'ADMIN';
 
   return clean.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
-// ROBUST DATE PARSER
-function formatToYYYYMMDD(d) {
-  if (!d) return '';
-  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.trim())) return d.trim();
-  const dateObj = (d instanceof Date) ? d : new Date(d);
-  if (isNaN(dateObj.getTime())) return '';
-  const yyyy = dateObj.getFullYear();
-  const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const dd = String(dateObj.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+function extractStaffName(row) {
+  if (!row) return 'No Agent';
+  const raw = row.sm_name || row.agent_name || row.sales_agent ||
+              row.sales_person || row.staff_name || row.employee_name ||
+              row['SM Name'] || row['AGENT NAME'] || row['Agent Name'] ||
+              row['Sales Person'] || row['Agent'] || '';
+  return resolveStaffToMasterName(raw);
 }
 
-function normalizeToDateString(dateVal) {
-  if (!dateVal) return '';
-  if (dateVal instanceof Date) return formatToYYYYMMDD(dateVal);
+function classifyExactChannel(row) {
+  if (!row) return 'Offline';
 
-  let strVal = dateVal.toString().trim();
-  if (!strVal) return '';
+  const directChannel = (row.channel || row.sales_channel || row['Channel'] || row['CHANNEL'] || row['Sales Channel'] || '').toString().trim();
+  const lowerDirect = directChannel.toLowerCase();
+  if (lowerDirect.includes('online') || lowerDirect.includes('website') || lowerDirect.includes('instagram')) return 'Online';
+  if (lowerDirect.includes('hand') || lowerDirect.includes('wholesale') || lowerDirect.includes('tbh')) return 'Wholesale';
+  if (lowerDirect.includes('offline') || lowerDirect.includes('counter') || lowerDirect.includes('showroom')) return 'Offline';
 
-  const isoMatch = strVal.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-  if (isoMatch) {
-    return `${isoMatch[1]}-${String(isoMatch[2]).padStart(2, '0')}-${String(isoMatch[3]).padStart(2, '0')}`;
+  const store = extractStoreBranch(row).toLowerCase();
+  const saleType = (row.sale_type || row.sales_type || row['SALES TYPE'] || row['Sale Type'] || '').toString().toLowerCase().trim();
+  const billNo = (row.bill_no || row['BILL NO'] || row['Bill No'] || '').toString().toUpperCase().trim();
+  const payMode = (row.pay_mode || row['PAY MODE'] || row['Pay Mode'] || '').toString().toLowerCase().trim();
+
+  if (billNo.startsWith('TBH') || billNo.startsWith('WS') ||
+      store.includes('takebyhand') || store.includes('take by hand') || store.includes('wholesale') ||
+      saleType.includes('takebyhand') || saleType.includes('take by hand') || saleType.includes('wholesale') ||
+      payMode.includes('take by hand') || payMode.includes('wholesale') || payMode.includes('tbh')) {
+    return 'Wholesale';
   }
 
-  const dMmmYyyyMatch = strVal.match(/^(\d{1,2})[-/ ]([A-Za-z]{3,9})[-/ ](\d{2,4})/);
-  if (dMmmYyyyMatch) {
-    const day = String(dMmmYyyyMatch[1]).padStart(2, '0');
-    const monthStr = dMmmYyyyMatch[2].substring(0, 3).toLowerCase();
-    let year = parseInt(dMmmYyyyMatch[3], 10);
-    if (year < 100) year = 2000 + year;
-    const months = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
-    if (months[monthStr]) return `${year}-${months[monthStr]}-${day}`;
+  if (store.includes('online') || store.includes('website') || store.includes('instagram') ||
+      saleType.includes('online') || saleType.includes('website') ||
+      payMode.includes('razorpay')) {
+    return 'Online';
   }
 
-  const dmyMatch = strVal.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
-  if (dmyMatch) {
-    let year = parseInt(dmyMatch[3], 10);
-    if (year < 100) year = 2000 + year;
-    return `${year}-${String(dmyMatch[2]).padStart(2, '0')}-${String(dmyMatch[1]).padStart(2, '0')}`;
-  }
-
-  const parsed = new Date(strVal);
-  if (!isNaN(parsed.getTime())) return formatToYYYYMMDD(parsed);
-  return '';
-}
-
-function getAllNormalizedDates() {
-  if (!rawData || rawData.length === 0) return [];
-  const dateSet = new Set();
-  rawData.forEach(row => {
-    const norm = normalizeToDateString(row['Bill Date']);
-    if (norm) dateSet.add(norm);
-  });
-  return Array.from(dateSet).sort();
+  return 'Offline';
 }
 
 function getItemCategory(itemName) {
@@ -177,51 +239,19 @@ function getItemCategory(itemName) {
   if (name.includes('frame') || name.includes('painting') || name.includes('canvas') || name.includes('photo')) {
     return 'Frames';
   }
-  if (name.includes('duppata') || name.includes('dupatta') || name.includes('fabric') || 
-      name.includes('meter') || name.includes('blouse') || name.includes('running') || 
+  if (name.includes('duppata') || name.includes('dupatta') || name.includes('fabric') ||
+      name.includes('meter') || name.includes('blouse') || name.includes('running') ||
       name.includes('chanderi') || name.includes('organze')) {
     return 'Fabrics';
   }
-  if (name.includes('saree') || name.includes('sari') || name.includes('silk') || 
-      name.includes('pattu') || name.includes('patola') || name.includes('gadwal') || 
-      name.includes('ikkat') || name.includes('kanchi') || name.includes('tussar') || 
-      name.includes('crape') || name.includes('chennur') || name.includes('mangalagiri') || 
+  if (name.includes('saree') || name.includes('sari') || name.includes('silk') ||
+      name.includes('pattu') || name.includes('patola') || name.includes('gadwal') ||
+      name.includes('ikkat') || name.includes('kanchi') || name.includes('tussar') ||
+      name.includes('crape') || name.includes('chennur') || name.includes('mangalagiri') ||
       name.includes('cotton')) {
     return 'Sarees';
   }
   return 'General';
-}
-
-function getStaffSalesAmount(empName, empId) {
-  if (!empName) return 0;
-  const cleanEmp = empName.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const allowedAliases = (empId && STAFF_ALIASES_MAP[empId]) ? STAFF_ALIASES_MAP[empId] : [];
-
-  let totalRevenueFound = 0;
-  let matchedAgentKeys = new Set();
-
-  agentsList.forEach(a => {
-    const rawAgentName = (a.name || '').toString().toLowerCase().trim();
-    const cleanAgentName = rawAgentName.replace(/[^a-z0-9]/g, '');
-
-    for (let alias of allowedAliases) {
-      const cleanAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (cleanAgentName === cleanAlias || cleanAgentName.includes(cleanAlias) || cleanAlias.includes(cleanAgentName)) {
-        if (!matchedAgentKeys.has(rawAgentName)) {
-          matchedAgentKeys.add(rawAgentName);
-          totalRevenueFound += a.revenue;
-        }
-        return;
-      }
-    }
-
-    if (cleanAgentName === cleanEmp && !matchedAgentKeys.has(rawAgentName)) {
-      matchedAgentKeys.add(rawAgentName);
-      totalRevenueFound += a.revenue;
-    }
-  });
-
-  return totalRevenueFound;
 }
 
 function getMonthYearContext(monthStr) {
@@ -289,33 +319,8 @@ function handleLogout() {
   location.reload();
 }
 
-// STRICT CHANNEL CLASSIFIER
-function classifyExactChannel(row) {
-  const store = (row.store_name || row.store || row['STORE NAME'] || row['Store Name'] || '').toString().toLowerCase().trim();
-  const saleType = (row.sale_type || row.sales_type || row['SALES TYPE'] || row['Sale Type'] || '').toString().toLowerCase().trim();
-  const billNo = (row.bill_no || row['BILL NO'] || row['Bill No'] || '').toString().toUpperCase().trim();
-  const payMode = (row.pay_mode || row['PAY MODE'] || row['Pay Mode'] || '').toString().toLowerCase().trim();
-
-  // 1. Take by Hand (Wholesale)
-  if (billNo.startsWith('TBH') || billNo.startsWith('WS') || 
-      store.includes('takebyhand') || store.includes('take by hand') || store.includes('wholesale') ||
-      saleType.includes('takebyhand') || saleType.includes('take by hand') || saleType.includes('wholesale')) {
-    return 'Wholesale';
-  }
-
-  // 2. Online Sales
-  if (store.includes('online') || store.includes('website') || store.includes('instagram') ||
-      saleType.includes('online') || saleType.includes('website') ||
-      payMode.includes('razorpay')) {
-    return 'Online';
-  }
-
-  // 3. Main Branch / Counter Offline
-  return 'Offline';
-}
-
 // =============================================================
-// SUPABASE FETCH ENGINE
+// 4. ZERO-INFLATION FETCH ENGINE
 // =============================================================
 async function fetchData(user, pass) {
   const cleanUser = (user || 'admin').trim().toLowerCase();
@@ -373,7 +378,6 @@ async function fetchData(user, pass) {
       return;
     }
 
-    // 1. Receivables bank sync
     const settledReceivablesMap = {};
     try {
       const { data: recRows } = await supabaseClient.from('receivables').select('bill_no, bank_account');
@@ -388,7 +392,33 @@ async function fetchData(user, pass) {
       console.warn("Could not load receivables:", e);
     }
 
-    // 2. Fetch sales records with deterministic pagination
+    const masterBillsMap = {};
+    try {
+      let bFrom = 0, bStep = 1000, bHasMore = true;
+      while (bHasMore) {
+        const { data: bRows, error: bErr } = await supabaseClient
+          .from('bills_master')
+          .select('*')
+          .order('bill_date', { ascending: true })
+          .order('bill_no', { ascending: true })
+          .range(bFrom, bFrom + bStep - 1);
+        if (bErr) throw bErr;
+        if (bRows && bRows.length > 0) {
+          bRows.forEach(b => {
+            if (b.bill_no) {
+              masterBillsMap[b.bill_no.toString().trim().toUpperCase()] = b;
+            }
+          });
+          if (bRows.length < bStep) bHasMore = false;
+          else bFrom += bStep;
+        } else {
+          bHasMore = false;
+        }
+      }
+    } catch (e) {
+      console.warn("Could not load bills_master:", e);
+    }
+
     let allSalesRecords = [];
     let from = 0;
     const step = 1000;
@@ -411,51 +441,76 @@ async function fetchData(user, pass) {
       }
     }
 
-    // 3. Map line items into rawData
-    const cleanSales = [];
+    const billItemsGroup = {};
     allSalesRecords.forEach((r, idx) => {
-      const rawBillNo = (r.bill_no || r['BILL NO'] || r['Bill No'] || `BILL_${idx}`).toString().trim();
-      const rawDate = normalizeToDateString(r.bill_date || r['BILL DATE'] || r['Bill Date'] || r.created_at || '2026-09-01');
-      const rawStore = (r.store_name || r.store || r['STORE NAME'] || r['Store Name'] || 'Main Branch').trim();
-      const rawItem = (r.item_name || r['ITEM NAME'] || r['Item Name'] || 'General Item').trim();
-      const rawQty = parseInt(r.qty || r['QTY'] || r['Qty'] || 1, 10) || 1;
-      
-      let rawAmt = 0;
-      if (r.amount !== undefined && r.amount !== null && r.amount !== '') {
-        rawAmt = parseFloat(r.amount.toString().replace(/[^0-9.-]/g, '')) || 0;
-      } else if (r['AMOUNT'] !== undefined && r['AMOUNT'] !== null && r['AMOUNT'] !== '') {
-        rawAmt = parseFloat(r['AMOUNT'].toString().replace(/[^0-9.-]/g, '')) || 0;
-      }
-      if (rawAmt === 0 && (r.rate || r['RATE'])) {
-        const rate = parseFloat((r.rate || r['RATE']).toString().replace(/[^0-9.-]/g, '')) || 0;
+      const rawBillNo = (r.bill_no || r['BILL NO'] || r['Bill No'] || `BILL_${idx}`).toString().trim().toUpperCase();
+      if (!billItemsGroup[rawBillNo]) billItemsGroup[rawBillNo] = [];
+      billItemsGroup[rawBillNo].push(r);
+    });
+
+    const cleanSales = [];
+    Object.entries(billItemsGroup).forEach(([billNoUpper, items]) => {
+      const masterBill = masterBillsMap[billNoUpper];
+      const masterTotal = masterBill ? (parseFloat(masterBill.bill_amount) || 0) : null;
+      const masterBranch = masterBill ? normalizeBranch(masterBill.branch) : null;
+      const masterDate = masterBill ? parseToYYYYMMDD(masterBill.bill_date) : null;
+      const masterAgent = masterBill ? resolveStaffToMasterName(masterBill.sm_name) : null;
+      const masterChannel = masterBill ? classifyExactChannel(masterBill) : null;
+
+      let lineItemSum = 0;
+      const computedItemAmounts = items.map(r => {
+        const qty = parseInt(r.qty || r['QTY'] || r['Qty'] || 1, 10) || 1;
+        const rate = parseFloat((r.rate || r['RATE'] || 0).toString().replace(/[^0-9.-]/g, '')) || 0;
         const disc = parseFloat((r.discount || r['DISCOUNT'] || 0).toString().replace(/[^0-9.-]/g, '')) || 0;
-        rawAmt = (rate * rawQty) - disc;
-      }
+        const lineNet = (rate * qty) - disc;
+        if (lineNet > 0) {
+          lineItemSum += lineNet;
+          return lineNet;
+        }
+        const directAmt = parseFloat((r.amount || r['AMOUNT'] || 0).toString().replace(/[^0-9.-]/g, '')) || 0;
+        lineItemSum += directAmt;
+        return directAmt;
+      });
 
-      const rawSM = extractStaffName(r);
-      const rawPayMode = (r.pay_mode || r['PAY MODE'] || r['Pay Mode'] || 'Cash').toString().trim();
-      const rawBank = settledReceivablesMap[rawBillNo.toUpperCase()] || rawPayMode;
-      const rawSaleType = classifyExactChannel(r);
+      items.forEach((r, idx) => {
+        const rawBillNo = (r.bill_no || r['BILL NO'] || r['Bill No'] || billNoUpper).toString().trim();
+        const rawDate = masterDate || parseToYYYYMMDD(r.bill_date || r.date || r['Bill Date'] || r.created_at);
+        const rawStore = masterBranch || extractStoreBranch(r);
+        const rawItem = (r.item_name || r['ITEM NAME'] || r['Item Name'] || 'General Item').trim();
+        const rawQty = parseInt(r.qty || r['QTY'] || r['Qty'] || 1, 10) || 1;
+        const rawSM = masterAgent || extractStaffName(r);
+        const rawPayMode = (r.pay_mode || r['PAY MODE'] || r['Pay Mode'] || 'Cash').toString().trim();
+        const rawBank = settledReceivablesMap[billNoUpper] || rawPayMode;
+        const rawSaleType = masterChannel || classifyExactChannel(r);
 
-      cleanSales.push({
-        'id': r.id || `row_${idx}`,
-        'Bill No': rawBillNo,
-        'Bill Date': rawDate,
-        'Store': rawStore,
-        'Item Name': rawItem,
-        'Qty': rawQty,
-        'Final Amount': rawAmt,
-        'amount': rawAmt,
-        'SM Name': rawSM,
-        'PayMode': rawPayMode,
-        'Sale type': rawSaleType,
-        'Acc No': rawBank
+        let itemRevenue = computedItemAmounts[idx];
+        if (masterTotal !== null && masterTotal > 0) {
+          if (items.length === 1) {
+            itemRevenue = masterTotal;
+          } else if (lineItemSum > 0 && Math.abs(lineItemSum - masterTotal) > 1) {
+            itemRevenue = (computedItemAmounts[idx] / lineItemSum) * masterTotal;
+          }
+        }
+
+        cleanSales.push({
+          'id': r.id || `${billNoUpper}_${idx}`,
+          'Bill No': rawBillNo,
+          'Bill Date': rawDate,
+          'Store': rawStore,
+          'Item Name': rawItem,
+          'Qty': rawQty,
+          'Final Amount': itemRevenue,
+          'amount': itemRevenue,
+          'SM Name': rawSM,
+          'PayMode': rawPayMode,
+          'Sale type': rawSaleType,
+          'Acc No': rawBank
+        });
       });
     });
 
     rawData = cleanSales;
 
-    // 4. Fetch Attendance Records
     try {
       const { data: attRows } = await supabaseClient.from('attendance').select('*');
       if (attRows && attRows.length > 0) {
@@ -560,8 +615,8 @@ function detectAndPopulateStores() {
   if (!storeSelect) return;
   const storeSet = new Set();
   rawData.forEach(row => {
-    const sName = (row['Store'] || 'Main Branch').toString().trim();
-    if (sName) storeSet.add(sName);
+    const sName = normalizeBranch(row['Store']);
+    if (sName && sName !== 'All') storeSet.add(sName);
   });
   storeSelect.innerHTML = `<option value="All">All Branches / Stores</option>`;
   storeSet.forEach(sName => {
@@ -613,10 +668,20 @@ function detectDateRanges() {
   highlightActiveQuickDateButton('all');
 }
 
+function getAllNormalizedDates() {
+  if (!rawData || rawData.length === 0) return [];
+  const dateSet = new Set();
+  rawData.forEach(row => {
+    const norm = row['Bill Date'];
+    if (norm) dateSet.add(norm);
+  });
+  return Array.from(dateSet).sort();
+}
+
 function setQuickDateRange(preset) {
   const allDates = getAllNormalizedDates();
   const realToday = new Date();
-  const realTodayStr = formatToYYYYMMDD(realToday);
+  const realTodayStr = parseToYYYYMMDD(realToday);
 
   let refDateStr = allDates.length > 0 ? (allDates.includes(realTodayStr) ? realTodayStr : allDates[allDates.length - 1]) : realTodayStr;
   const [y, m, d] = refDateStr.split('-').map(Number);
@@ -624,11 +689,11 @@ function setQuickDateRange(preset) {
   let fromDate = refDateStr, toDate = refDateStr;
 
   if (preset === 'today') {
-    fromDate = realTodayStr;
-    toDate = realTodayStr;
+    fromDate = refDateStr;
+    toDate = refDateStr;
   } else if (preset === 'yesterday') {
-    const yest = new Date(realToday.getFullYear(), realToday.getMonth(), realToday.getDate() - 1);
-    fromDate = formatToYYYYMMDD(yest);
+    const yest = new Date(y, m - 1, d - 1);
+    fromDate = parseToYYYYMMDD(yest);
     toDate = fromDate;
   } else if (preset === 'latest' && allDates.length > 0) {
     fromDate = allDates[allDates.length - 1];
@@ -638,11 +703,11 @@ function setQuickDateRange(preset) {
     const dayOfWeek = refDate.getDay();
     const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const monday = new Date(y, m - 1, d - diffToMonday);
-    fromDate = formatToYYYYMMDD(monday);
+    fromDate = parseToYYYYMMDD(monday);
     toDate = refDateStr;
   } else if (preset === 'month') {
-    fromDate = formatToYYYYMMDD(new Date(y, m - 1, 1));
-    toDate = refDateStr;
+    fromDate = parseToYYYYMMDD(new Date(y, m - 1, 1));
+    toDate = parseToYYYYMMDD(new Date(y, m, 0));
   } else if (preset === 'all' && allDates.length > 0) {
     fromDate = allDates[0];
     toDate = allDates[allDates.length - 1];
@@ -668,21 +733,23 @@ function highlightActiveQuickDateButton(activePreset) {
 }
 
 // =============================================================
-// CORE ANALYTICS ENGINE
+// 5. CORE ANALYTICS ENGINE (AUDITED DUAL CRITERIA RECONCILIATION)
 // =============================================================
 function processData() {
-  const fromDate = getEl('from-date') ? getEl('from-date').value : '';
-  const toDate = getEl('to-date') ? getEl('to-date').value : '';
-  const searchVal = getEl('product-search') ? getEl('product-search').value.toLowerCase() : '';
+  const rawFrom = getEl('from-date') ? getEl('from-date').value.trim() : '';
+  const rawTo = getEl('to-date') ? getEl('to-date').value.trim() : '';
+  const fromDate = parseToYYYYMMDD(rawFrom);
+  const toDate = parseToYYYYMMDD(rawTo);
+  const searchVal = getEl('product-search') ? getEl('product-search').value.toLowerCase().trim() : '';
   selectedStore = getEl('store-filter') ? getEl('store-filter').value : 'All';
 
+  // STRICT DUAL CRITERIA FILTER (Store Branch + Date Range)
   const filtered = rawData.filter(row => {
-    const rDate = normalizeToDateString(row['Bill Date']);
-    let match = true;
-    if (fromDate && rDate && rDate < fromDate) match = false;
-    if (toDate && rDate && rDate > toDate) match = false;
-    if (selectedStore !== 'All' && (row['Store'] || '').toLowerCase() !== selectedStore.toLowerCase()) match = false;
-    return match;
+    const rDate = row['Bill Date'];
+    if (fromDate && (!rDate || rDate < fromDate)) return false;
+    if (toDate && (!rDate || rDate > toDate)) return false;
+    if (selectedStore !== 'All' && normalizeBranch(row['Store']) !== normalizeBranch(selectedStore)) return false;
+    return true;
   });
 
   let totalSales = 0, totalOnline = 0, totalOffline = 0, totalWholesale = 0, totalUnits = 0;
@@ -699,7 +766,6 @@ function processData() {
     luxury: { label: 'Luxury Heritage (>₹12k)', count: 0, revenue: 0, color: 'text-[#5C0612]', border: 'border-[#DAA520]' }
   };
 
-  // Day of Week Velocity initialized with bill-tracking Sets
   dayOfWeekHeatmap = {
     'Sun': { label: 'Sunday', revenue: 0, bills: new Set() },
     'Mon': { label: 'Monday', revenue: 0, bills: new Set() },
@@ -716,7 +782,7 @@ function processData() {
     const item = row['Item Name'] || 'General Item';
     const agent = row['SM Name'] || 'No Agent';
     const payMode = (row['PayMode'] || 'Cash').toLowerCase();
-    const billDate = normalizeToDateString(row['Bill Date']);
+    const billDate = row['Bill Date'];
     const billNo = row['Bill No'];
     const channel = row['Sale type'];
 
@@ -726,14 +792,12 @@ function processData() {
     const bAcc = row['Acc No'] || 'Cash';
     accountTotals[bAcc] = (accountTotals[bAcc] || 0) + amount;
 
-    // Payment Modes
     if (payMode.includes('cash')) payCash += amount;
     else if (payMode.includes('card')) payCard += amount;
     else if (payMode.includes('hand') || payMode.includes('wholesale') || payMode.includes('tbh')) payHand += amount;
     else if (channel === 'Online') payUpiOnline += amount;
     else payUpiStore += amount;
 
-    // Channels
     if (channel === 'Online') totalOnline += amount;
     else if (channel === 'Wholesale') totalWholesale += amount;
     else totalOffline += amount;
@@ -741,19 +805,16 @@ function processData() {
     const billKey = billNo && billNo !== 'N/A' ? billNo : `${billDate}-${amount}`;
     uniqueBills.add(billKey);
 
-    // Multi-Item Bill Grouping for Basket Analysis
     if (!billBaskets[billKey]) billBaskets[billKey] = [];
     billBaskets[billKey].push(item);
 
-    // Price Tiers
     const unitPrice = qty > 0 ? (amount / qty) : amount;
     if (unitPrice < 1500) { priceTierBreakdown.budget.count += qty; priceTierBreakdown.budget.revenue += amount; }
     else if (unitPrice <= 5000) { priceTierBreakdown.mid.count += qty; priceTierBreakdown.mid.revenue += amount; }
     else if (unitPrice <= 12000) { priceTierBreakdown.premium.count += qty; priceTierBreakdown.premium.revenue += amount; }
     else { priceTierBreakdown.luxury.count += qty; priceTierBreakdown.luxury.revenue += amount; }
 
-    // Day of Week Velocity — EXCLUDES Take by Hand / Wholesale
-    if (billDate && channel !== 'Wholesale' && channel !== 'Take by Hand') {
+    if (billDate && channel !== 'Wholesale') {
       const dt = new Date(billDate);
       const dayShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dt.getDay()];
       if (dayOfWeekHeatmap[dayShort]) {
@@ -762,14 +823,12 @@ function processData() {
       }
     }
 
-    // Day-Wise Sales Aggregation (all sales)
     if (billDate) {
       if (!dayWiseObj[billDate]) dayWiseObj[billDate] = { total: 0, agents: {} };
       dayWiseObj[billDate].total += amount;
       dayWiseObj[billDate].agents[agent] = (dayWiseObj[billDate].agents[agent] || 0) + amount;
     }
 
-    // 1. PRODUCTS AGGREGATION
     if (!productsObj[item]) {
       productsObj[item] = { name: item, qty: 0, revenue: 0, onlineQty: 0, offlineQty: 0, wholesaleQty: 0 };
     }
@@ -779,7 +838,6 @@ function processData() {
     else if (channel === 'Wholesale') productsObj[item].wholesaleQty += qty;
     else productsObj[item].offlineQty += qty;
 
-    // 2. STAFF AGENTS AGGREGATION
     if (!agentsObj[agent]) {
       agentsObj[agent] = {
         name: agent,
@@ -801,7 +859,6 @@ function processData() {
     agentsObj[agent].bills[billKey] += amount;
   });
 
-  // Calculate Market Basket Pairs
   const pairCounts = {};
   Object.values(billBaskets).forEach(items => {
     if (items.length >= 2) {
@@ -820,20 +877,17 @@ function processData() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 8);
 
-  // Display Cards
   setText('metric-total', `₹${Math.round(totalSales).toLocaleString('en-IN')}`);
   setText('metric-online', `₹${Math.round(totalOnline).toLocaleString('en-IN')}`);
   setText('metric-offline', `₹${Math.round(totalOffline).toLocaleString('en-IN')}`);
   setText('metric-wholesale', `₹${Math.round(totalWholesale).toLocaleString('en-IN')}`);
 
-  // Target Progress
   const targetPct = monthlyTarget > 0 ? Math.min(100, Math.round((totalSales / monthlyTarget) * 100)) : 0;
   setText('target-percent-text', `${targetPct}%`);
   setText('target-achieved-text', `₹${Math.round(totalSales).toLocaleString('en-IN')}`);
   const targetBar = getEl('target-progress-bar');
   if (targetBar) targetBar.style.width = `${targetPct}%`;
 
-  // Payment Breakdown
   setText('paymode-upi-store', `₹${Math.round(payUpiStore).toLocaleString('en-IN')}`);
   setText('paymode-upi-onl', `₹${Math.round(payUpiOnline).toLocaleString('en-IN')}`);
   setText('paymode-cash', `₹${Math.round(payCash).toLocaleString('en-IN')}`);
@@ -846,7 +900,6 @@ function processData() {
   setText('metric-auv', `₹${Math.round(totalUnits > 0 ? (totalSales / totalUnits) : 0).toLocaleString('en-IN')}`);
   setText('metric-asp', `₹${Math.round(totalUnits > 0 ? (totalSales / totalUnits) : 0).toLocaleString('en-IN')}`);
 
-  // Bank Split Container
   const accContainer = getEl('account-split-container');
   if (accContainer) {
     accContainer.innerHTML = Object.entries(accountTotals).map(([acc, amt]) => `
@@ -857,13 +910,11 @@ function processData() {
     `).join('');
   }
 
-  // Populate Products List
   productsList = Object.values(productsObj).map(p => {
     p.category = getItemCategory(p.name);
     return p;
   }).filter(p => p.name.toLowerCase().includes(searchVal));
 
-  // Populate Agents List
   agentsList = Object.values(agentsObj).map(a => {
     a.billCount = Object.keys(a.bills).length;
     a.upt = a.billCount > 0 ? (a.unitCount / a.billCount) : 0;
@@ -871,19 +922,17 @@ function processData() {
     return a;
   });
 
-  // Render All Tables
   renderProductsTable();
   renderAgentsTable();
   renderDayWiseSales(dayWiseObj);
-  renderAttendanceSalaryModule(totalSales);
+  renderAttendanceSalaryModule(totalSales, filtered);
   renderAdvancedSalesInsights(totalSales, totalTransactions);
 }
 
 // -------------------------------------------------------------
-// ADVANCED SALES INSIGHTS & DAY-OF-WEEK VELOCITY
+// 6. RENDER TABLES & ADVANCED INSIGHTS
 // -------------------------------------------------------------
 function renderAdvancedSalesInsights(totalSales, totalTransactions) {
-  // 1. Cross-Sell Co-Purchase Pairs
   const crossSellContainer = getEl('cross-sell-pairs-container');
   if (crossSellContainer) {
     if (crossSellPairsList.length === 0) {
@@ -898,7 +947,6 @@ function renderAdvancedSalesInsights(totalSales, totalTransactions) {
     }
   }
 
-  // 2. Price Tier Cards
   const priceTierContainer = getEl('price-tier-cards-container');
   if (priceTierContainer) {
     priceTierContainer.innerHTML = Object.values(priceTierBreakdown).map(tier => {
@@ -916,14 +964,13 @@ function renderAdvancedSalesInsights(totalSales, totalTransactions) {
     }).join('');
   }
 
-  // 3. Day of Week Sales Velocity (EXCLUDES Take by Hand Wholesale)
   const dayHeatmapContainer = getEl('day-of-week-heatmap-container');
   if (dayHeatmapContainer) {
     const totalWeeklyVelocity = Object.values(dayOfWeekHeatmap).reduce((sum, d) => sum + d.revenue, 0);
 
     dayHeatmapContainer.innerHTML = Object.entries(dayOfWeekHeatmap).map(([dayKey, dayData]) => {
-      const sharePct = totalWeeklyVelocity > 0 
-        ? ((dayData.revenue / totalWeeklyVelocity) * 100).toFixed(1) 
+      const sharePct = totalWeeklyVelocity > 0
+        ? ((dayData.revenue / totalWeeklyVelocity) * 100).toFixed(1)
         : '0.0';
       const invoiceCount = dayData.bills ? dayData.bills.size : (dayData.count || 0);
 
@@ -950,16 +997,13 @@ function renderAdvancedSalesInsights(totalSales, totalTransactions) {
   }
 }
 
-// -------------------------------------------------------------
-// 1. PRODUCTS TABLE RENDERER (WITH OVERALL & CHANNEL % BREAKDOWN)
-// -------------------------------------------------------------
 function filterCategory(cat) {
   selectedCategory = cat;
   ['All', 'Sarees', 'Fabrics', 'Frames'].forEach(c => {
     const btn = getEl(`cat-btn-${c.toLowerCase()}`);
     if (btn) {
-      btn.className = c === cat 
-        ? "px-3 py-1 rounded-full bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-bold shadow-sm" 
+      btn.className = c === cat
+        ? "px-3 py-1 rounded-full bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] font-bold shadow-sm"
         : "px-3 py-1 rounded-full bg-[#FFFDF9] text-stone-600 border border-[#E5D5C6] hover:bg-stone-100 font-bold";
     }
   });
@@ -974,18 +1018,14 @@ function renderProductsTable() {
   filtered.sort((a, b) => b.revenue - a.revenue);
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3" class="p-6 text-center text-stone-400 font-traditional">No products found for this selection</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="3" class="p-6 text-center text-stone-400 font-traditional">No products found for this period</td></tr>`;
     return;
   }
 
-  // Calculate total store sales across all products for exact percentage attribution
   const totalStoreSales = productsList.reduce((sum, pr) => sum + (pr.revenue || 0), 0);
 
   tbody.innerHTML = filtered.map(p => {
-    // 1. Product revenue share of total store sales
     const prodSharePct = totalStoreSales > 0 ? ((p.revenue / totalStoreSales) * 100).toFixed(1) : '0.0';
-
-    // 2. Channel unit percentage breakdown for this product
     const onlQtyPct = p.qty > 0 ? ((p.onlineQty / p.qty) * 100).toFixed(1) : '0.0';
     const offQtyPct = p.qty > 0 ? ((p.offlineQty / p.qty) * 100).toFixed(1) : '0.0';
     const wsQtyPct  = p.qty > 0 ? ((p.wholesaleQty / p.qty) * 100).toFixed(1) : '0.0';
@@ -996,12 +1036,10 @@ function renderProductsTable() {
           <div class="font-bold text-stone-800 text-xs flex justify-between items-center">
             <div class="flex items-center gap-1.5 flex-wrap">
               <span>${p.name}</span>
-              <!-- Overall % of total sales badge -->
-              <span class="bg-[#5C0612] text-[#EFE5C9] font-black px-1.5 py-0.5 rounded text-[9px] font-numeric">${prodSharePct}% of Total Sales</span>
+              <span class="bg-[#5C0612] text-[#EFE5C9] font-black px-1.5 py-0.5 rounded text-[9px] font-numeric">${prodSharePct}% of Period Sales</span>
             </div>
             <span class="text-[9px] uppercase px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-[#5C0612] rounded font-traditional">${p.category}</span>
           </div>
-          <!-- Channel breakdown with individual percentages -->
           <div class="text-[10px] text-stone-500 font-bold mt-1 font-sans flex flex-wrap gap-x-2 gap-y-0.5">
             <span class="text-blue-600">Online: ${p.onlineQty} (${onlQtyPct}%)</span> • 
             <span class="text-orange-600">Offline: ${p.offlineQty} (${offQtyPct}%)</span> • 
@@ -1018,9 +1056,6 @@ function renderProductsTable() {
   }).join('');
 }
 
-// -------------------------------------------------------------
-// 2. STAFF-WISE SALES TABLE RENDERER (WITH OVERALL & CHANNEL % BREAKDOWN)
-// -------------------------------------------------------------
 function renderAgentsTable() {
   const tbody = getEl('agents-table-body');
   if (!tbody) return;
@@ -1032,14 +1067,10 @@ function renderAgentsTable() {
     return;
   }
 
-  // Calculate total store sales across all staff for percentage calculation
   const totalStoreSales = agentsList.reduce((sum, ag) => sum + (ag.revenue || 0), 0);
 
   tbody.innerHTML = agentsList.map(a => {
-    // 1. Staff revenue share of total store sales
     const staffSharePct = totalStoreSales > 0 ? ((a.revenue / totalStoreSales) * 100).toFixed(1) : '0.0';
-
-    // 2. Channel revenue percentage breakdown for this staff member
     const offPct = a.revenue > 0 ? ((a.offlineRevenue / a.revenue) * 100).toFixed(1) : '0.0';
     const onlPct = a.revenue > 0 ? ((a.onlineRevenue / a.revenue) * 100).toFixed(1) : '0.0';
     const wsPct  = a.revenue > 0 ? ((a.tbhRevenue / a.revenue) * 100).toFixed(1) : '0.0';
@@ -1050,14 +1081,12 @@ function renderAgentsTable() {
           <div class="flex justify-between items-center">
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="text-xs font-bold text-stone-800">${a.name}</span>
-              <!-- Overall % of total sales badge -->
-              <span class="bg-[#5C0612] text-[#EFE5C9] font-black px-1.5 py-0.5 rounded text-[9px] font-numeric">${staffSharePct}% of Total Sales</span>
+              <span class="bg-[#5C0612] text-[#EFE5C9] font-black px-1.5 py-0.5 rounded text-[9px] font-numeric">${staffSharePct}% of Period Sales</span>
             </div>
             <span class="text-[9px] text-[#DAA520] font-bold font-numeric">${a.billCount} Bills <i class="fa-solid fa-chevron-right text-[8px] ml-1"></i></span>
           </div>
-          <!-- Channel revenue breakdown with individual percentages -->
           <div class="text-[9px] text-stone-500 font-bold mt-1 font-sans flex flex-wrap gap-x-2 gap-y-0.5">
-            <span>Offline (Counter): <strong class="text-orange-700 font-numeric">₹${Math.round(a.offlineRevenue || 0).toLocaleString('en-IN')} (${offPct}%)</strong></span> • 
+            <span>Offline (Showroom): <strong class="text-orange-700 font-numeric">₹${Math.round(a.offlineRevenue || 0).toLocaleString('en-IN')} (${offPct}%)</strong></span> • 
             <span>Online: <strong class="text-blue-700 font-numeric">₹${Math.round(a.onlineRevenue || 0).toLocaleString('en-IN')} (${onlPct}%)</strong></span> • 
             <span>Wholesale: <strong class="text-purple-700 font-numeric">₹${Math.round(a.tbhRevenue || 0).toLocaleString('en-IN')} (${wsPct}%)</strong></span>
           </div>
@@ -1071,9 +1100,6 @@ function renderAgentsTable() {
   }).join('');
 }
 
-// -------------------------------------------------------------
-// 3. DAY-WISE SALES TABLE RENDERER
-// -------------------------------------------------------------
 function renderDayWiseSales(dayWiseObj) {
   const container = getEl('daywise-sales-container');
   if (!container) return;
@@ -1106,7 +1132,7 @@ function renderDayWiseSales(dayWiseObj) {
 }
 
 // -------------------------------------------------------------
-// ATTENDANCE & PAYROLL MODULE
+// 7. ATTENDANCE & PAYROLL MODULE
 // -------------------------------------------------------------
 function setAttendanceViewMode(mode) {
   attendanceViewMode = mode;
@@ -1128,10 +1154,38 @@ function setAttendanceViewMode(mode) {
 
 function filterAttendanceMonth(m) {
   selectedAttendanceMonth = m;
-  renderAttendanceSalaryModule(parseFloat((getEl('metric-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
+  processData();
 }
 
-function renderAttendanceSalaryModule(storeRevenue = 0) {
+function getStaffPeriodSalesAmount(empName, empId, filteredRecords) {
+  if (!empName) return 0;
+  const allowedAliases = (empId && STAFF_ALIASES_MAP[empId]) ? STAFF_ALIASES_MAP[empId] : [];
+  const cleanEmp = empName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  let totalRevenueFound = 0;
+  const records = filteredRecords || rawData;
+
+  records.forEach(row => {
+    const rowAgent = (row['SM Name'] || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    let matched = false;
+
+    for (let alias of allowedAliases) {
+      const cleanAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (rowAgent === cleanAlias || rowAgent.includes(cleanAlias) || cleanAlias.includes(rowAgent)) {
+        matched = true;
+        break;
+      }
+    }
+
+    if (matched || rowAgent === cleanEmp) {
+      totalRevenueFound += (parseFloat(row['amount']) || 0);
+    }
+  });
+
+  return totalRevenueFound;
+}
+
+function renderAttendanceSalaryModule(periodRevenue = 0, currentFiltered = []) {
   const container = getEl('staff-salary-list');
   const summaryTbody = getEl('staff-salary-summary-tbody');
   if (!container) return;
@@ -1145,7 +1199,7 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
 
   let totalStorePayroll = 0;
   setText('payroll-staff-count', `${staffList.length} Staff`);
-  setText('profit-store-sales', `₹${Math.round(storeRevenue).toLocaleString('en-IN')}`);
+  setText('profit-store-sales', `₹${Math.round(periodRevenue).toLocaleString('en-IN')}`);
 
   const summaryRowsHTML = [];
 
@@ -1159,7 +1213,7 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
     let commPct = parseFloat(emp['Commission Pct']) || 1.0;
     let advance = parseFloat(emp['Advance Taken']) || 0;
 
-    const totalSold = getStaffSalesAmount(name, empId);
+    const totalSold = getStaffPeriodSalesAmount(name, empId, currentFiltered);
     const calculatedIncentive = (commPct > 0) ? Math.round(totalSold * (commPct / 100)) : 0;
 
     let countP = 0, countHD = 0, countA = 0, countPL = 0, countWO = 0;
@@ -1258,7 +1312,7 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
         <div>
           <label class="block text-[8px] font-bold text-stone-500 uppercase mb-0.5">Incentive Rate (%)</label>
           <input type="number" value="${commPct}" step="0.1" onchange="updateStaffPayroll(${index}, 'commission', this.value)" class="w-full text-xs font-bold border border-[#E5D5C6] bg-white rounded-lg p-1.5 text-stone-800 focus:outline-none" ${!isAdmin ? 'disabled' : ''}>
-          <span class="text-[8px] text-emerald-800 font-bold block mt-0.5">Sold: ₹${Math.round(totalSold).toLocaleString('en-IN')}</span>
+          <span class="text-[8px] text-emerald-800 font-bold block mt-0.5">Period Sales: ₹${Math.round(totalSold).toLocaleString('en-IN')}</span>
         </div>
         <div>
           <label class="block text-[8px] font-bold text-stone-500 uppercase mb-0.5">Advance (₹)</label>
@@ -1297,7 +1351,7 @@ function renderAttendanceSalaryModule(storeRevenue = 0) {
 
   const grossProfitEl = getEl('profit-gross-amount');
   if (grossProfitEl) {
-    const grossVal = storeRevenue - totalStorePayroll;
+    const grossVal = periodRevenue - totalStorePayroll;
     grossProfitEl.textContent = `₹${Math.round(grossVal).toLocaleString('en-IN')}`;
     grossProfitEl.className = grossVal >= 0 ? "text-xl font-black text-emerald-700 font-numeric" : "text-xl font-black text-rose-700 font-numeric";
   }
@@ -1315,7 +1369,7 @@ function cycleDayStatus(staffIndex, dayNumber) {
   let nextIdx = (cycleOrder.indexOf(currentVal) + 1) % cycleOrder.length;
   emp[dKey] = cycleOrder[nextIdx];
 
-  renderAttendanceSalaryModule(parseFloat((getEl('metric-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
+  processData();
 }
 
 function updateStaffPayroll(index, field, val) {
@@ -1328,10 +1382,9 @@ function updateStaffPayroll(index, field, val) {
   else if (field === 'commission') emp['Commission Pct'] = parseFloat(val) || 0;
   else if (field === 'advance') emp['Advance Taken'] = parseFloat(val) || 0;
 
-  renderAttendanceSalaryModule(parseFloat((getEl('metric-total')?.textContent || '0').replace(/[^0-9.-]+/g,"")) || 0);
+  processData();
 }
 
-// SAVE ATTENDANCE TO SUPABASE
 async function saveAttendanceToSupabase() {
   if (!isAdmin) return alert("Only Admin can save attendance to database.");
 
@@ -1383,7 +1436,6 @@ async function saveAttendanceToSupabase() {
   }
 }
 
-// PRO-RATED WHATSAPP & PDF PAYSLIP EXPORTS
 function shareStaffPayslipWhatsApp(index) {
   const staffList = rawAttendanceData.filter(emp => (emp['Month_Sheet'] || '').toLowerCase() === selectedAttendanceMonth.toLowerCase());
   const emp = staffList[index] || rawAttendanceData[index];
@@ -1407,7 +1459,21 @@ function shareStaffPayslipWhatsApp(index) {
 
   const payableDays = countP + (countHD * 0.5) + countPL + countWO;
   const baseEarned = Math.round(payableDays * (fullSalary / mCtx.daysInMonth));
-  const totalSold = getStaffSalesAmount(name, empId);
+
+  const rawFrom = getEl('from-date') ? getEl('from-date').value.trim() : '';
+  const rawTo = getEl('to-date') ? getEl('to-date').value.trim() : '';
+  const fromDate = parseToYYYYMMDD(rawFrom);
+  const toDate = parseToYYYYMMDD(rawTo);
+
+  const activeFiltered = rawData.filter(row => {
+    const rDate = row['Bill Date'];
+    if (fromDate && (!rDate || rDate < fromDate)) return false;
+    if (toDate && (!rDate || rDate > toDate)) return false;
+    if (selectedStore !== 'All' && normalizeBranch(row['Store']) !== normalizeBranch(selectedStore)) return false;
+    return true;
+  });
+
+  const totalSold = getStaffPeriodSalesAmount(name, empId, activeFiltered);
   const calculatedIncentive = commPct > 0 ? Math.round(totalSold * (commPct / 100)) : 0;
   const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
 
@@ -1455,7 +1521,21 @@ function exportSingleStaffPayslipPDF(index) {
 
   const payableDays = countP + (countHD * 0.5) + countPL + countWO;
   const baseEarned = Math.round(payableDays * (fullSalary / mCtx.daysInMonth));
-  const totalSold = getStaffSalesAmount(name, empId);
+
+  const rawFrom = getEl('from-date') ? getEl('from-date').value.trim() : '';
+  const rawTo = getEl('to-date') ? getEl('to-date').value.trim() : '';
+  const fromDate = parseToYYYYMMDD(rawFrom);
+  const toDate = parseToYYYYMMDD(rawTo);
+
+  const activeFiltered = rawData.filter(row => {
+    const rDate = row['Bill Date'];
+    if (fromDate && (!rDate || rDate < fromDate)) return false;
+    if (toDate && (!rDate || rDate > toDate)) return false;
+    if (selectedStore !== 'All' && normalizeBranch(row['Store']) !== normalizeBranch(selectedStore)) return false;
+    return true;
+  });
+
+  const totalSold = getStaffPeriodSalesAmount(name, empId, activeFiltered);
   const calculatedIncentive = commPct > 0 ? Math.round(totalSold * (commPct / 100)) : 0;
   const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
 
@@ -1471,7 +1551,7 @@ function exportSingleStaffPayslipPDF(index) {
       <div>
         <p class="text-stone-500 text-[10px]">Employee ID</p>
         <p class="font-black text-[#5C0612]">${empId}</p>
-        <p class="text-stone-500 text-[10px] mt-1">Employee Name</p>
+        <p class="text-stone-500 text-[10px] uppercase font-semibold mt-1">Employee Name</p>
         <p class="font-bold text-stone-800">${name}</p>
       </div>
       <div class="text-right">
@@ -1500,20 +1580,22 @@ function exportSingleStaffPayslipPDF(index) {
   });
 }
 
-// =============================================================
-// DRILLDOWN VIEWS & MODALS
-// =============================================================
+// -------------------------------------------------------------
+// 8. DRILLDOWNS & MODALS
+// -------------------------------------------------------------
 function showProductDetails(productName) {
   setText('detail-product-name', productName);
-  const fromVal = getEl('from-date') ? getEl('from-date').value : '';
-  const toVal = getEl('to-date') ? getEl('to-date').value : '';
+  const rawFrom = getEl('from-date') ? getEl('from-date').value.trim() : '';
+  const rawTo = getEl('to-date') ? getEl('to-date').value.trim() : '';
+  const fromVal = parseToYYYYMMDD(rawFrom);
+  const toVal = parseToYYYYMMDD(rawTo);
 
   const agentStats = {};
   rawData.forEach(row => {
-    const rDate = normalizeToDateString(row['Bill Date']);
-    if (fromVal && rDate && rDate < fromVal) return;
-    if (toVal && rDate && rDate > toVal) return;
-    if (selectedStore !== 'All' && (row['Store'] || '').toLowerCase() !== selectedStore.toLowerCase()) return;
+    const rDate = row['Bill Date'];
+    if (fromVal && (!rDate || rDate < fromVal)) return;
+    if (toVal && (!rDate || rDate > toVal)) return;
+    if (selectedStore !== 'All' && normalizeBranch(row['Store']) !== normalizeBranch(selectedStore)) return;
     if (row['Item Name'] !== productName) return;
 
     const agent = row['SM Name'] || 'No Agent';
@@ -1554,20 +1636,22 @@ function showAgentDetails(agentName) {
 }
 
 function populateAgentAnalysisScreenDOM(agentName) {
-  const fromVal = getEl('from-date') ? getEl('from-date').value : '';
-  const toVal = getEl('to-date') ? getEl('to-date').value : '';
+  const rawFrom = getEl('from-date') ? getEl('from-date').value.trim() : '';
+  const rawTo = getEl('to-date') ? getEl('to-date').value.trim() : '';
+  const fromVal = parseToYYYYMMDD(rawFrom);
+  const toVal = parseToYYYYMMDD(rawTo);
   
   setText('agent-analysis-title', `${agentName} Performance Ledger`);
   setText('agent-analysis-subtitle', `Period: ${fromVal || 'All Time'} to ${toVal || 'Current'}`);
 
-  const targetAgentNorm = normalizeStaffName(agentName).toLowerCase();
+  const targetAgentNorm = resolveStaffToMasterName(agentName).toLowerCase();
 
   const agentRows = rawData.filter(row => {
-    const rDate = normalizeToDateString(row['Bill Date']);
-    if (fromVal && rDate && rDate < fromVal) return false;
-    if (toVal && rDate && rDate > toVal) return false;
-    if (selectedStore !== 'All' && (row['Store'] || '').toLowerCase() !== selectedStore.toLowerCase()) return false;
-    return normalizeStaffName(row['SM Name']).toLowerCase() === targetAgentNorm;
+    const rDate = row['Bill Date'];
+    if (fromVal && (!rDate || rDate < fromVal)) return false;
+    if (toVal && (!rDate || rDate > toVal)) return false;
+    if (selectedStore !== 'All' && normalizeBranch(row['Store']) !== normalizeBranch(selectedStore)) return false;
+    return resolveStaffToMasterName(row['SM Name']).toLowerCase() === targetAgentNorm;
   });
 
   let totalRevenue = 0, onlineSales = 0, offlineSales = 0, tbhSales = 0;
@@ -1576,7 +1660,7 @@ function populateAgentAnalysisScreenDOM(agentName) {
   agentRows.forEach(row => {
     const amount = parseFloat(row['amount']) || 0;
     const channel = row['Sale type'];
-    const date = normalizeToDateString(row['Bill Date']);
+    const date = row['Bill Date'];
     const billNo = row['Bill No'];
 
     totalRevenue += amount;
@@ -1626,18 +1710,20 @@ function selectChannel(channel) {
 }
 
 function populateChannelScreenDOM(channel) {
-  const fromVal = getEl('from-date') ? getEl('from-date').value : '';
-  const toVal = getEl('to-date') ? getEl('to-date').value : '';
+  const rawFrom = getEl('from-date') ? getEl('from-date').value.trim() : '';
+  const rawTo = getEl('to-date') ? getEl('to-date').value.trim() : '';
+  const fromVal = parseToYYYYMMDD(rawFrom);
+  const toVal = parseToYYYYMMDD(rawTo);
 
   const displayTitle = channel === 'Wholesale' ? 'Take by Hand (Wholesale)' : `${channel} Channel`;
   setText('channel-view-title', `${displayTitle} Sales`);
   setText('channel-view-subtitle', `Period: ${fromVal || 'All Time'} to ${toVal || 'Current'}`);
 
   const filtered = rawData.filter(row => {
-    const rDate = normalizeToDateString(row['Bill Date']);
-    if (fromVal && rDate && rDate < fromVal) return false;
-    if (toVal && rDate && rDate > toVal) return false;
-    if (selectedStore !== 'All' && (row['Store'] || '').toLowerCase() !== selectedStore.toLowerCase()) return false;
+    const rDate = row['Bill Date'];
+    if (fromVal && (!rDate || rDate < fromVal)) return false;
+    if (toVal && (!rDate || rDate > toVal)) return false;
+    if (selectedStore !== 'All' && normalizeBranch(row['Store']) !== normalizeBranch(selectedStore)) return false;
     return row['Sale type'] === channel;
   });
 
@@ -1736,12 +1822,12 @@ function exportSectionToPDF(elementId, titleFilename) {
     alert("PDF Engine is loading.");
     return;
   }
-  html2pdf().set({ 
-    margin: 0.3, 
-    filename: `${titleFilename}_${formatToYYYYMMDD(new Date())}.pdf`, 
-    image: { type: 'jpeg', quality: 0.98 }, 
-    html2canvas: { scale: 2 }, 
-    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } 
+  html2pdf().set({
+    margin: 0.3,
+    filename: `${titleFilename}_${parseToYYYYMMDD(new Date())}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
   }).from(element).save();
 }
 
@@ -1751,7 +1837,9 @@ function shareOwnerDailySummaryWhatsApp() {
   window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
-// BOOTSTRAP INITIALIZATION
+// -------------------------------------------------------------
+// 9. BOOTSTRAP EVENT LISTENERS
+// -------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
   const loginForm = getEl('login-form');
   if (loginForm) {
@@ -1763,8 +1851,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  getEl('from-date')?.addEventListener('change', processData);
-  getEl('to-date')?.addEventListener('change', processData);
+  ['from-date', 'to-date'].forEach(id => {
+    const el = getEl(id);
+    if (el) {
+      el.addEventListener('change', processData);
+      el.addEventListener('input', processData);
+    }
+  });
+
   getEl('product-search')?.addEventListener('input', processData);
   getEl('store-filter')?.addEventListener('change', processData);
   getEl('refresh-btn')?.addEventListener('click', () => {
