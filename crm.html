@@ -275,7 +275,7 @@
       fetchSupabaseCRMData();
     });
 
-    async function fetchSupabaseCRMData() {
+   async function fetchSupabaseCRMData() {
       const icon = document.getElementById('refresh-icon');
       if (icon) icon.classList.add('animate-spin');
 
@@ -285,6 +285,7 @@
         const step = 1000;
         let hasMore = true;
 
+        // Fetch from the 'sales' table with pagination chunks of 1000
         while (hasMore) {
           const { data, error } = await supabaseClient
             .from('sales')
@@ -308,14 +309,13 @@
         console.warn("Could not fetch sales from Supabase directly:", err.message);
         document.getElementById('crm-table-body').innerHTML = `
           <tr><td colspan="6" class="p-8 text-center text-stone-500">
-            Please click <strong>"Upload CSV"</strong> above to load your sales spreadsheet.
+            Could not load from Supabase (${err.message}). Please click <strong>"Upload CSV"</strong> above to test locally or check your Supabase table.
           </td></tr>
         `;
       } finally {
         if (icon) icon.classList.remove('animate-spin');
       }
     }
-
     function handleCSVUpload(e) {
       const file = e.target.files[0];
       if (!file) return;
