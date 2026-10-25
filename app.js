@@ -333,7 +333,7 @@ function getMonthYearContext(monthStr) {
 
 function checkSession() { return KK.identity() || { valid: false }; }
 async function handleLogout() {
-  KK.logout();
+  await KK.logout();
   location.reload();
 }
 

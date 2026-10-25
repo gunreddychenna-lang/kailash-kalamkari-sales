@@ -57,21 +57,33 @@ test('pagination continues through server caps smaller than requested page', asy
   const client = { from() { return this; }, select() { return this; }, order() { return this; }, async range(from) { return { data: source.slice(from, from + 2) }; } };
   assert.equal((await k.rows(client, 'sales')).length, 7);
 });
-test('simple admin login works without Supabase Auth and rejects wrong passwords', async () => {
+test('legacy admin password cannot bypass secure authentication', async () => {
   const k = context();
   assert.equal(await k.session({}), null);
-  assert.equal((await k.login({}, 'admin', 'admin')).role, 'Admin');
-  assert.equal((await k.session({})).user, 'admin');
-  k.logout();
-  assert.equal(await k.session({}), null);
-  await assert.rejects(k.login({}, 'admin', 'wrong'), /Invalid user ID/);
-  await assert.rejects(k.login({}, 'admin', 'admin123'), /Invalid user ID/);
+
+  await assert.rejects(
+    k.login({}, 'admin', 'admin'),
+    /Secure authentication module unavailable/
+  );
+
   assert.equal(k.identity(), null);
 });
-test('existing database user IDs retain their assigned role', async () => {
+
+test('legacy database passwords cannot authenticate without Supabase Auth', async () => {
   const k = context();
-  const client = { from() { return this; }, select() { return this; }, eq() { return this; }, async maybeSingle() { return { data: { username: 'staff', role: 'Viewer', display_name: 'Staff' } }; } };
-  assert.equal((await k.login(client, 'staff', 'existing-password')).role, 'Viewer');
+
+  const client = {
+    from() {
+      throw new Error('Legacy users table must not be queried');
+    }
+  };
+
+  await assert.rejects(
+    k.login(client, 'staff', 'existing-password'),
+    /Secure authentication module unavailable/
+  );
+
+  assert.equal(k.identity(), null);
 });
 test('missing transaction function fails safely without direct data writes', async () => {
   const k = context();

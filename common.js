@@ -99,43 +99,66 @@ window.KK = (() => {
     }
   }
   let identity = null;
-  const sessionKey = 'kk_simple_session';
+  let authClient = null;
+
   function logout() {
     identity = null;
-    localStorage.removeItem(sessionKey);
-    ['kk_user', 'kk_role', 'kk_emp_id', 'kk_display_name', 'kk_login_time'].forEach(key => localStorage.removeItem(key));
-  }
-  // User-requested simple login. This is a UI gate, not server authentication.
-  async function login(client, username, password) {
-    logout();
-    const user = String(username || '').trim().toLowerCase();
-    let profile;
-    if (user === 'admin') {
-      if (password !== 'admin') throw new Error('Invalid user ID or password.');
-      profile = { role: 'Admin', employee_id: 'KS-001', display_name: 'Store Management' };
-    } else {
-      // Preserve any other user IDs already configured in the existing users table.
-      const { data, error } = await client.from('users')
-        .select('username, role, employee_id, display_name')
-        .eq('username', user).eq('password', password).maybeSingle();
-      if (error || !data || !['Admin', 'Viewer'].includes(data.role)) throw new Error('Invalid user ID or password.');
-      profile = data;
+    // Remove legacy browser-only login state.
+    ['kk_simple_session', 'kk_user', 'kk_role',
+     'kk_emp_id', 'kk_display_name', 'kk_login_time']
+      .forEach(key => localStorage.removeItem(key));
+    const client = authClient;
+    if (client?.auth) {
+      return KKSecureAuth.signOut(client);
     }
-    const saved = { user, role: profile.role, empId: profile.employee_id || '', displayName: profile.display_name || user, signedIn: Date.now() };
-    localStorage.setItem(sessionKey, JSON.stringify(saved));
-    return session(client);
+    return Promise.resolve();
   }
+
+  async function login(client, username, password) {
+    if (!window.KKSecureAuth) {
+      throw new Error('Secure authentication module unavailable.');
+    }
+
+    authClient = client;
+    const profile = await KKSecureAuth.login(
+      client, username, password
+    );
+
+    identity = {
+      ...profile,
+      role: profile.role === 'owner_admin'
+        ? 'Admin'
+        : 'Viewer',
+      secureRole: profile.role
+    };
+
+    return identity;
+  }
+
   async function session(client, redirect = false) {
     identity = null;
-    let saved;
-    try { saved = JSON.parse(localStorage.getItem(sessionKey)); } catch (_) { saved = null; }
-    const age = Date.now() - saved?.signedIn;
-    if (!saved?.user || !['Admin', 'Viewer'].includes(saved.role) || !Number.isFinite(age) || age < 0 || age >= 21600000) {
-      logout();
+
+    if (!window.KKSecureAuth) {
       if (redirect) location.replace('index.html');
       return null;
     }
-    identity = { valid: true, user: saved.user, role: saved.role, empId: saved.empId || '', displayName: saved.displayName || saved.user };
+
+    authClient = client;
+    const profile = await KKSecureAuth.getStaff(client);
+
+    if (!profile) {
+      if (redirect) location.replace('index.html');
+      return null;
+    }
+
+    identity = {
+      ...profile,
+      role: profile.role === 'owner_admin'
+        ? 'Admin'
+        : 'Viewer',
+      secureRole: profile.role
+    };
+
     return identity;
   }
   async function saveSettlements(client, invoices) {
