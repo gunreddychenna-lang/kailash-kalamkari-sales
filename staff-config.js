@@ -1,0 +1,1 @@
+window.KK_STAFF_CONFIG = {"anonKey":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdnFxcmJ2a2xwaWlienFpdmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MTk2OTUsImV4cCI6MjEwNjE5NTY5NX0.ljhpD3QBpXvi5DjrQ2wE6R4NdhOicu_3ODH7pX79K58","url":"https://dqvqqrbvklpiibzqivbp.supabase.co"};
