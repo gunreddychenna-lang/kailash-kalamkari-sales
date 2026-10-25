@@ -1,6 +1,7 @@
-﻿const test = require("node:test");
-const assert = require("node:assert/strict");
+"use strict";
 
+const test = require("node:test");
+const assert = require("node:assert/strict");
 const auth = require("../security-permissions.js");
 
 test("anonymous access denied", () => {
@@ -8,23 +9,24 @@ test("anonymous access denied", () => {
   assert.equal(auth.canPerform(null, "manage_staff"), false);
 });
 
-test("inactive employees denied", () => {
+test("inactive employee access denied", () => {
   const staff = {
     active: false,
-    role: "sales_staff",
+    role: "employee",
     features: ["dashboard"],
-    stores: ["C"]
+    stores: ["Main Branch"]
   };
 
   assert.equal(auth.canUseFeature(staff, "dashboard"), false);
-  assert.equal(auth.canAccessStore(staff, "C"), false);
+  assert.equal(auth.canAccessStore(staff, "Main Branch"), false);
 });
 
-test("sales staff cannot enable payroll", () => {
+test("employee cannot access unassigned payroll", () => {
   const staff = {
     active: true,
-    role: "sales_staff",
-    features: ["dashboard", "payroll"]
+    role: "employee",
+    features: ["dashboard"],
+    stores: ["Main Branch"]
   };
 
   assert.equal(auth.canUseFeature(staff, "dashboard"), true);
@@ -35,39 +37,54 @@ test("sales staff cannot enable payroll", () => {
 test("cross-store access denied", () => {
   const staff = {
     active: true,
-    role: "sales_staff",
-    stores: ["C"]
+    role: "employee",
+    features: ["dashboard"],
+    stores: ["Main Branch"]
   };
 
-  assert.equal(auth.canAccessStore(staff, "C"), true);
-  assert.equal(auth.canAccessStore(staff, "D"), false);
+  assert.equal(auth.canAccessStore(staff, "Main Branch"), true);
+  assert.equal(auth.canAccessStore(staff, "KHPS"), false);
 });
 
-test("only owner can manage staff", () => {
-  assert.equal(
-    auth.canPerform(
-      { active: true, role: "owner_admin" },
-      "manage_staff"
-    ),
-    true
-  );
+test("both Owner and Admin manage employees", () => {
+  for (const role of ["owner", "admin"]) {
+    assert.equal(
+      auth.canPerform(
+        { active: true, role },
+        "manage_staff"
+      ),
+      true
+    );
+  }
 
   assert.equal(
     auth.canPerform(
-      { active: true, role: "store_manager" },
+      {
+        active: true,
+        role: "employee",
+        features: ["staff_management"]
+      },
       "manage_staff"
     ),
     false
   );
 });
 
-test("unknown roles denied", () => {
-  const profile = {
-    active: true,
-    role: "unknown",
-    features: ["dashboard"]
-  };
+test("unknown and legacy roles denied", () => {
+  for (const role of [
+    "unknown",
+    "owner_admin",
+    "sales_staff",
+    "store_manager",
+    "accountant"
+  ]) {
+    const profile = {
+      active: true,
+      role,
+      features: ["dashboard"]
+    };
 
-  assert.equal(auth.canUseFeature(profile, "dashboard"), false);
-  assert.equal(auth.canPerform(profile, "change_security"), false);
+    assert.equal(auth.canUseFeature(profile, "dashboard"), false);
+    assert.equal(auth.canPerform(profile, "change_security"), false);
+  }
 });

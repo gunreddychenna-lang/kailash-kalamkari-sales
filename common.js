@@ -126,7 +126,7 @@ window.KK = (() => {
 
     identity = {
       ...profile,
-      role: profile.role === 'owner_admin'
+      role: ['owner', 'admin'].includes(profile.role)
         ? 'Admin'
         : 'Viewer',
       secureRole: profile.role
@@ -153,7 +153,7 @@ window.KK = (() => {
 
     identity = {
       ...profile,
-      role: profile.role === 'owner_admin'
+      role: ['owner', 'admin'].includes(profile.role)
         ? 'Admin'
         : 'Viewer',
       secureRole: profile.role

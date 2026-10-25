@@ -1,4 +1,4 @@
-﻿const test = require("node:test");
+const test = require("node:test");
 const assert = require("node:assert/strict");
 
 globalThis.KKPermissions =
@@ -58,9 +58,9 @@ const validProfile = {
   login_id: "staff01",
   display_name: "Sales Staff",
   employee_id: "KS-005",
-  role: "sales_staff",
-  stores: ["C"],
-  features: ["dashboard", "payroll"],
+  role: "employee",
+  stores: ["Main Branch"],
+  features: ["dashboard"],
   active: true
 };
 
