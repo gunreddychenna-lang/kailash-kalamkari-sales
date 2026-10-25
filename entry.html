@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kailash Kalamkari - Enterprise Bank Settlement & Reconciliation Hub</title>
-  
+
   <!-- Supabase JS Client Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -13,17 +13,18 @@
   <script>
     tailwind.config = { corePlugins: { preflight: true } }
   </script>
-  
+
   <!-- FontAwesome Icons & Google Fonts -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
-  
+
   <!-- SheetJS for Instant Excel Export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <link rel="stylesheet" href="styles.css">
+  <script src="common.js?v=3"></script>
 </head>
 <body class="bg-[#FAF6EE] text-stone-800 pb-16 min-h-screen">
 
@@ -41,7 +42,7 @@
           <p class="text-[9px] text-stone-300 font-medium tracking-wider uppercase">Live Reconciliations • Offline Showroom • Online • Take by Hand</p>
         </div>
       </div>
-      
+
       <div class="flex items-center flex-wrap gap-2 w-full sm:w-auto justify-end">
         <a href="index.html" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20 transition-all flex items-center gap-1.5 active:scale-95">
           <i class="fa-solid fa-chart-line text-xs"></i>
@@ -70,7 +71,7 @@
           <i class="fa-solid fa-rotate-left text-xs"></i>
           <span>Reset All to Pending</span>
         </button>
-        
+
         <button onclick="exportBankStatementExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-emerald-500 active:scale-95 duration-100" title="Download Excel Bank Reconciliation">
           <i class="fa-solid fa-file-excel text-emerald-300 text-xs"></i>
           <span>Excel</span>
@@ -86,7 +87,7 @@
 
   <!-- MAIN WORKSPACE -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-4">
-    
+
     <!-- STATS SUMMARY CARDS -->
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
       <div class="bg-[#FFFDF9] p-3 rounded-2xl border border-[#E5D5C6] warm-shadow">
@@ -143,7 +144,7 @@
             <span>All Channels</span>
             <span id="pill-count-all" class="bg-white/20 text-[9px] px-1.5 py-0.2 rounded-full font-numeric">0</span>
           </button>
-          
+
           <button onclick="setChannelFilter('Online')" id="btn-channel-online" class="channel-btn px-3 py-1 text-xs font-bold rounded-xl bg-[#FAF6EE] text-blue-900 border border-blue-300 hover:bg-blue-50 transition-all flex items-center gap-1">
             <span class="w-2 h-2 rounded-full bg-blue-500"></span>
             <span>Online</span>
@@ -287,19 +288,12 @@
     }
 
     // Auth & Session Check
-    const activeUser = localStorage.getItem('kk_user');
-    const userRole = localStorage.getItem('kk_role') || 'Viewer';
-    const loginTimestamp = localStorage.getItem('kk_login_time');
-    const isAdmin = (userRole === 'Admin');
+    let isAdmin = false;
 
-    if (!activeUser || !loginTimestamp || (Date.now() - parseInt(loginTimestamp, 10) > 6 * 60 * 60 * 1000)) {
-      alert("Session expired. Please log in through the Dashboard.");
-      window.location.href = 'index.html';
-    }
 
     let billsList = [];
     let accountsMaster = ['Cash', '42441-TJ', 'KC'];
-    let settlementRowsState = {}; 
+    let settlementRowsState = {};
     let currentSortCol = 'date';
     let currentSortAsc = false;
     let selectedChannelFilter = 'All';
@@ -313,13 +307,13 @@
 
     function syncDatalistAndPills() {
       const dl = document.getElementById('accounts-master-datalist');
-      if (dl) dl.innerHTML = accountsMaster.map(acc => `<option value="${acc}">${acc}</option>`).join('');
+      if (dl) dl.innerHTML = accountsMaster.map(acc => `<option value="${KK.escape(acc)}">${KK.escape(acc)}</option>`).join('');
 
       const pillContainer = document.getElementById('active-banks-pill-container');
       if (pillContainer) {
         pillContainer.innerHTML = accountsMaster.map(acc => `
           <span class="text-[9px] font-bold px-2 py-0.5 rounded-md bg-[#FAF6EE] text-[#5C0612] border border-[#E5D5C6] font-numeric">
-            ${acc}
+            ${KK.escape(acc)}
           </span>
         `).join('');
       }
@@ -356,6 +350,10 @@
     // FETCH BILLS DIRECTLY FROM bills_master VIEW
     // -------------------------------------------------------------
     async function fetchSupabaseData() {
+      const session = await KK.session(supabaseClient, true);
+      if (!session) return;
+      isAdmin = session.role === 'Admin';
+      document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', !isAdmin));
       const icon = document.getElementById('refresh-icon');
       if (icon) icon.classList.add('animate-spin');
 
@@ -410,7 +408,7 @@
             }
           }
         } catch(e) {
-          console.warn("Could not load receivables:", e);
+          throw new Error("Existing settlements could not be loaded: " + e.message);
         }
         syncDatalistAndPills();
 
@@ -442,7 +440,7 @@
         billsList = allMasterInvoices.map(b => {
           const bNo = (b.bill_no || '').toString().trim();
           const cleanKey = bNo.toUpperCase();
-          const dateISO = normalizeToDateString(b.bill_date) || "2026-09-01";
+          const dateISO = normalizeToDateString(b.bill_date);
           const store = (b.branch || 'Main Branch').trim();
           const agent = (b.sm_name || 'No Agent').trim();
           const amt = parseFloat(b.bill_amount) || 0;
@@ -475,7 +473,7 @@
         // Populate Store Filter
         const storeSelect = document.getElementById('filter-store');
         if (storeSelect) {
-          storeSelect.innerHTML = `<option value="all">All Branches</option>` + Array.from(storeSet).map(s => `<option value="${s}">${s}</option>`).join('');
+          storeSelect.innerHTML = `<option value="all">All Branches</option>` + Array.from(storeSet).map(s => `<option value="${KK.escape(s)}">${KK.escape(s)}</option>`).join('');
         }
 
         // ============================================================
@@ -497,7 +495,7 @@
       } catch (err) {
         console.error("Fetch error:", err);
         document.getElementById('bills-table-body').innerHTML = `
-          <tr><td colspan="7" class="p-6 text-center text-rose-700 font-bold">Failed to load bills_master: ${err.message}</td></tr>
+          <tr><td colspan="7" class="p-6 text-center text-rose-700 font-bold">Failed to load bills_master: ${KK.escape(err.message)}</td></tr>
         `;
       } finally {
         if (icon) icon.classList.remove('animate-spin');
@@ -596,7 +594,7 @@
       document.getElementById('stat-tbh-bills').textContent = `${tbhBills} Invoices`;
       document.getElementById('stat-total-bills').textContent = `${totalBillsCount} Bills`;
       document.getElementById('stat-total-amount').textContent = `Total: ₹${Math.round(totalBillsValue).toLocaleString('en-IN')}`;
-      
+
       const pendingVal = Math.max(0, totalBillsValue - settledTotalVal);
       const settledPct = totalBillsValue > 0 ? Math.round((settledTotalVal / totalBillsValue) * 100) : 0;
 
@@ -733,42 +731,42 @@
         const splitRowsHTML = rows.map((split, idx) => `
           <div class="flex items-center gap-1.5 mt-1 first:mt-0">
             <div class="relative w-44">
-              <input list="accounts-master-datalist" 
-                     value="${split.account || ''}" 
+              <input list="accounts-master-datalist"
+                     value="${KK.escape(split.account || '')}"
                      placeholder="Select / Type Bank"
-                     onchange="updateRowSplitAccount('${b.billNo}', ${idx}, this.value)"
+                     onchange="updateRowSplitAccount(${KK.eventArg(b.billNo)}, ${idx}, this.value)"
                      class="w-full text-xs font-bold bg-white border ${!split.account ? 'border-rose-300 bg-rose-50/20' : 'border-[#E5D5C6]'} rounded-lg py-1.5 px-2.5 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] font-sans">
             </div>
-            <input type="number" step="any" placeholder="Amount (₹)" 
-                   value="${split.amount !== undefined ? split.amount : ''}" 
-                   oninput="updateRowSplitAmountLive('${b.billNo}', ${idx}, this.value)"
+            <input type="number" step="any" placeholder="Amount (₹)"
+                   value="${split.amount !== undefined ? KK.number(split.amount) : ''}"
+                   oninput="updateRowSplitAmountLive(${KK.eventArg(b.billNo)}, ${idx}, this.value)"
                    class="w-28 text-xs font-bold font-numeric bg-white border border-[#E5D5C6] rounded-lg p-1.5 text-[#5C0612] focus:outline-none">
-            ${rows.length > 1 ? `<button onclick="removeRowSplit('${b.billNo}', ${idx})" class="text-stone-400 hover:text-rose-600 p-1 text-xs" tabindex="-1"><i class="fa-solid fa-xmark"></i></button>` : ''}
+            ${rows.length > 1 ? `<button onclick="removeRowSplit(${KK.eventArg(b.billNo)}, ${idx})" class="text-stone-400 hover:text-rose-600 p-1 text-xs" tabindex="-1"><i class="fa-solid fa-xmark"></i></button>` : ''}
           </div>
         `).join('');
 
         return `
           <tr class="hover:bg-amber-50/20 transition-colors ${isFullySettled ? 'bg-emerald-50/20' : ''}">
-            <td class="p-3 text-stone-600 font-numeric whitespace-nowrap font-bold">${b.dateDisplay}</td>
+            <td class="p-3 text-stone-600 font-numeric whitespace-nowrap font-bold">${KK.escape(b.dateDisplay)}</td>
             <td class="p-3 font-bold text-stone-800 font-numeric whitespace-nowrap">
               <div class="flex flex-col gap-1 items-start">
-                <span class="text-xs font-black">${b.billNo}</span>
+                <span class="text-xs font-black">${KK.escape(b.billNo)}</span>
                 <div class="flex items-center gap-1">
                   ${channelBadge}
                   ${statusBadge}
                 </div>
               </div>
             </td>
-            <td class="p-3 text-stone-600 font-sans">${b.store}</td>
-            <td class="p-3 text-stone-600 font-sans">${b.agent}</td>
+            <td class="p-3 text-stone-600 font-sans">${KK.escape(b.store)}</td>
+            <td class="p-3 text-stone-600 font-sans">${KK.escape(b.agent)}</td>
             <td class="p-3 text-right font-black text-[#5C0612] font-numeric whitespace-nowrap">₹${Math.round(b.totalAmount).toLocaleString('en-IN')}</td>
             <td class="p-2.5">
               <div class="bg-[#FAF6EE] p-2.5 rounded-xl border border-[#E5D5C6] space-y-1.5">
                 ${splitRowsHTML}
                 <div class="flex justify-between items-center pt-1 border-t border-[#E5D5C6]/40 text-[9px]">
                   <div class="flex items-center gap-2">
-                    <button onclick="addRowSplit('${b.billNo}')" tabindex="-1" class="text-[#5C0612] hover:underline font-bold font-traditional flex items-center gap-0.5"><i class="fa-solid fa-plus text-[8px]"></i> Split</button>
-                    ${Math.abs(rem) > 0.01 ? `<button onclick="autoFillBalance('${b.billNo}')" class="text-blue-700 hover:underline font-bold font-traditional"><i class="fa-solid fa-wand-magic-sparkles text-[8px]"></i> Auto-Fill</button>` : ''}
+                    <button onclick="addRowSplit(${KK.eventArg(b.billNo)})" tabindex="-1" class="text-[#5C0612] hover:underline font-bold font-traditional flex items-center gap-0.5"><i class="fa-solid fa-plus text-[8px]"></i> Split</button>
+                    ${Math.abs(rem) > 0.01 ? `<button onclick="autoFillBalance(${KK.eventArg(b.billNo)})" class="text-blue-700 hover:underline font-bold font-traditional"><i class="fa-solid fa-wand-magic-sparkles text-[8px]"></i> Auto-Fill</button>` : ''}
                   </div>
                   <span id="rem-badge-${safeId}" class="font-numeric font-bold ${Math.abs(rem) < 0.01 ? 'text-emerald-700' : (rem > 0 ? 'text-amber-800' : 'text-rose-700')}">
                     ${Math.abs(rem) < 0.01 ? 'Balanced (100%) ✅' : (rem > 0 ? `Remaining: ₹${Math.round(rem).toLocaleString('en-IN')}` : `Excess: +₹${Math.round(-rem).toLocaleString('en-IN')}`)}
@@ -778,10 +776,10 @@
             </td>
             <td class="p-3 text-center">
               <div class="flex items-center justify-center gap-1">
-                <button onclick="saveRowSettlement('${b.billNo}')" id="btn-save-${safeId}" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm font-traditional border border-[#DAA520] active:scale-95 whitespace-nowrap">
+                <button onclick="saveRowSettlement(${KK.eventArg(b.billNo)})" id="btn-save-${safeId}" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm font-traditional border border-[#DAA520] active:scale-95 whitespace-nowrap">
                   Save
                 </button>
-                <button onclick="resetSingleBillToPending('${b.billNo}')" class="text-stone-400 hover:text-rose-600 p-1.5 rounded-lg border border-transparent hover:border-stone-300" title="Reset this bill back to Pending">
+                <button onclick="resetSingleBillToPending(${KK.eventArg(b.billNo)})" class="text-stone-400 hover:text-rose-600 p-1.5 rounded-lg border border-transparent hover:border-stone-300" title="Reset this bill back to Pending">
                   <i class="fa-solid fa-trash-can text-xs"></i>
                 </button>
               </div>
@@ -825,7 +823,7 @@
     function autoFillBalance(billNo) {
       const bill = billsList.find(b => b.billNo === billNo);
       if (!bill || !settlementRowsState[billNo]) return;
-      
+
       let sumExceptLast = 0;
       const rows = settlementRowsState[billNo];
       for (let i = 0; i < rows.length - 1; i++) {
@@ -849,7 +847,7 @@
 
       const splits = settlementRowsState[billNo] || [];
       const validSplits = splits.filter(s => s.account && s.account.trim() !== '' && parseFloat(s.amount) > 0);
-      
+
       if (validSplits.length === 0) {
         return alert("⚠️ Please select a bank account and enter a valid amount.");
       }
@@ -859,27 +857,8 @@
       if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
 
       try {
-        const { error: delError } = await supabaseClient
-          .from('receivables')
-          .delete()
-          .eq('bill_no', bill.billNo);
-
-        if (delError) throw delError;
-
-        const insertPayload = validSplits.map(s => ({
-          bill_no: bill.billNo,
-          bill_date: bill.dateISO,
-          store_name: bill.store,
-          sales_agent: bill.agent,
-          amount: parseFloat(s.amount) || 0,
-          bank_account: s.account
-        }));
-
-        const { error: insError } = await supabaseClient
-          .from('receivables')
-          .insert(insertPayload);
-
-        if (insError) throw insError;
+        KK.validateSplits(validSplits, bill.totalAmount);
+        await KK.saveSettlements(supabaseClient, [{ bill_no: bill.billNo, splits: KK.validateSplits(validSplits, bill.totalAmount) }]);
 
         bill.settlements = validSplits;
         if (btn) btn.textContent = "Saved ✅";
@@ -898,12 +877,7 @@
       if (!confirm(`Reset Invoice ${billNo} back to Pending? This will delete its bank record.`)) return;
 
       try {
-        const { error } = await supabaseClient
-          .from('receivables')
-          .delete()
-          .eq('bill_no', billNo);
-
-        if (error) throw error;
+        await KK.saveSettlements(supabaseClient, [{ bill_no: billNo, splits: [] }]);
 
         const bill = billsList.find(b => b.billNo === billNo);
         if (bill) bill.settlements = [];
@@ -922,12 +896,7 @@
       }
 
       try {
-        const { error } = await supabaseClient
-          .from('receivables')
-          .delete()
-          .neq('id', 0); // Deletes all rows
-
-        if (error) throw error;
+        await KK.saveSettlements(supabaseClient, billsList.map(b => ({ bill_no: b.billNo, splits: [] })));
 
         billsList.forEach(b => {
           b.settlements = [];
@@ -964,7 +933,7 @@
               bank_account: s.account
             });
           });
-          b.settlements = validSplits;
+
         }
       });
 
@@ -976,17 +945,12 @@
       if (bulkText) bulkText.textContent = `⏳ Saving ${billNosToDelete.length} Invoices...`;
 
       try {
-        for (let i = 0; i < billNosToDelete.length; i += 200) {
-          const chunk = billNosToDelete.slice(i, i + 200);
-          const { error: delErr } = await supabaseClient.from('receivables').delete().in('bill_no', chunk);
-          if (delErr) throw delErr;
-        }
-
-        for (let i = 0; i < allValidSplits.length; i += 500) {
-          const chunk = allValidSplits.slice(i, i + 500);
-          const { error: insErr } = await supabaseClient.from('receivables').insert(chunk);
-          if (insErr) throw insErr;
-        }
+        const invoices = billNosToDelete.map(billNo => {
+          const bill = billsList.find(b => b.billNo === billNo);
+          return { bill_no: billNo, splits: KK.validateSplits(settlementRowsState[billNo].filter(s => s.account && KK.number(s.amount) > 0), bill.totalAmount) };
+        });
+        await KK.saveSettlements(supabaseClient, invoices);
+        invoices.forEach(invoice => { billsList.find(b => b.billNo === invoice.bill_no).settlements = invoice.splits; });
 
         alert(`✅ Successfully synced ${billNosToDelete.length} invoices to Supabase!`);
         renderBillsTable();
@@ -1037,7 +1001,7 @@
         syncDatalistAndPills();
         closeNewAccountModal();
         renderBillsTable();
-        alert(`✅ Bank "${name}" (${type}) saved to database!`);
+        alert(`✅ Bank "${KK.escape(name)}" (${type}) saved to database!`);
       } catch (err) {
         console.error("Save bank error:", err);
         alert("Error saving bank: " + err.message);
@@ -1055,14 +1019,14 @@
       billsList.forEach(b => {
         if (selectedChannelFilter !== 'All' && b.channel !== selectedChannelFilter) return;
 
-        const splits = b.settlements && b.settlements.length > 0 
-          ? b.settlements 
+        const splits = b.settlements && b.settlements.length > 0
+          ? b.settlements
           : [{ account: "Not Defined", amount: Math.round(b.totalAmount) }];
 
         splits.forEach((s, idx) => {
           exportRows.push({
             "Bill Date": b.dateISO,
-            "Bill No": splits.length > 1 ? `${b.billNo} (Split ${idx + 1})` : b.billNo,
+            "Bill No": splits.length > 1 ? `${KK.escape(b.billNo)} (Split ${idx + 1})` : b.billNo,
             "Sales Channel": (b.channel === 'Take by Hand' || b.channel === 'Wholesale') ? 'Take by Hand (Wholesale)' : b.channel,
             "Store / Branch": b.store,
             "Sales Staff": b.agent,
@@ -1080,7 +1044,7 @@
       const worksheet = XLSX.utils.json_to_sheet(exportRows);
 
       worksheet["!cols"] = [
-        { wch: 14 }, { wch: 20 }, { wch: 22 }, { wch: 18 }, { wch: 18 }, 
+        { wch: 14 }, { wch: 20 }, { wch: 22 }, { wch: 18 }, { wch: 18 },
         { wch: 24 }, { wch: 20 }, { wch: 20 }, { wch: 24 }
       ];
 

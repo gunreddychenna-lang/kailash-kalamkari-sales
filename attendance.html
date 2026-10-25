@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kailash Kalamkari - Attendance & Payroll Hub</title>
-  
+
   <!-- Supabase JS Client Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -13,18 +13,19 @@
   <script>
     tailwind.config = { corePlugins: { preflight: true } }
   </script>
-  
+
   <!-- FontAwesome Icons & Google Fonts -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
-  
+
   <!-- Export Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <link rel="stylesheet" href="styles.css">
+  <script src="common.js?v=3"></script>
 </head>
 <body class="bg-[#FAF6EE] text-stone-800 pb-16 min-h-screen">
 
@@ -40,7 +41,7 @@
           <p class="text-[9px] text-stone-300 font-medium tracking-wider uppercase">Mid-Month Hiring • Mid-Month Termination • Pro-Rated Salaries</p>
         </div>
       </div>
-      
+
       <div class="flex items-center flex-wrap gap-2 w-full sm:w-auto justify-end">
         <a href="index.html" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20 transition-all flex items-center gap-1.5 active:scale-95">
           <i class="fa-solid fa-chart-line text-xs"></i>
@@ -139,7 +140,7 @@
         <strong id="payroll-total-amount" class="text-xl font-black text-[#5C0612]">₹0</strong>
       </div>
       <div class="bg-[#FAF6EE] p-3 rounded-2xl border border-[#E5D5C6]">
-        <span class="block text-[8px] font-bold text-emerald-800 uppercase font-traditional">Gross Store Profit</span>
+        <span class="block text-[8px] font-bold text-emerald-800 uppercase font-traditional">Revenue Less Net Payroll</span>
         <strong id="profit-gross-amount" class="text-xl font-black text-emerald-700">₹0</strong>
       </div>
     </div>
@@ -296,15 +297,8 @@
     }
 
     // Auth & Session Guard
-    const activeUser = localStorage.getItem('kk_user');
-    const userRole = localStorage.getItem('kk_role') || 'Admin';
-    const loginTimestamp = localStorage.getItem('kk_login_time');
-    const isAdmin = (userRole === 'Admin');
+    let isAdmin = false;
 
-    if (!activeUser || !loginTimestamp || (Date.now() - parseInt(loginTimestamp, 10) > 6 * 60 * 60 * 1000)) {
-      alert("Session expired. Please log in through the Dashboard.");
-      window.location.href = 'index.html';
-    }
 
     // MASTER STAFF ALIAS RESOLUTION MAP
     const STAFF_ALIASES_MAP = {
@@ -322,19 +316,7 @@
     };
 
     // Master 11 Staff List
-    const DEFAULT_STAFF_LIST = [
-      { emp_id: 'KS-103', name: 'B varalakshmi', role: 'Sales (Fabrics)', phone: '', salary: 10000, comm: 1.0, status: 'Active', days: { '5':'P', '6':'A', '7':'P' } },
-      { emp_id: 'KS-104', name: 'Ty mounika', role: 'Sales (Fabrics)', phone: '8317649338', salary: 10000, comm: 1.0, status: 'Active', days: { '5':'P', '6':'P', '7':'P' } },
-      { emp_id: 'KS-105', name: 'r sanjana', role: 'Sales (Fabrics)', phone: '', salary: 10000, comm: 1.0, status: 'Active', days: { '5':'P', '6':'P', '7':'P' } },
-      { emp_id: 'KS-106', name: 'geethika', role: 'Sales (Fabrics)', phone: '7995218133', salary: 10000, comm: 1.0, status: 'Active', days: { '5':'P', '6':'P', '7':'P' } },
-      { emp_id: 'KS-107', name: 'J sandhya', role: 'Sales (Fabrics)', phone: '9618854507', salary: 10000, comm: 1.0, status: 'Active', days: { '5':'P', '6':'P', '7':'P' } },
-      { emp_id: 'KS-108', name: 'c Pushpa', role: 'Sales (Fabrics)', phone: '7893617526', salary: 10000, comm: 1.0, status: 'Active', days: { '5':'P', '6':'A', '7':'A' } },
-      { emp_id: 'KS-109', name: 'Bharathamma', role: 'Sweeper', phone: '', salary: 8000, comm: 0, status: 'Active', days: { '5':'P', '6':'P', '7':'P' } },
-      { emp_id: 'KS-110', name: 'Nandhini', role: 'Sales (Fabrics)', phone: '', salary: 10000, comm: 1.0, status: 'Active', days: { '5':'P', '6':'P', '7':'P' } },
-      { emp_id: 'KS-111', name: 'Harika', role: 'Sales (Fabrics)', phone: '', salary: 10000, comm: 1.0, status: 'Active', days: { '5':'HD', '6':'A', '7':'P' } },
-      { emp_id: 'KS-112', name: 'Dhanalakshmi', role: 'Sales (Fabrics)', phone: '', salary: 10000, comm: 1.0, status: 'Active', days: { '4':'A', '5':'A', '6':'P', '7':'P' } },
-      { emp_id: 'KS-113', name: 'M.Ammulu', role: 'Sweeper', phone: '', salary: 8000, comm: 0, status: 'Active', days: { '7':'P' } }
-    ];
+
 
     let rawAttendanceData = [];
     let salesByStaffMap = {};
@@ -421,6 +403,10 @@
     // FETCH DIRECTLY FROM bills_master (ZERO INFLATION)
     // -------------------------------------------------------------
     async function fetchAttendanceAndSalesData() {
+      const session = await KK.session(supabaseClient, true);
+      if (!session) return;
+      isAdmin = session.role === 'Admin';
+      document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', !isAdmin));
       const icon = document.getElementById('refresh-icon');
       if (icon) icon.classList.add('animate-spin');
 
@@ -451,7 +437,7 @@
         }
 
         // 2. Fetch Attendance Records from Supabase
-        const { data: attRows } = await supabaseClient.from('attendance').select('*');
+        const attRows = await KK.rows(supabaseClient, 'attendance');
         if (attRows && attRows.length > 0) {
           rawAttendanceData = attRows.map(a => ({
             'id': a.id,
@@ -460,32 +446,18 @@
             'Designation': a.designation || 'Sales (Fabrics)',
             'Month_Sheet': a.month_sheet || 'September 2026',
             'Phone Number': a.phone_number || '',
-            'Monthly Salary': parseFloat(a.monthly_salary) || 10000,
-            'Commission Pct': parseFloat(a.commission_pct) || 1.0,
+            'Monthly Salary': KK.number(a.monthly_salary, 10000),
+            'Commission Pct': KK.number(a.commission_pct, 0),
             'Advance Taken': parseFloat(a.advance_taken) || 0,
             'status': a.status || 'Active',
             'joining_date': a.joining_date || '',
             'relieving_date': a.relieving_date || '',
             'termination_reason': a.termination_reason || '',
-            ...(a.days_data || {}),
+            ...(typeof a.days_data === 'string' ? JSON.parse(a.days_data) : (a.days_data || {})),
             '_notes': a.notes_data || {}
           }));
         } else {
-          rawAttendanceData = DEFAULT_STAFF_LIST.map(m => ({
-            'Emp ID': m.emp_id,
-            'Employee Name': m.name,
-            'Designation': m.role,
-            'Month_Sheet': 'September 2026',
-            'Phone Number': m.phone,
-            'Monthly Salary': m.salary,
-            'Commission Pct': m.comm,
-            'Advance Taken': 0,
-            'status': m.status,
-            'joining_date': '',
-            'relieving_date': '',
-            'termination_reason': '',
-            ...(m.days || {})
-          }));
+          rawAttendanceData = [];
         }
 
         populateMonthDropdown();
@@ -493,6 +465,9 @@
         renderAttendanceModule(currentTotalStoreSales);
       } catch (err) {
         console.error("Fetch attendance error:", err);
+        rawAttendanceData = [];
+        renderAttendanceModule(0);
+        alert("Attendance could not be loaded. Refresh before using payroll.");
       } finally {
         if (icon) icon.classList.remove('animate-spin');
       }
@@ -510,7 +485,7 @@
       const list = Array.from(monthSet);
       if (list.length === 0) list.push("September 2026");
 
-      mSelect.innerHTML = list.map(m => `<option value="${m}" ${m === selectedAttendanceMonth ? 'selected' : ''}>${m}</option>`).join('');
+      mSelect.innerHTML = list.map(m => `<option value="${KK.escape(m)}" ${m === selectedAttendanceMonth ? 'selected' : ''}>${KK.escape(m)}</option>`).join('');
     }
 
     function changeAttendanceMonth(m) {
@@ -605,8 +580,8 @@
         const phone = emp['Phone Number'] || '';
         const status = emp.status || 'Active';
         const isTerminated = status === 'Terminated';
-        
-        let fullSalary = parseFloat(emp['Monthly Salary']) || 10000;
+
+        let fullSalary = KK.number(emp['Monthly Salary'], 10000);
         let commPct = parseFloat(emp['Commission Pct']) || 0;
         let advance = parseFloat(emp['Advance Taken']) || 0;
 
@@ -685,15 +660,15 @@
           <div class="flex justify-between items-start border-b border-[#E5D5C6]/60 pb-2">
             <div>
               <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="text-[9px] font-bold text-[#5C0612] bg-[#EFE5C9] px-2 py-0.5 rounded font-numeric border border-[#DAA520]">${empId}</span>
-                ${isTerminated 
-                  ? `<span class="text-[8px] font-bold text-rose-800 bg-rose-100 border border-rose-300 px-2 py-0.5 rounded-full uppercase">🔴 Terminated (Relieved: ${emp.relieving_date || 'N/A'})</span>` 
+                <span class="text-[9px] font-bold text-[#5C0612] bg-[#EFE5C9] px-2 py-0.5 rounded font-numeric border border-[#DAA520]">${KK.escape(empId)}</span>
+                ${isTerminated
+                  ? `<span class="text-[8px] font-bold text-rose-800 bg-rose-100 border border-rose-300 px-2 py-0.5 rounded-full uppercase">🔴 Terminated (Relieved: ${KK.escape(emp.relieving_date || 'N/A')})</span>`
                   : `<span class="text-[8px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full uppercase">🟢 Active Staff</span>`
                 }
-                ${emp.joining_date ? `<span class="text-[8px] font-bold text-blue-800 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">Joined: ${emp.joining_date}</span>` : ''}
+                ${emp.joining_date ? `<span class="text-[8px] font-bold text-blue-800 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">Joined: ${KK.escape(emp.joining_date)}</span>` : ''}
               </div>
-              <h4 class="font-bold text-stone-800 text-sm font-sans mt-1">${name}</h4>
-              <p class="text-[10px] text-stone-500 font-traditional">${role} ${phone ? `• 📞 ${phone}` : ''}</p>
+              <h4 class="font-bold text-stone-800 text-sm font-sans mt-1">${KK.escape(name)}</h4>
+              <p class="text-[10px] text-stone-500 font-traditional">${KK.escape(role)} ${phone ? `• 📞 ${KK.escape(phone)}` : ''}</p>
             </div>
             <div class="text-right font-numeric">
               <p class="text-[9px] text-stone-500 uppercase">Net Payable</p>
@@ -705,8 +680,8 @@
                 <button onclick="exportSingleStaffPayslipPDF(${index})" class="text-[8px] bg-[#5C0612] text-[#EFE5C9] px-2 py-0.5 rounded-lg font-bold uppercase flex items-center gap-1 border border-[#DAA520]">
                   <i class="fa-solid fa-file-pdf"></i> PDF
                 </button>
-                ${isAdmin ? (isTerminated 
-                  ? `<button onclick="reactivateStaff(${index})" class="text-[8px] bg-emerald-700 text-white px-2 py-0.5 rounded-lg font-bold uppercase">Reactivate</button>` 
+                ${isAdmin ? (isTerminated
+                  ? `<button onclick="reactivateStaff(${index})" class="text-[8px] bg-emerald-700 text-white px-2 py-0.5 rounded-lg font-bold uppercase">Reactivate</button>`
                   : `<button onclick="openTerminateModal(${index})" class="text-[8px] bg-rose-700 text-white px-2 py-0.5 rounded-lg font-bold uppercase">Terminate</button>`
                 ) : ''}
               </div>
@@ -757,12 +732,12 @@
         summaryRowsHTML.push(`
           <tr class="hover:bg-amber-50/20 transition-colors ${isTerminated ? 'bg-rose-50/20 text-stone-500' : ''}">
             <td class="p-3">
-              <strong class="text-stone-800 font-sans">${name}</strong> (${empId})
-              <div class="text-[9px] ${isTerminated ? 'text-rose-700 font-bold' : 'text-emerald-700 font-bold'}">${status}</div>
+              <strong class="text-stone-800 font-sans">${KK.escape(name)}</strong> (${KK.escape(empId)})
+              <div class="text-[9px] ${isTerminated ? 'text-rose-700 font-bold' : 'text-emerald-700 font-bold'}">${KK.escape(status)}</div>
             </td>
             <td class="p-3 text-center text-[10px]">
-              ${emp.joining_date ? `From: ${emp.joining_date}` : 'Month Start'}
-              <br>${emp.relieving_date ? `To: ${emp.relieving_date}` : 'Month End'}
+              ${emp.joining_date ? `From: ${KK.escape(emp.joining_date)}` : 'Month Start'}
+              <br>${emp.relieving_date ? `To: ${KK.escape(emp.relieving_date)}` : 'Month End'}
             </td>
             <td class="p-3 text-center font-bold text-emerald-800">${payableDays} / ${monthContext.daysInMonth}</td>
             <td class="p-3 text-center font-bold text-amber-900">☀️ ${sundaysWorked} / ${monthContext.totalSundaysInMonth}</td>
@@ -896,7 +871,7 @@
       rawAttendanceData.push(newEmpObj);
       closeAddEmployeeModal();
       renderAttendanceModule(currentTotalStoreSales);
-      alert(`✅ Staff ${name} (${empId}) added for ${selectedAttendanceMonth}. Click "💾 Save to Supabase" to persist.`);
+      alert(`✅ Staff ${KK.escape(name)} (${KK.escape(empId)}) added for ${KK.escape(selectedAttendanceMonth)}. Click "💾 Save to Supabase" to persist.`);
     }
 
     function openTerminateModal(index) {
@@ -993,8 +968,8 @@
           designation: emp['Designation'] || 'Sales (Fabrics)',
           month_sheet: selectedAttendanceMonth,
           phone_number: emp['Phone Number'] || '',
-          monthly_salary: parseFloat(emp['Monthly Salary']) || 10000,
-          commission_pct: parseFloat(emp['Commission Pct']) || 1.0,
+          monthly_salary: KK.number(emp['Monthly Salary'], 10000),
+          commission_pct: KK.number(emp['Commission Pct'], 0),
           advance_taken: parseFloat(emp['Advance Taken']) || 0,
           status: emp.status || 'Active',
           joining_date: emp.joining_date || null,
@@ -1010,7 +985,7 @@
           .upsert(upsertPayload, { onConflict: 'emp_id,month_sheet' });
 
         if (error) throw error;
-        alert(`✅ Attendance for ${selectedAttendanceMonth} saved cleanly to Supabase!`);
+        alert(`✅ Attendance for ${KK.escape(selectedAttendanceMonth)} saved cleanly to Supabase!`);
       } catch (err) {
         console.error("Supabase attendance save error:", err);
         alert("Database Save Error: " + err.message);
@@ -1046,7 +1021,7 @@
       }
 
       const payableDays = countP + (countHD * 0.5) + countPL + countWO;
-      const fullSalary = parseFloat(emp['Monthly Salary']) || 10000;
+      const fullSalary = KK.number(emp['Monthly Salary'], 10000);
       const baseEarned = Math.round(payableDays * (fullSalary / mCtx.daysInMonth));
       const commPct = parseFloat(emp['Commission Pct']) || 0;
       const advance = parseFloat(emp['Advance Taken']) || 0;
@@ -1057,10 +1032,10 @@
       let msg = `🌸 *KAILASH KALAMKARI - OFFICIAL MONTHLY PAYSLIP* 🌸\n\n`;
       msg += `🆔 *Staff ID:* ${emp['Emp ID']}\n`;
       msg += `👤 *Staff Name:* ${emp['Employee Name']}\n`;
-      msg += `📅 *Month / Period:* ${selectedAttendanceMonth}\n`;
+      msg += `📅 *Month / Period:* ${KK.escape(selectedAttendanceMonth)}\n`;
       msg += `📊 *Attendance:* ${payableDays} / ${mCtx.daysInMonth} Payable Days\n`;
-      if (emp.joining_date) msg += `🚀 *Joining Date:* ${emp.joining_date}\n`;
-      if (emp.relieving_date) msg += `🔴 *Relieving Date:* ${emp.relieving_date}\n`;
+      if (emp.joining_date) msg += `🚀 *Joining Date:* ${KK.escape(emp.joining_date)}\n`;
+      if (emp.relieving_date) msg += `🔴 *Relieving Date:* ${KK.escape(emp.relieving_date)}\n`;
       msg += `--------------------------------------\n`;
       msg += `💵 *Monthly Base Salary (CTC):* ₹${fullSalary.toLocaleString('en-IN')}\n`;
       msg += `✅ *Earned Base Pay:* ₹${baseEarned.toLocaleString('en-IN')}\n`;
@@ -1072,7 +1047,7 @@
       msg += `_Thank you for your valuable dedication to Kailash Kalamkari!_`;
 
       const phone = emp['Phone Number'] ? `91${emp['Phone Number'].replace(/\D/g, '')}` : '';
-      if (phone) window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`, '_blank');
+      if (phone) window.open(`https://api.whatsapp.com/send?phone=${KK.escape(phone)}&text=${encodeURIComponent(msg)}`, '_blank');
       else window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
     }
 
@@ -1101,7 +1076,7 @@
       }
 
       const payableDays = countP + (countHD * 0.5) + countPL + countWO;
-      const fullSalary = parseFloat(emp['Monthly Salary']) || 10000;
+      const fullSalary = KK.number(emp['Monthly Salary'], 10000);
       const baseEarned = Math.round(payableDays * (fullSalary / mCtx.daysInMonth));
       const commPct = parseFloat(emp['Commission Pct']) || 0;
       const advance = parseFloat(emp['Advance Taken']) || 0;
@@ -1115,7 +1090,7 @@
         <div class="text-center border-b-2 border-[#DAA520] pb-3">
           <h2 class="text-2xl font-bold font-traditional text-[#5C0612]">KAILASH KALAMKARI</h2>
           <p class="text-[10px] text-stone-600 uppercase font-semibold">Official Staff Payslip & Performance Voucher</p>
-          <p class="text-[9px] text-[#DAA520] font-bold uppercase mt-0.5">${selectedAttendanceMonth}</p>
+          <p class="text-[9px] text-[#DAA520] font-bold uppercase mt-0.5">${KK.escape(selectedAttendanceMonth)}</p>
         </div>
         <div class="grid grid-cols-2 gap-4 text-xs border-b border-[#E5D5C6] pb-3">
           <div>
@@ -1126,7 +1101,7 @@
           </div>
           <div class="text-right">
             <p class="text-stone-500 text-[10px]">Designation</p>
-            <p class="font-bold text-stone-800">${emp['Designation']}</p>
+            <p class="font-bold text-stone-800">${KK.escape(emp['Designation'])}</p>
             <p class="text-stone-500 text-[10px] mt-1">Payable Days</p>
             <p class="font-bold text-emerald-800">${payableDays} / ${mCtx.daysInMonth} Days</p>
           </div>
@@ -1169,7 +1144,7 @@
         }
 
         const payableDays = countP + (countHD * 0.5) + countPL + countWO;
-        const fullSalary = parseFloat(emp['Monthly Salary']) || 10000;
+        const fullSalary = KK.number(emp['Monthly Salary'], 10000);
         const commPct = parseFloat(emp['Commission Pct']) || 0;
         const advance = parseFloat(emp['Advance Taken']) || 0;
         const totalSold = getStaffSalesAmount(emp['Employee Name'], emp['Emp ID']);
@@ -1216,33 +1191,25 @@
       const monthName = (document.getElementById('modal-month-name').value || '').trim();
       if (!monthName) return alert("Please enter a Month & Year name (e.g. October 2026).");
 
-      selectedAttendanceMonth = monthName;
-
-      const activeStaff = DEFAULT_STAFF_LIST
-        .filter(s => s.status !== 'Terminated')
-        .map(m => ({
-          emp_id: m.emp_id,
-          employee_name: m.name,
-          designation: m.role,
-          month_sheet: selectedAttendanceMonth,
-          phone_number: m.phone,
-          monthly_salary: m.salary,
-          commission_pct: m.comm,
-          advance_taken: 0,
-          status: 'Active',
-          joining_date: null,
-          relieving_date: null,
-          termination_reason: '',
-          days_data: {}
-        }));
+      if (!isAdmin) return alert('Administrator access required.');
+      if (rawAttendanceData.some(e => e['Month_Sheet'].toLowerCase() === monthName.toLowerCase())) return alert('This month already exists. Open it instead.');
+      const sourceStaff = rawAttendanceData.filter(e => e['Month_Sheet'] === selectedAttendanceMonth && e.status !== 'Terminated');
+      if (!sourceStaff.length) return alert('Select an existing month with active staff first.');
+      const activeStaff = sourceStaff.map(e => ({
+        emp_id: e['Emp ID'], employee_name: e['Employee Name'], designation: e['Designation'],
+        month_sheet: monthName, phone_number: e['Phone Number'], monthly_salary: KK.number(e['Monthly Salary']),
+        commission_pct: KK.number(e['Commission Pct']), advance_taken: 0, status: 'Active',
+        joining_date: e.joining_date || null, relieving_date: null, termination_reason: '', days_data: {}
+      }));
 
       try {
         const { error } = await supabaseClient
           .from('attendance')
-          .upsert(activeStaff, { onConflict: 'emp_id,month_sheet' });
+          .insert(activeStaff);
 
         if (error) throw error;
 
+        selectedAttendanceMonth = monthName;
         activeStaff.forEach(emp => {
           rawAttendanceData.push({
             'Emp ID': emp.emp_id,

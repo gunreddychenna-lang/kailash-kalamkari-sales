@@ -17,25 +17,58 @@ if (typeof supabase !== 'undefined' && supabase.createClient) {
 const SESSION_TIMEOUT = 6 * 60 * 60 * 1000; // 6 Hours
 
 // RBAC & Context
-let currentRole = 'Admin';
+let currentRole = 'Viewer';
 let currentUserId = '';
 let currentEmployeeId = '';
 let currentDisplayName = '';
-let isAdmin = true;
+let isAdmin = false;
 
 // 2. MASTER 11 STAFF DATASET
 const DEFAULT_ATTENDANCE_DATA = [
-  { 'Emp ID': 'KS-103', 'Employee Name': 'B varalakshmi', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'A', '7':'P' },
-  { 'Emp ID': 'KS-104', 'Employee Name': 'Ty mounika', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '8317649338', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'P', '7':'P' },
-  { 'Emp ID': 'KS-105', 'Employee Name': 'r sanjana', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'P', '7':'P' },
-  { 'Emp ID': 'KS-106', 'Employee Name': 'geethika', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '7995218133', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'P', '7':'P' },
-  { 'Emp ID': 'KS-107', 'Employee Name': 'J sandhya', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '9618854507', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'P', '7':'P' },
-  { 'Emp ID': 'KS-108', 'Employee Name': 'c Pushpa', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '7893617526', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'A', '7':'A' },
-  { 'Emp ID': 'KS-109', 'Employee Name': 'Bharathamma', 'Designation': 'Sweeper', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 8000, 'Commission Pct': 0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'P', '7':'P' },
-  { 'Emp ID': 'KS-110', 'Employee Name': 'Nandhini', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'P', '6':'P', '7':'P' },
-  { 'Emp ID': 'KS-111', 'Employee Name': 'Harika', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '5':'HD', '6':'A', '7':'P' },
-  { 'Emp ID': 'KS-112', 'Employee Name': 'Dhanalakshmi', 'Designation': 'Sales (Fabrics)', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 10000, 'Commission Pct': 1.0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '4':'A', '5':'A', '6':'P', '7':'P' },
-  { 'Emp ID': 'KS-113', 'Employee Name': 'M.Ammulu', 'Designation': 'Sweeper', 'Month_Sheet': 'September 2026', 'Phone Number': '', 'Monthly Salary': 8000, 'Commission Pct': 0, 'Advance Taken': 0, 'status': 'Active', 'joining_date': '', 'relieving_date': '', 'termination_reason': '', '7':'P' }
+  {
+    "Emp ID": "KS-103",
+    "Employee Name": "B varalakshmi"
+  },
+  {
+    "Emp ID": "KS-104",
+    "Employee Name": "Ty mounika"
+  },
+  {
+    "Emp ID": "KS-105",
+    "Employee Name": "r sanjana"
+  },
+  {
+    "Emp ID": "KS-106",
+    "Employee Name": "geethika"
+  },
+  {
+    "Emp ID": "KS-107",
+    "Employee Name": "J sandhya"
+  },
+  {
+    "Emp ID": "KS-108",
+    "Employee Name": "c Pushpa"
+  },
+  {
+    "Emp ID": "KS-109",
+    "Employee Name": "Bharathamma"
+  },
+  {
+    "Emp ID": "KS-110",
+    "Employee Name": "Nandhini"
+  },
+  {
+    "Emp ID": "KS-111",
+    "Employee Name": "Harika"
+  },
+  {
+    "Emp ID": "KS-112",
+    "Employee Name": "Dhanalakshmi"
+  },
+  {
+    "Emp ID": "KS-113",
+    "Employee Name": "M.Ammulu"
+  }
 ];
 
 // 3. MASTER STAFF ALIAS RESOLUTION MAP
@@ -55,7 +88,7 @@ const STAFF_ALIASES_MAP = {
 
 // Global State
 let rawData = [];
-let rawAttendanceData = JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_DATA));
+let rawAttendanceData = [];
 let bankAccountsList = ['Cash', '42441-TJ', 'KC'];
 let productsList = [];
 let agentsList = [];
@@ -298,24 +331,9 @@ function getMonthYearContext(monthStr) {
   return { year, monthIndex, monthName: monthNames[monthIndex], daysInMonth, dayInfo, totalSundaysInMonth };
 }
 
-function checkSession() {
-  const savedUser = localStorage.getItem('kk_user');
-  const loginTime = localStorage.getItem('kk_login_time');
-  if (!savedUser || !loginTime) return { valid: false };
-  if (Date.now() - parseInt(loginTime, 10) > SESSION_TIMEOUT) {
-    localStorage.clear();
-    return { valid: false };
-  }
-  currentRole = localStorage.getItem('kk_role') || 'Admin';
-  currentUserId = savedUser;
-  currentEmployeeId = localStorage.getItem('kk_emp_id') || 'KS-001';
-  currentDisplayName = localStorage.getItem('kk_display_name') || savedUser;
-  isAdmin = (currentRole === 'Admin');
-  return { valid: true, user: savedUser, role: currentRole, empId: currentEmployeeId };
-}
-
-function handleLogout() {
-  localStorage.clear();
+function checkSession() { return KK.identity() || { valid: false }; }
+async function handleLogout() {
+  KK.logout();
   location.reload();
 }
 
@@ -340,161 +358,63 @@ async function fetchData(user, pass) {
   hideEl('login-screen');
 
   try {
-    const session = checkSession();
-
     if (cleanPass) {
-      const { data: userRow } = await supabaseClient
-        .from('users')
-        .select('*')
-        .eq('username', cleanUser)
-        .eq('password', cleanPass)
-        .maybeSingle();
-
-      if (!userRow) {
-        if (cleanUser === 'admin' && (cleanPass === 'admin123' || cleanPass === 'admin')) {
-          currentRole = 'Admin';
-          currentDisplayName = 'Store Management';
-          currentEmployeeId = 'KS-001';
-        } else {
-          showLoginError("Invalid username or password");
-          return;
-        }
-      } else {
-        currentRole = userRow.role || 'Viewer';
-        currentDisplayName = userRow.display_name || cleanUser;
-        currentEmployeeId = userRow.employee_id || 'KS-100';
-      }
-
-      currentUserId = cleanUser;
-      isAdmin = (currentRole === 'Admin');
-
-      localStorage.setItem('kk_user', cleanUser);
-      localStorage.setItem('kk_role', currentRole);
-      localStorage.setItem('kk_emp_id', currentEmployeeId);
-      localStorage.setItem('kk_display_name', currentDisplayName);
-      localStorage.setItem('kk_login_time', Date.now().toString());
-    } else if (!session.valid) {
-      showLoginError("Session expired. Please log in.");
-      return;
+      try { await KK.login(supabaseClient, cleanUser, pass); }
+      catch (error) { showLoginError(error.message); return; }
     }
+    const session = await KK.session(supabaseClient);
+    if (!session) { showLoginError('Session expired. Sign in with your user ID and password.'); return; }
+    currentRole = session.role;
+    currentUserId = session.user;
+    currentEmployeeId = session.empId;
+    currentDisplayName = session.displayName;
+    isAdmin = currentRole === 'Admin';
 
-    const settledReceivablesMap = {};
-    try {
-      const { data: recRows } = await supabaseClient.from('receivables').select('bill_no, bank_account');
-      if (recRows) {
-        recRows.forEach(r => {
-          if (r.bill_no && r.bank_account) {
-            settledReceivablesMap[r.bill_no.trim().toUpperCase()] = r.bank_account;
-          }
-        });
-      }
-    } catch(e) {
-      console.warn("Could not load receivables:", e);
-    }
-
-    const masterBillsMap = {};
-    try {
-      let bFrom = 0, bStep = 1000, bHasMore = true;
-      while (bHasMore) {
-        const { data: bRows, error: bErr } = await supabaseClient
-          .from('bills_master')
-          .select('*')
-          .order('bill_date', { ascending: true })
-          .order('bill_no', { ascending: true })
-          .range(bFrom, bFrom + bStep - 1);
-        if (bErr) throw bErr;
-        if (bRows && bRows.length > 0) {
-          bRows.forEach(b => {
-            if (b.bill_no) {
-              masterBillsMap[b.bill_no.toString().trim().toUpperCase()] = b;
-            }
-          });
-          if (bRows.length < bStep) bHasMore = false;
-          else bFrom += bStep;
-        } else {
-          bHasMore = false;
-        }
-      }
-    } catch (e) {
-      console.warn("Could not load bills_master:", e);
-    }
-
-    let allSalesRecords = [];
-    let from = 0;
-    const step = 1000;
-    let hasMore = true;
-
-    while (hasMore) {
-      const { data, error } = await supabaseClient
-        .from('sales')
-        .select('*')
-        .order('id', { ascending: true })
-        .range(from, from + step - 1);
-
-      if (error) throw error;
-      if (data && data.length > 0) {
-        allSalesRecords.push(...data);
-        if (data.length < step) hasMore = false;
-        else from += step;
-      } else {
-        hasMore = false;
+    const [recRows, masters, allSalesRecords] = await Promise.all([
+      KK.rows(supabaseClient, 'receivables', 'id, bill_no, bank_account, amount, store_name, bill_date'),
+      KK.rows(supabaseClient, 'bills_master', '*', 'bill_no'),
+      KK.rows(supabaseClient, 'sales')
+    ]);
+    const masterIndex = KK.invoiceIndex(masters);
+    const reconciled = KK.invoiceGroups(allSalesRecords, masterIndex);
+    KK.reconciliationNotice(reconciled.excluded, reconciled.issues);
+    const settledReceivablesMap = new Map();
+    for (const receipt of recRows) {
+      const match = KK.matchInvoice(receipt, masterIndex);
+      if (!match.ambiguous && receipt.bank_account) {
+        if (!settledReceivablesMap.has(match.key)) settledReceivablesMap.set(match.key, []);
+        settledReceivablesMap.get(match.key).push({ account: receipt.bank_account, amount: KK.number(receipt.amount) });
       }
     }
-
-    const billItemsGroup = {};
-    allSalesRecords.forEach((r, idx) => {
-      const rawBillNo = (r.bill_no || r['BILL NO'] || r['Bill No'] || `BILL_${idx}`).toString().trim().toUpperCase();
-      if (!billItemsGroup[rawBillNo]) billItemsGroup[rawBillNo] = [];
-      billItemsGroup[rawBillNo].push(r);
-    });
-
     const cleanSales = [];
-    Object.entries(billItemsGroup).forEach(([billNoUpper, items]) => {
-      const masterBill = masterBillsMap[billNoUpper];
+    reconciled.groups.forEach(({ key: invoiceKey, master: masterBill, items }) => {
+      const billNoUpper = KK.invoiceParts(items[0]).bill || invoiceKey;
       const masterTotal = masterBill ? (parseFloat(masterBill.bill_amount) || 0) : null;
       const masterBranch = masterBill ? normalizeBranch(masterBill.branch) : null;
       const masterDate = masterBill ? parseToYYYYMMDD(masterBill.bill_date) : null;
       const masterAgent = masterBill ? resolveStaffToMasterName(masterBill.sm_name) : null;
       const masterChannel = masterBill ? classifyExactChannel(masterBill) : null;
 
-      let lineItemSum = 0;
-      const computedItemAmounts = items.map(r => {
-        const qty = parseInt(r.qty || r['QTY'] || r['Qty'] || 1, 10) || 1;
-        const rate = parseFloat((r.rate || r['RATE'] || 0).toString().replace(/[^0-9.-]/g, '')) || 0;
-        const disc = parseFloat((r.discount || r['DISCOUNT'] || 0).toString().replace(/[^0-9.-]/g, '')) || 0;
-        const lineNet = (rate * qty) - disc;
-        if (lineNet > 0) {
-          lineItemSum += lineNet;
-          return lineNet;
-        }
-        const directAmt = parseFloat((r.amount || r['AMOUNT'] || 0).toString().replace(/[^0-9.-]/g, '')) || 0;
-        lineItemSum += directAmt;
-        return directAmt;
-      });
+      const computedItemAmounts = KK.amounts(items, masterTotal);
+      const lineItemSum = computedItemAmounts.reduce((sum, n) => sum + n, 0);
 
       items.forEach((r, idx) => {
         const rawBillNo = (r.bill_no || r['BILL NO'] || r['Bill No'] || billNoUpper).toString().trim();
         const rawDate = masterDate || parseToYYYYMMDD(r.bill_date || r.date || r['Bill Date'] || r.created_at);
         const rawStore = masterBranch || extractStoreBranch(r);
         const rawItem = (r.item_name || r['ITEM NAME'] || r['Item Name'] || 'General Item').trim();
-        const rawQty = parseInt(r.qty || r['QTY'] || r['Qty'] || 1, 10) || 1;
+        const rawQty = KK.quantity(r);
         const rawSM = masterAgent || extractStaffName(r);
         const rawPayMode = (r.pay_mode || r['PAY MODE'] || r['Pay Mode'] || 'Cash').toString().trim();
-        const rawBank = settledReceivablesMap[billNoUpper] || rawPayMode;
+        const allocations = settledReceivablesMap.get(invoiceKey) || [];
+        const rawBank = allocations.length === 1 ? allocations[0].account : 'Unallocated';
         const rawSaleType = masterChannel || classifyExactChannel(r);
 
         let itemRevenue = computedItemAmounts[idx];
-        if (masterTotal !== null && masterTotal > 0) {
-          if (items.length === 1) {
-            itemRevenue = masterTotal;
-          } else if (lineItemSum > 0 && Math.abs(lineItemSum - masterTotal) > 1) {
-            itemRevenue = (computedItemAmounts[idx] / lineItemSum) * masterTotal;
-          }
-        }
-
         cleanSales.push({
           'id': r.id || `${billNoUpper}_${idx}`,
           'Bill No': rawBillNo,
+          'Bill Key': invoiceKey,
           'Bill Date': rawDate,
           'Store': rawStore,
           'Item Name': rawItem,
@@ -504,7 +424,9 @@ async function fetchData(user, pass) {
           'SM Name': rawSM,
           'PayMode': rawPayMode,
           'Sale type': rawSaleType,
-          'Acc No': rawBank
+          'Acc No': rawBank,
+          'Bank Allocations': allocations,
+          'Invoice Total': masterTotal ?? lineItemSum
         });
       });
     });
@@ -512,7 +434,7 @@ async function fetchData(user, pass) {
     rawData = cleanSales;
 
     try {
-      const { data: attRows } = await supabaseClient.from('attendance').select('*');
+      const attRows = await KK.rows(supabaseClient, 'attendance');
       if (attRows && attRows.length > 0) {
         rawAttendanceData = attRows.map(a => {
           let parsedDays = {};
@@ -529,8 +451,8 @@ async function fetchData(user, pass) {
             'Designation': a.designation || 'Sales (Fabrics)',
             'Month_Sheet': a.month_sheet || 'September 2026',
             'Phone Number': a.phone_number || '',
-            'Monthly Salary': parseFloat(a.monthly_salary) || 10000,
-            'Commission Pct': parseFloat(a.commission_pct) || 1.0,
+            'Monthly Salary': KK.number(a.monthly_salary, 10000),
+            'Commission Pct': KK.number(a.commission_pct, 0),
             'Advance Taken': parseFloat(a.advance_taken) || 0,
             'status': a.status || 'Active',
             'joining_date': a.joining_date || '',
@@ -541,10 +463,11 @@ async function fetchData(user, pass) {
           };
         });
       } else {
-        rawAttendanceData = JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_DATA));
+        rawAttendanceData = [];
       }
     } catch (e) {
-      rawAttendanceData = JSON.parse(JSON.stringify(DEFAULT_ATTENDANCE_DATA));
+      rawAttendanceData = [];
+      alert("Attendance unavailable. Refresh before using payroll.");
     }
 
     bankAccountsList = ['Cash', '42441-TJ', 'KC'];
@@ -620,7 +543,7 @@ function detectAndPopulateStores() {
   });
   storeSelect.innerHTML = `<option value="All">All Branches / Stores</option>`;
   storeSet.forEach(sName => {
-    storeSelect.innerHTML += `<option value="${sName}">${sName}</option>`;
+    storeSelect.innerHTML += `<option value="${KK.escape(sName)}">${KK.escape(sName)}</option>`;
   });
 }
 
@@ -638,7 +561,7 @@ function populateBankDropdown() {
   const bankSet = new Set(['Cash', '42441-TJ', 'KC', ...bankAccountsList]);
   bSelect.innerHTML = `<option value="All">All Bank Accounts</option>`;
   bankSet.forEach(bk => {
-    bSelect.innerHTML += `<option value="${bk}">${bk}</option>`;
+    bSelect.innerHTML += `<option value="${KK.escape(bk)}">${KK.escape(bk)}</option>`;
   });
 }
 
@@ -654,7 +577,7 @@ function populateAttendanceMonthDropdown() {
   const list = Array.from(monthSet);
   if (list.length === 0) list.push("September 2026");
 
-  mSelect.innerHTML = list.map(m => `<option value="${m}" ${m === selectedAttendanceMonth ? 'selected' : ''}>${m}</option>`).join('');
+  mSelect.innerHTML = list.map(m => `<option value="${KK.escape(m)}" ${m === selectedAttendanceMonth ? 'selected' : ''}>${KK.escape(m)}</option>`).join('');
 }
 
 function detectDateRanges() {
@@ -778,19 +701,27 @@ function processData() {
 
   filtered.forEach(row => {
     const amount = parseFloat(row['amount']) || 0;
-    const qty = parseInt(row['Qty'] || 1, 10) || 1;
+    const qty = KK.number(row['Qty'], 1);
     const item = row['Item Name'] || 'General Item';
     const agent = row['SM Name'] || 'No Agent';
     const payMode = (row['PayMode'] || 'Cash').toLowerCase();
     const billDate = row['Bill Date'];
-    const billNo = row['Bill No'];
+    const billNo = row['Bill Key'] || row['Bill No'];
     const channel = row['Sale type'];
 
     totalSales += amount;
     totalUnits += qty;
 
     const bAcc = row['Acc No'] || 'Cash';
-    accountTotals[bAcc] = (accountTotals[bAcc] || 0) + amount;
+    const allocations = row['Bank Allocations'] || [];
+    const invoiceTotal = row['Invoice Total'];
+    let allocated = 0;
+    if (invoiceTotal > 0) allocations.forEach(split => {
+      const share = split.amount * amount / invoiceTotal;
+      accountTotals[split.account] = (accountTotals[split.account] || 0) + share;
+      allocated += share;
+    });
+    accountTotals['Unallocated'] = (accountTotals['Unallocated'] || 0) + amount - allocated;
 
     if (payMode.includes('cash')) payCash += amount;
     else if (payMode.includes('card')) payCard += amount;
@@ -802,7 +733,7 @@ function processData() {
     else if (channel === 'Wholesale') totalWholesale += amount;
     else totalOffline += amount;
 
-    const billKey = billNo && billNo !== 'N/A' ? billNo : `${billDate}-${amount}`;
+    const billKey = row['Bill Key'] || KK.invoiceParts(row).key;
     uniqueBills.add(billKey);
 
     if (!billBaskets[billKey]) billBaskets[billKey] = [];
@@ -904,7 +835,7 @@ function processData() {
   if (accContainer) {
     accContainer.innerHTML = Object.entries(accountTotals).map(([acc, amt]) => `
       <div class="bg-amber-50/60 p-2.5 rounded-xl border border-amber-200 text-center">
-        <span class="block text-[8px] font-bold text-amber-800 uppercase font-traditional tracking-wider">${acc}</span>
+        <span class="block text-[8px] font-bold text-amber-800 uppercase font-traditional tracking-wider">${KK.escape(acc)}</span>
         <strong class="text-xs font-black text-[#5C0612] font-numeric">₹${Math.round(amt).toLocaleString('en-IN')}</strong>
       </div>
     `).join('');
@@ -940,7 +871,7 @@ function renderAdvancedSalesInsights(totalSales, totalTransactions) {
     } else {
       crossSellContainer.innerHTML = crossSellPairsList.map(pair => `
         <div class="flex justify-between items-center bg-[#FAF6EE] p-2.5 rounded-xl border border-[#E5D5C6] text-xs">
-          <span class="font-bold text-stone-800"><i class="fa-solid fa-link text-[#DAA520] mr-1.5"></i> ${pair.pair}</span>
+          <span class="font-bold text-stone-800"><i class="fa-solid fa-link text-[#DAA520] mr-1.5"></i> ${KK.escape(pair.pair)}</span>
           <span class="bg-[#5C0612] text-[#EFE5C9] font-black px-2 py-0.5 rounded-lg text-[10px] font-numeric">${pair.count} Bills</span>
         </div>
       `).join('');
@@ -1031,18 +962,18 @@ function renderProductsTable() {
     const wsQtyPct  = p.qty > 0 ? ((p.wholesaleQty / p.qty) * 100).toFixed(1) : '0.0';
 
     return `
-      <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showProductDetails('${p.name.replace(/'/g, "\\'")}')">
+      <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showProductDetails(${KK.eventArg(p.name)})">
         <td class="p-3.5">
           <div class="font-bold text-stone-800 text-xs flex justify-between items-center">
             <div class="flex items-center gap-1.5 flex-wrap">
-              <span>${p.name}</span>
+              <span>${KK.escape(p.name)}</span>
               <span class="bg-[#5C0612] text-[#EFE5C9] font-black px-1.5 py-0.5 rounded text-[9px] font-numeric">${prodSharePct}% of Period Sales</span>
             </div>
-            <span class="text-[9px] uppercase px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-[#5C0612] rounded font-traditional">${p.category}</span>
+            <span class="text-[9px] uppercase px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-[#5C0612] rounded font-traditional">${KK.escape(p.category)}</span>
           </div>
           <div class="text-[10px] text-stone-500 font-bold mt-1 font-sans flex flex-wrap gap-x-2 gap-y-0.5">
-            <span class="text-blue-600">Online: ${p.onlineQty} (${onlQtyPct}%)</span> • 
-            <span class="text-orange-600">Offline: ${p.offlineQty} (${offQtyPct}%)</span> • 
+            <span class="text-blue-600">Online: ${p.onlineQty} (${onlQtyPct}%)</span> •
+            <span class="text-orange-600">Offline: ${p.offlineQty} (${offQtyPct}%)</span> •
             <span class="text-purple-600">Takebyhand: ${p.wholesaleQty} (${wsQtyPct}%)</span>
           </div>
         </td>
@@ -1076,18 +1007,18 @@ function renderAgentsTable() {
     const wsPct  = a.revenue > 0 ? ((a.tbhRevenue / a.revenue) * 100).toFixed(1) : '0.0';
 
     return `
-      <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showAgentDetails('${a.name.replace(/'/g, "\\'")}')">
+      <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="showAgentDetails(${KK.eventArg(a.name)})">
         <td class="p-3.5 font-bold text-stone-700 font-sans">
           <div class="flex justify-between items-center">
             <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-xs font-bold text-stone-800">${a.name}</span>
+              <span class="text-xs font-bold text-stone-800">${KK.escape(a.name)}</span>
               <span class="bg-[#5C0612] text-[#EFE5C9] font-black px-1.5 py-0.5 rounded text-[9px] font-numeric">${staffSharePct}% of Period Sales</span>
             </div>
             <span class="text-[9px] text-[#DAA520] font-bold font-numeric">${a.billCount} Bills <i class="fa-solid fa-chevron-right text-[8px] ml-1"></i></span>
           </div>
           <div class="text-[9px] text-stone-500 font-bold mt-1 font-sans flex flex-wrap gap-x-2 gap-y-0.5">
-            <span>Offline (Showroom): <strong class="text-orange-700 font-numeric">₹${Math.round(a.offlineRevenue || 0).toLocaleString('en-IN')} (${offPct}%)</strong></span> • 
-            <span>Online: <strong class="text-blue-700 font-numeric">₹${Math.round(a.onlineRevenue || 0).toLocaleString('en-IN')} (${onlPct}%)</strong></span> • 
+            <span>Offline (Showroom): <strong class="text-orange-700 font-numeric">₹${Math.round(a.offlineRevenue || 0).toLocaleString('en-IN')} (${offPct}%)</strong></span> •
+            <span>Online: <strong class="text-blue-700 font-numeric">₹${Math.round(a.onlineRevenue || 0).toLocaleString('en-IN')} (${onlPct}%)</strong></span> •
             <span>Wholesale: <strong class="text-purple-700 font-numeric">₹${Math.round(a.tbhRevenue || 0).toLocaleString('en-IN')} (${wsPct}%)</strong></span>
           </div>
         </td>
@@ -1115,13 +1046,13 @@ function renderDayWiseSales(dayWiseObj) {
     return `
       <div class="border border-[#E5D5C6] rounded-xl bg-[#FFFDF9] overflow-hidden warm-shadow mb-3">
         <div class="bg-[#F3EFE9] px-4 py-2.5 border-b border-[#E5D5C6] flex justify-between items-center">
-          <span class="font-traditional font-bold text-stone-800 text-xs">${dateStr}</span>
+          <span class="font-traditional font-bold text-stone-800 text-xs">${KK.escape(dateStr)}</span>
           <span class="font-numeric font-black text-[#5C0612] text-xs">Total: ₹${Math.round(dayData.total).toLocaleString('en-IN')}</span>
         </div>
         <div class="p-3 divide-y divide-[#E5D5C6]/10">
           ${sortedAgents.map(([agentName, rev]) => `
             <div class="flex justify-between items-center py-1.5 text-[11px] text-stone-600">
-              <span>${agentName}</span>
+              <span>${KK.escape(agentName)}</span>
               <strong class="font-numeric text-stone-800">₹${Math.round(rev).toLocaleString('en-IN')}</strong>
             </div>
           `).join('')}
@@ -1195,7 +1126,7 @@ function renderAttendanceSalaryModule(periodRevenue = 0, currentFiltered = []) {
 
   const monthContext = getMonthYearContext(selectedAttendanceMonth);
   let staffList = rawAttendanceData.filter(emp => (emp['Month_Sheet'] || '').toLowerCase() === selectedAttendanceMonth.toLowerCase());
-  if (staffList.length === 0) staffList = rawAttendanceData;
+
 
   let totalStorePayroll = 0;
   setText('payroll-staff-count', `${staffList.length} Staff`);
@@ -1208,9 +1139,9 @@ function renderAttendanceSalaryModule(periodRevenue = 0, currentFiltered = []) {
     const name = emp['Employee Name'] || `Staff ${index + 1}`;
     const role = emp['Designation'] || 'Sales (Fabrics)';
     const phone = emp['Phone Number'] || '';
-    
-    let fullSalary = parseFloat(emp['Monthly Salary']) || 10000;
-    let commPct = parseFloat(emp['Commission Pct']) || 1.0;
+
+    let fullSalary = KK.number(emp['Monthly Salary'], 10000);
+    let commPct = KK.number(emp['Commission Pct'], 0);
     let advance = parseFloat(emp['Advance Taken']) || 0;
 
     const totalSold = getStaffPeriodSalesAmount(name, empId, currentFiltered);
@@ -1274,9 +1205,9 @@ function renderAttendanceSalaryModule(periodRevenue = 0, currentFiltered = []) {
       <div class="zari-border absolute top-0 left-0 right-0"></div>
       <div class="flex justify-between items-start border-b border-[#E5D5C6]/60 pb-2">
         <div>
-          <span class="text-[9px] font-bold text-[#5C0612] bg-[#EFE5C9] px-2 py-0.5 rounded font-numeric border border-[#DAA520]">${empId}</span>
-          <h4 class="font-bold text-stone-800 text-sm font-sans mt-1">${name}</h4>
-          <p class="text-[10px] text-stone-500 font-traditional">${role} ${phone ? `• 📞 ${phone}` : ''}</p>
+          <span class="text-[9px] font-bold text-[#5C0612] bg-[#EFE5C9] px-2 py-0.5 rounded font-numeric border border-[#DAA520]">${KK.escape(empId)}</span>
+          <h4 class="font-bold text-stone-800 text-sm font-sans mt-1">${KK.escape(name)}</h4>
+          <p class="text-[10px] text-stone-500 font-traditional">${KK.escape(role)} ${phone ? `• 📞 ${KK.escape(phone)}` : ''}</p>
         </div>
         <div class="text-right font-numeric">
           <p class="text-[9px] text-stone-500 uppercase font-traditional">Net Payable</p>
@@ -1325,9 +1256,9 @@ function renderAttendanceSalaryModule(periodRevenue = 0, currentFiltered = []) {
     summaryRowsHTML.push(`
       <tr class="hover:bg-amber-50/20 transition-colors">
         <td class="p-3">
-          <strong class="text-stone-800 font-sans">${name}</strong>
-          <span class="text-[9px] text-[#5C0612] bg-[#EFE5C9] px-1.5 py-0.5 rounded ml-1 font-numeric">${empId}</span>
-          <div class="text-[9px] text-stone-400">${role}</div>
+          <strong class="text-stone-800 font-sans">${KK.escape(name)}</strong>
+          <span class="text-[9px] text-[#5C0612] bg-[#EFE5C9] px-1.5 py-0.5 rounded ml-1 font-numeric">${KK.escape(empId)}</span>
+          <div class="text-[9px] text-stone-400">${KK.escape(role)}</div>
         </td>
         <td class="p-3 text-center font-bold text-emerald-800">${payableDays} / ${monthContext.daysInMonth}</td>
         <td class="p-3 text-center font-bold text-amber-900">☀️ ${sundaysWorked} / ${monthContext.totalSundaysInMonth}</td>
@@ -1394,7 +1325,7 @@ async function saveAttendanceToSupabase() {
   if (saveText) saveText.textContent = "⏳ Saving...";
 
   const staffList = rawAttendanceData.filter(emp => (emp['Month_Sheet'] || '').toLowerCase() === selectedAttendanceMonth.toLowerCase());
-  const targetList = staffList.length > 0 ? staffList : rawAttendanceData;
+  const targetList = staffList;
 
   const upsertPayload = targetList.map(emp => {
     const daysObj = {};
@@ -1409,8 +1340,8 @@ async function saveAttendanceToSupabase() {
       designation: emp['Designation'] || 'Sales (Fabrics)',
       month_sheet: selectedAttendanceMonth,
       phone_number: emp['Phone Number'] || '',
-      monthly_salary: parseFloat(emp['Monthly Salary']) || 10000,
-      commission_pct: parseFloat(emp['Commission Pct']) || 1.0,
+      monthly_salary: KK.number(emp['Monthly Salary'], 10000),
+      commission_pct: KK.number(emp['Commission Pct'], 0),
       advance_taken: parseFloat(emp['Advance Taken']) || 0,
       status: emp.status || 'Active',
       joining_date: emp.joining_date || null,
@@ -1426,7 +1357,7 @@ async function saveAttendanceToSupabase() {
       .upsert(upsertPayload, { onConflict: 'emp_id,month_sheet' });
 
     if (error) throw error;
-    alert(`✅ Attendance for ${selectedAttendanceMonth} saved to Supabase!`);
+    alert(`✅ Attendance for ${KK.escape(selectedAttendanceMonth)} saved to Supabase!`);
   } catch (err) {
     console.error("Supabase Save Error:", err);
     alert("❌ DATABASE SAVE FAILED: " + err.message);
@@ -1443,8 +1374,8 @@ function shareStaffPayslipWhatsApp(index) {
 
   const name = emp['Employee Name'] || 'Staff';
   const empId = emp['Emp ID'] || `KS-${103 + index}`;
-  const fullSalary = parseFloat(emp['Monthly Salary']) || 10000;
-  const commPct = parseFloat(emp['Commission Pct']) || 1.0;
+  const fullSalary = KK.number(emp['Monthly Salary'], 10000);
+  const commPct = KK.number(emp['Commission Pct'], 0);
   const advance = parseFloat(emp['Advance Taken']) || 0;
 
   const mCtx = getMonthYearContext(selectedAttendanceMonth);
@@ -1478,9 +1409,9 @@ function shareStaffPayslipWhatsApp(index) {
   const netSalary = Math.max(0, (baseEarned + calculatedIncentive) - advance);
 
   let msg = `🌸 *KAILASH KALAMKARI - OFFICIAL MONTHLY PAYSLIP* 🌸\n\n`;
-  msg += `🆔 *Staff ID:* ${empId}\n`;
-  msg += `👤 *Staff Name:* ${name}\n`;
-  msg += `📅 *Month / Period:* ${selectedAttendanceMonth}\n`;
+  msg += `🆔 *Staff ID:* ${KK.escape(empId)}\n`;
+  msg += `👤 *Staff Name:* ${KK.escape(name)}\n`;
+  msg += `📅 *Month / Period:* ${KK.escape(selectedAttendanceMonth)}\n`;
   msg += `📊 *Attendance:* ${payableDays} / ${mCtx.daysInMonth} Payable Days\n`;
   msg += `--------------------------------------\n`;
   msg += `💵 *Monthly Base Salary:* ₹${fullSalary.toLocaleString('en-IN')}\n`;
@@ -1493,7 +1424,7 @@ function shareStaffPayslipWhatsApp(index) {
   msg += `_Thank you for your valuable dedication to Kailash Kalamkari!_`;
 
   const phone = emp['Phone Number'] ? `91${emp['Phone Number'].replace(/\D/g, '')}` : '';
-  if (phone) window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`, '_blank');
+  if (phone) window.open(`https://api.whatsapp.com/send?phone=${KK.escape(phone)}&text=${encodeURIComponent(msg)}`, '_blank');
   else window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
@@ -1505,8 +1436,8 @@ function exportSingleStaffPayslipPDF(index) {
   const name = emp['Employee Name'] || 'Staff Member';
   const empId = emp['Emp ID'] || `KS-${103 + index}`;
   const role = emp['Designation'] || 'Sales Executive';
-  const fullSalary = parseFloat(emp['Monthly Salary']) || 10000;
-  const commPct = parseFloat(emp['Commission Pct']) || 1.0;
+  const fullSalary = KK.number(emp['Monthly Salary'], 10000);
+  const commPct = KK.number(emp['Commission Pct'], 0);
   const advance = parseFloat(emp['Advance Taken']) || 0;
 
   const mCtx = getMonthYearContext(selectedAttendanceMonth);
@@ -1545,18 +1476,18 @@ function exportSingleStaffPayslipPDF(index) {
     <div class="text-center border-b-2 border-[#DAA520] pb-3">
       <h2 class="text-2xl font-bold font-traditional text-[#5C0612]">KAILASH KALAMKARI</h2>
       <p class="text-[10px] text-stone-600 uppercase font-semibold">Official Staff Payslip & Performance Voucher</p>
-      <p class="text-[9px] text-[#DAA520] font-bold uppercase mt-0.5">${selectedAttendanceMonth}</p>
+      <p class="text-[9px] text-[#DAA520] font-bold uppercase mt-0.5">${KK.escape(selectedAttendanceMonth)}</p>
     </div>
     <div class="grid grid-cols-2 gap-4 text-xs border-b border-[#E5D5C6] pb-3">
       <div>
         <p class="text-stone-500 text-[10px]">Employee ID</p>
-        <p class="font-black text-[#5C0612]">${empId}</p>
+        <p class="font-black text-[#5C0612]">${KK.escape(empId)}</p>
         <p class="text-stone-500 text-[10px] uppercase font-semibold mt-1">Employee Name</p>
-        <p class="font-bold text-stone-800">${name}</p>
+        <p class="font-bold text-stone-800">${KK.escape(name)}</p>
       </div>
       <div class="text-right">
         <p class="text-stone-500 text-[10px]">Designation</p>
-        <p class="font-bold text-stone-800">${role}</p>
+        <p class="font-bold text-stone-800">${KK.escape(role)}</p>
         <p class="text-stone-500 text-[10px] mt-1">Payable Days</p>
         <p class="font-bold text-emerald-800">${payableDays} / ${mCtx.daysInMonth} Days</p>
       </div>
@@ -1575,7 +1506,7 @@ function exportSingleStaffPayslipPDF(index) {
   `;
 
   document.body.appendChild(payslipContainer);
-  html2pdf().set({ margin: 0.3, filename: `Payslip_${name}_${empId}.pdf` }).from(payslipContainer).save().then(() => {
+  html2pdf().set({ margin: 0.3, filename: `Payslip_${KK.escape(name)}_${KK.escape(empId)}.pdf` }).from(payslipContainer).save().then(() => {
     document.body.removeChild(payslipContainer);
   });
 }
@@ -1614,7 +1545,7 @@ function showProductDetails(productName) {
   if (tbody) {
     tbody.innerHTML = sortedAgents.length === 0 ? `<tr><td colspan="5" class="p-3 text-center text-stone-400">No sales recorded</td></tr>` : sortedAgents.map(([agentName, stats]) => `
       <tr class="hover:bg-amber-50/20">
-        <td class="p-2 font-bold text-stone-700">${agentName}</td>
+        <td class="p-2 font-bold text-stone-700">${KK.escape(agentName)}</td>
         <td class="p-2 text-right text-blue-600 font-bold font-numeric">₹${Math.round(stats.online).toLocaleString('en-IN')}</td>
         <td class="p-2 text-right text-orange-600 font-bold font-numeric">₹${Math.round(stats.offline).toLocaleString('en-IN')}</td>
         <td class="p-2 text-right text-purple-600 font-bold font-numeric">₹${Math.round(stats.wholesale).toLocaleString('en-IN')}</td>
@@ -1640,8 +1571,8 @@ function populateAgentAnalysisScreenDOM(agentName) {
   const rawTo = getEl('to-date') ? getEl('to-date').value.trim() : '';
   const fromVal = parseToYYYYMMDD(rawFrom);
   const toVal = parseToYYYYMMDD(rawTo);
-  
-  setText('agent-analysis-title', `${agentName} Performance Ledger`);
+
+  setText('agent-analysis-title', `${KK.escape(agentName)} Performance Ledger`);
   setText('agent-analysis-subtitle', `Period: ${fromVal || 'All Time'} to ${toVal || 'Current'}`);
 
   const targetAgentNorm = resolveStaffToMasterName(agentName).toLowerCase();
@@ -1685,13 +1616,13 @@ function populateAgentAnalysisScreenDOM(agentName) {
     dailyContainer.innerHTML = sortedDates.map(dateStr => `
       <div class="border border-[#E5D5C6] rounded-xl bg-[#FFFDF9] overflow-hidden warm-shadow mb-3">
         <div class="bg-[#F3EFE9] px-4 py-2.5 border-b border-[#E5D5C6] flex justify-between items-center">
-          <span class="font-traditional font-bold text-stone-800 text-xs">${dateStr}</span>
+          <span class="font-traditional font-bold text-stone-800 text-xs">${KK.escape(dateStr)}</span>
           <span class="font-numeric font-black text-[#5C0612] text-xs">Day Total: ₹${Math.round(dailyGroup[dateStr].total).toLocaleString('en-IN')}</span>
         </div>
         <div class="p-3 divide-y divide-[#E5D5C6]/10">
           ${Object.entries(dailyGroup[dateStr].bills).map(([bNo, bAmt]) => `
             <div class="flex justify-between items-center py-1 text-xs">
-              <span>Invoice: <strong>${bNo}</strong></span>
+              <span>Invoice: <strong>${KK.escape(bNo)}</strong></span>
               <strong class="text-[#5C0612] font-numeric">₹${Math.round(bAmt).toLocaleString('en-IN')}</strong>
             </div>
           `).join('')}
@@ -1744,7 +1675,7 @@ function populateChannelScreenDOM(channel) {
     const sortedA = Object.entries(agentsObj).sort((a, b) => b[1] - a[1]);
     agentTable.innerHTML = sortedA.length === 0 ? `<tr><td colspan="2" class="p-4 text-center text-stone-400">No staff sales for ${displayTitle}</td></tr>` : sortedA.map(([aName, amt]) => `
       <tr class="hover:bg-amber-50/20">
-        <td class="p-3 font-bold text-stone-700 font-sans">${aName}</td>
+        <td class="p-3 font-bold text-stone-700 font-sans">${KK.escape(aName)}</td>
         <td class="p-3 text-right font-black text-[#5C0612] font-numeric">₹${Math.round(amt).toLocaleString('en-IN')}</td>
       </tr>
     `).join('');
@@ -1840,13 +1771,13 @@ function shareOwnerDailySummaryWhatsApp() {
 // -------------------------------------------------------------
 // 9. BOOTSTRAP EVENT LISTENERS
 // -------------------------------------------------------------
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const loginForm = getEl('login-form');
   if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const user = (getEl('login-username')?.value || '').trim();
-      const pass = (getEl('login-password')?.value || '').trim();
+      const pass = getEl('login-password')?.value || '';
       await fetchData(user, pass);
     });
   }
@@ -1866,8 +1797,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (s.valid) fetchData(s.user, '');
   });
 
-  const session = checkSession();
-  if (session.valid) {
+  const session = await KK.session(supabaseClient);
+  if (session?.valid) {
     fetchData(session.user, '');
   } else {
     showEl('login-screen');

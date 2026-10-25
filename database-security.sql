@@ -1,0 +1,5 @@
+-- RETIRED: the app now uses the user-requested simple user ID/password login.
+-- Do not run the previous Supabase Auth migration for this version.
+-- Use database-settlements.sql for atomic bank saves instead.
+-- If the old migration was already applied, inspect current grants/policies first;
+-- this file intentionally does not undo or weaken existing database security.

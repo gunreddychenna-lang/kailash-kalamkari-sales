@@ -24,6 +24,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <link rel="stylesheet" href="styles.css">
+  <script src="common.js?v=3"></script>
 </head>
 <body class="bg-[#FAF6EE] text-stone-800 pb-16 min-h-screen">
 
@@ -55,6 +56,12 @@
           <i class="fa-solid fa-user-check text-xs"></i>
           <span>Attendance</span>
         </a>
+
+        <!-- BULK WHATSAPP CAMPAIGN BUTTON -->
+        <button onclick="openBulkWhatsAppModal()" class="bg-[#25D366] hover:bg-[#1EBE5D] text-white font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-emerald-400 active:scale-95">
+          <i class="fa-brands fa-whatsapp text-xs"></i>
+          <span>Bulk WhatsApp</span>
+        </button>
 
         <!-- CSV UPLOAD BUTTON -->
         <label class="cursor-pointer bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-[#B38F4D] active:scale-95">
@@ -110,7 +117,7 @@
 
     <!-- MAIN CRM DIRECTORY CARD -->
     <div class="bg-[#FFFDF9] p-5 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-4">
-      
+
       <!-- TOOLBAR: FILTER BUTTONS & REP SELECTOR -->
       <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 border-b border-[#E5D5C6]/60 pb-3">
         <div>
@@ -184,7 +191,7 @@
   <div id="customer-modal" class="hidden fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-[#FFFDF9] rounded-3xl border-2 border-[#5C0612] max-w-2xl w-full overflow-hidden warm-shadow-lg relative">
       <div class="zari-border absolute top-0 left-0 right-0"></div>
-      
+
       <div class="p-4 bg-[#5C0612] text-white flex justify-between items-center border-b border-[#DAA520]">
         <div>
           <span class="text-[8px] uppercase tracking-wider text-[#DAA520] font-bold block">Verified Retail Dossier</span>
@@ -197,7 +204,7 @@
       </div>
 
       <div class="p-5 space-y-4 max-h-[80vh] overflow-y-auto font-sans">
-        
+
         <!-- Summary Stats Strip -->
         <div class="grid grid-cols-3 gap-2 bg-[#FAF6EE] p-3 rounded-2xl border border-[#E5D5C6] text-center font-numeric text-xs">
           <div>
@@ -257,6 +264,54 @@
     </div>
   </div>
 
+  <!-- ========================================================= -->
+  <!-- MODAL: BULK WHATSAPP BROADCAST CAMPAIGN -->
+  <!-- ========================================================= -->
+  <div id="bulk-whatsapp-modal" class="hidden fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-[#FFFDF9] rounded-3xl border-2 border-[#25D366] max-w-lg w-full overflow-hidden warm-shadow-lg relative">
+      <div class="zari-border absolute top-0 left-0 right-0"></div>
+
+      <div class="p-4 bg-[#25D366] text-white flex justify-between items-center border-b border-emerald-500">
+        <div>
+          <span class="text-[8px] uppercase tracking-wider text-emerald-100 font-bold block">Kailash Kalamkari Marketing Suite</span>
+          <h3 class="font-bold text-sm uppercase font-traditional text-white">📢 Send Bulk WhatsApp Campaign</h3>
+        </div>
+        <button onclick="closeBulkWhatsAppModal()" class="text-white font-bold p-1">
+          <i class="fa-solid fa-circle-xmark text-xl"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 font-sans">
+        <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-2xl text-xs text-emerald-900">
+          <p class="font-bold">Target Audience: <span id="bulk-target-count" class="font-black text-[#5C0612]">0</span> customers matching your current filter/search.</p>
+          <p class="text-[10px] text-emerald-700 mt-0.5">Note: Browsers prevent opening hundreds of tabs at once. This tool will queue and open WhatsApp Web sequentially for your clients.</p>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-bold text-stone-500 uppercase font-traditional mb-1">Campaign Message Template</label>
+          <textarea id="bulk-message-template" rows="5" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-3 text-stone-800 font-sans focus:outline-none focus:ring-1 focus:ring-[#25D366]">Namaste {name} Garu, 🌸
+
+We have just launched our brand new Festive Kalamkari & Pure Silk Saree Collections at Kailash Kalamkari!
+
+As one of our valued patrons, we wanted you to be the first to explore them. Visit our showroom or reply here to view pictures.
+
+Warm regards,
+Kailash Kalamkari Team</textarea>
+          <span class="text-[9px] text-stone-400 mt-1 block">Tip: Keep <code class="bg-stone-200 px-1 rounded">{name}</code> in your text to automatically personalize the greeting for each customer!</span>
+        </div>
+
+        <div class="flex gap-2 pt-2">
+          <button onclick="executeBulkWhatsAppBroadcast()" class="flex-1 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-xs py-3 rounded-xl transition-all shadow-sm font-traditional flex items-center justify-center gap-1.5 uppercase tracking-wider">
+            <i class="fa-brands fa-whatsapp text-sm"></i> Start Sending Messages 🚀
+          </button>
+          <button onclick="closeBulkWhatsAppModal()" class="bg-[#FAF6EE] hover:bg-[#E5D5C6] text-stone-700 font-bold text-xs py-3 px-4 rounded-xl border border-[#E5D5C6] font-traditional uppercase tracking-wider">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- JAVASCRIPT LOGIC -->
   <script>
     const SUPABASE_URL = "https://dqvqqrbvklpiibzqivbp.supabase.co";
@@ -270,52 +325,43 @@
     let allRawSalesRecords = [];
     let customersList = [];
     let activeFilter = 'all';
+    let currentFilteredCustomersForBulk = [];
 
     window.addEventListener('DOMContentLoaded', () => {
       fetchSupabaseCRMData();
     });
 
-   async function fetchSupabaseCRMData() {
+    async function fetchSupabaseCRMData() {
+      if (!await KK.session(supabaseClient, true)) return;
       const icon = document.getElementById('refresh-icon');
       if (icon) icon.classList.add('animate-spin');
 
       try {
-        let allRecords = [];
-        let from = 0;
-        const step = 1000;
-        let hasMore = true;
+        const allRecords = await KK.rows(supabaseClient, 'sales');
 
-        // Fetch from the 'sales' table with pagination chunks of 1000
-        while (hasMore) {
-          const { data, error } = await supabaseClient
-            .from('sales')
-            .select('*')
-            .order('id', { ascending: true })
-            .range(from, from + step - 1);
-
-          if (error) throw error;
-          if (data && data.length > 0) {
-            allRecords.push(...data);
-            if (data.length < step) hasMore = false;
-            else from += step;
-          } else {
-            hasMore = false;
-          }
-        }
-
-        allRawSalesRecords = allRecords;
+        const masters = await KK.rows(supabaseClient, 'bills_master', '*', 'bill_no');
+        const result = KK.invoiceGroups(allRecords, KK.invoiceIndex(masters));
+        KK.reconciliationNotice(result.excluded, result.issues);
+        allRawSalesRecords = [];
+        result.groups.forEach(({ key, items, master }) => {
+          const amounts = KK.amounts(items, master ? master.bill_amount : null);
+          items.forEach((r, i) => {
+            allRawSalesRecords.push({ ...r, _invoiceKey: key, _reconciledAmount: amounts[i] });
+          });
+        });
         processCRMData(allRawSalesRecords);
       } catch (err) {
         console.warn("Could not fetch sales from Supabase directly:", err.message);
         document.getElementById('crm-table-body').innerHTML = `
           <tr><td colspan="6" class="p-8 text-center text-stone-500">
-            Could not load from Supabase (${err.message}). Please click <strong>"Upload CSV"</strong> above to test locally or check your Supabase table.
+            Please click <strong>"Upload CSV"</strong> above to load your sales spreadsheet.
           </td></tr>
         `;
       } finally {
         if (icon) icon.classList.remove('animate-spin');
       }
     }
+
     function handleCSVUpload(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -341,6 +387,24 @@
         }
       };
       reader.readAsArrayBuffer(file);
+    }
+
+    // UNIFIED STAFF NAME NORMALIZER (Combines duplicates across branches)
+    function normalizeAgentName(rawName) {
+      if (!rawName) return 'No Agent';
+      const clean = rawName.toString().trim();
+      if (!clean || clean === '-' || clean === 'N/A' || clean === 'null' || clean === 'undefined') return 'No Agent';
+
+      const lower = clean.toLowerCase();
+      if (lower.includes('venkatesh')) return 'Venkatesh';
+      if (lower.includes('kailash')) return 'Kailash Anna';
+      if (lower.includes('chenna') || lower.includes('kesava')) return 'Chenna Kesava Reddy';
+      if (lower.includes('mouni')) return 'Ty mounika';
+      if (lower.includes('sanjana')) return 'r sanjana';
+      if (lower.includes('sandhya')) return 'J sandhya';
+      if (lower.includes('pushpa')) return 'c Pushpa';
+
+      return clean.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
     }
 
     // -------------------------------------------------------------
@@ -371,9 +435,12 @@
         const rawPhone = (r.customer_phone || r['CUSTOMER PHONE NUMBER'] || r['Customer Phone'] || r['Phone Number'] || r['Phone'] || '').toString().trim();
         const item = (r.item_name || r['Item Name'] || r['ITEM NAME'] || 'General Item').toString().trim();
         const billDate = (r.bill_date || r['Bill Date'] || r['BILL DATE'] || '').toString().trim();
-        const agent = (r.sm_name || r['SM Name'] || r.agent_name || r['Agent Name'] || 'No Agent').toString().trim();
-        const qty = parseFloat(r.qty || r['Qty'] || 1) || 1;
-        
+
+        const rawAgent = (r.sm_name || r['SM Name'] || r.agent_name || r['Agent Name'] || 'No Agent').toString().trim();
+        const agent = normalizeAgentName(rawAgent);
+
+        const qty = KK.quantity(r);
+
         let amount = parseFloat(r.amount || r.bill_amount || r['BillAmount'] || r['AMOUNT'] || 0) || 0;
         if (amount === 0 && (r.rate || r['Rate'])) {
           const rate = parseFloat(r.rate || r['Rate']) || 0;
@@ -381,13 +448,15 @@
           amount = (rate * qty) - disc;
         }
 
+        if (r._reconciledAmount !== undefined) amount = r._reconciledAmount;
+
         if (agent && agent !== 'No Agent') salesRepsSet.add(agent);
 
         const cleanName = (!rawName || rawName.toLowerCase() === 'not found') ? 'Walk-in Customer' : rawName;
-        const cleanPhone = (!rawPhone || rawPhone.toLowerCase() === 'not found') ? '' : rawPhone.replace(/\D/g, '');
+        const cleanPhone = (!rawPhone || rawPhone.toLowerCase() === 'not found') ? '' : KK.phone(rawPhone);
 
-        const custKey = cleanPhone ? cleanPhone : cleanName.toLowerCase();
-        if (custKey === 'walk-in customer' && !cleanPhone) return;
+        const custKey = cleanPhone || `${cleanName.toLowerCase()}:${billNo}`;
+        if (cleanName === 'Walk-in Customer' && !cleanPhone) return;
 
         if (!customersMap[custKey]) {
           customersMap[custKey] = {
@@ -407,7 +476,7 @@
         const c = customersMap[custKey];
         c.totalSpend += amount;
         c.totalUnits += qty;
-        if (billNo) c.billsSet.add(billNo);
+        if (billNo) c.billsSet.add(r._invoiceKey || KK.invoiceParts(r).key);
         if (billDate) c.datesSet.add(billDate);
 
         c.agentsMap[agent] = (c.agentsMap[agent] || 0) + amount;
@@ -417,7 +486,7 @@
         c.productsMap[item].spend += amount;
 
         c.records.push({
-          date: billDate || '2026-09-01',
+          date: billDate || '',
           billNo: billNo,
           item: item,
           qty: qty,
@@ -442,7 +511,7 @@
       const agentSelect = document.getElementById('crm-agent-select');
       if (agentSelect) {
         agentSelect.innerHTML = `<option value="all">All Sales Executives</option>` +
-          Array.from(salesRepsSet).sort().map(ag => `<option value="${ag}">${ag}</option>`).join('');
+          Array.from(salesRepsSet).sort().map(ag => `<option value="${KK.escape(ag)}">${KK.escape(ag)}</option>`).join('');
       }
 
       renderCRMTable();
@@ -510,22 +579,22 @@
       }
 
       tbody.innerHTML = filtered.map(c => `
-        <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="openCustomerModal('${c.key}')">
+        <tr class="hover:bg-amber-50/20 transition-colors cursor-pointer" onclick="openCustomerModal(${KK.eventArg(c.key)})">
           <td class="p-3.5">
             <div class="flex items-center gap-1.5 flex-wrap">
-              <strong class="text-xs font-bold text-stone-800 font-sans">${c.name}</strong>
+              <strong class="text-xs font-bold text-stone-800 font-sans">${KK.escape(c.name)}</strong>
               ${c.isRepeat ? `<span class="bg-amber-100 text-amber-900 border border-amber-300 text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase">🔁 VIP Repeat</span>` : ''}
             </div>
             <div class="text-[10px] text-stone-500 font-numeric mt-0.5">
-              ${c.phone ? `📞 ${c.phone}` : '<span class="text-stone-400">Counter walk-in</span>'}
+              ${c.phone ? `📞 ${KK.escape(c.phone)}` : '<span class="text-stone-400">Counter walk-in</span>'}
             </div>
           </td>
           <td class="p-3.5 font-bold text-stone-700 font-sans">
-            <span class="text-xs font-bold text-stone-800">${c.primaryAgent}</span>
+            <span class="text-xs font-bold text-stone-800">${KK.escape(c.primaryAgent)}</span>
             <span class="block text-[9px] text-stone-400">Primary contact</span>
           </td>
           <td class="p-3.5">
-            <span class="font-bold text-stone-800 text-xs block">${c.topProduct.name}</span>
+            <span class="font-bold text-stone-800 text-xs block">${KK.escape(c.topProduct.name)}</span>
             <span class="text-[9px] text-stone-500 font-numeric">Purchased ${c.topProduct.qty} Units</span>
           </td>
           <td class="p-3.5 text-center font-bold font-numeric ${c.isRepeat ? 'text-amber-800 font-black' : 'text-stone-600'}">
@@ -535,7 +604,7 @@
             ₹${Math.round(c.totalSpend).toLocaleString('en-IN')}
           </td>
           <td class="p-3.5 text-center export-ignore">
-            <button onclick="event.stopPropagation(); openCustomerModal('${c.key}')" class="text-[9px] bg-[#FAF6EE] hover:bg-[#EFE5C9] text-[#5C0612] font-bold px-2.5 py-1 rounded-lg border border-[#DAA520] active:scale-95 transition-all">
+            <button onclick="event.stopPropagation(); openCustomerModal(${KK.eventArg(c.key)})" class="text-[9px] bg-[#FAF6EE] hover:bg-[#EFE5C9] text-[#5C0612] font-bold px-2.5 py-1 rounded-lg border border-[#DAA520] active:scale-95 transition-all">
               View Profile ↗
             </button>
           </td>
@@ -548,7 +617,7 @@
       if (!c) return;
 
       document.getElementById('modal-name').textContent = c.name;
-      document.getElementById('modal-phone').textContent = c.phone ? `📞 Contact: +91 ${c.phone}` : 'Walk-in Showroom Customer';
+      document.getElementById('modal-phone').textContent = c.phone ? `📞 Contact: +91 ${KK.escape(c.phone)}` : 'Walk-in Showroom Customer';
       document.getElementById('modal-spend').textContent = `₹${Math.round(c.totalSpend).toLocaleString('en-IN')}`;
       document.getElementById('modal-orders').textContent = `${c.visitCount} Bills (${c.totalUnits} Units)`;
       document.getElementById('modal-agent').textContent = c.primaryAgent;
@@ -557,7 +626,7 @@
       if (topProdContainer) {
         topProdContainer.innerHTML = c.allProducts.slice(0, 8).map(p => `
           <span class="bg-[#FAF6EE] border border-[#E5D5C6] px-2.5 py-1 rounded-xl text-[10px] font-bold text-stone-800 font-numeric">
-            ${p.name} <strong class="text-[#5C0612]">(${p.qty}x)</strong>
+            ${KK.escape(p.name)} <strong class="text-[#5C0612]">(${p.qty}x)</strong>
           </span>
         `).join('');
       }
@@ -566,11 +635,11 @@
       if (tbody) {
         tbody.innerHTML = c.records.map(r => `
           <tr class="hover:bg-amber-50/20">
-            <td class="p-2 text-stone-600 font-bold whitespace-nowrap">${r.date}</td>
-            <td class="p-2 font-black text-stone-800">${r.billNo}</td>
-            <td class="p-2 text-stone-700">${r.item}</td>
+            <td class="p-2 text-stone-600 font-bold whitespace-nowrap">${KK.escape(r.date)}</td>
+            <td class="p-2 font-black text-stone-800">${KK.escape(r.billNo)}</td>
+            <td class="p-2 text-stone-700">${KK.escape(r.item)}</td>
             <td class="p-2 text-center font-bold">${r.qty}</td>
-            <td class="p-2 text-stone-600 font-sans">${r.agent}</td>
+            <td class="p-2 text-stone-600 font-sans">${KK.escape(r.agent)}</td>
             <td class="p-2 text-right font-black text-[#5C0612]">₹${Math.round(r.amount).toLocaleString('en-IN')}</td>
           </tr>
         `).join('');
@@ -581,8 +650,8 @@
         if (c.phone) {
           waBtn.classList.remove('hidden');
           waBtn.onclick = () => {
-            const msg = `Namaste ${c.name} Garu,\nThank you for shopping with Kailash Kalamkari! We appreciate your loyalty. Let us know if we can assist you with our latest collections!`;
-            window.open(`https://api.whatsapp.com/send?phone=91${c.phone}&text=${encodeURIComponent(msg)}`, '_blank');
+            const msg = `Namaste ${KK.escape(c.name)} Garu,\nThank you for shopping with Kailash Kalamkari! We appreciate your loyalty. Let us know if we can assist you with our latest collections!`;
+            window.open(`https://api.whatsapp.com/send?phone=91${KK.escape(c.phone)}&text=${encodeURIComponent(msg)}`, '_blank');
           };
         } else {
           waBtn.classList.add('hidden');
@@ -594,6 +663,69 @@
 
     function closeCustomerModal() {
       document.getElementById('customer-modal').classList.add('hidden');
+    }
+
+    // BULK WHATSAPP CAMPAIGN LOGIC
+    function openBulkWhatsAppModal() {
+      const searchVal = (document.getElementById('crm-search-input')?.value || '').toLowerCase().trim();
+      const selectedAgent = document.getElementById('crm-agent-select')?.value || 'all';
+
+      currentFilteredCustomersForBulk = customersList.filter(c => {
+        if (!c.phone) return false;
+        if (selectedAgent !== 'all' && c.primaryAgent !== selectedAgent) return false;
+        if (activeFilter === 'repeat' && !c.isRepeat) return false;
+
+        if (searchVal) {
+          const matchName = c.name.toLowerCase().includes(searchVal);
+          const matchPhone = c.phone.includes(searchVal);
+          const matchAgent = c.primaryAgent.toLowerCase().includes(searchVal);
+          const matchItem = c.topProduct.name.toLowerCase().includes(searchVal);
+          if (!matchName && !matchPhone && !matchAgent && !matchItem) return false;
+        }
+        return true;
+      });
+
+      document.getElementById('bulk-target-count').textContent = currentFilteredCustomersForBulk.length;
+      document.getElementById('bulk-whatsapp-modal').classList.remove('hidden');
+    }
+
+    function closeBulkWhatsAppModal() {
+      document.getElementById('bulk-whatsapp-modal').classList.add('hidden');
+    }
+
+    function executeBulkWhatsAppBroadcast() {
+      if (currentFilteredCustomersForBulk.length === 0) {
+        alert("No customers with valid phone numbers match your current filter.");
+        return;
+      }
+
+      const template = document.getElementById('bulk-message-template').value;
+      const confirmSend = confirm(`You are about to queue WhatsApp messages for ${currentFilteredCustomersForBulk.length} customers.\n\nYour browser will open WhatsApp Web windows sequentially. Proceed?`);
+      if (!confirmSend) return;
+
+      closeBulkWhatsAppModal();
+
+      let index = 0;
+      function openNextWhatsApp() {
+        if (index >= currentFilteredCustomersForBulk.length) {
+          alert("✅ Finished queuing all WhatsApp messages!");
+          return;
+        }
+
+        const c = currentFilteredCustomersForBulk[index];
+        const personalizedMsg = template.replace(/{name}/g, c.name);
+        const cleanPhone = c.phone.replace(/\D/g, '');
+
+        const url = `https://api.whatsapp.com/send?phone=${KK.phone(cleanPhone)}&text=${encodeURIComponent(personalizedMsg)}`;
+        window.open(url, '_blank');
+
+        index++;
+        if (index < currentFilteredCustomersForBulk.length) {
+          setTimeout(openNextWhatsApp, 1200); // 1.2 second interval to bypass pop-up blockers
+        }
+      }
+
+      openNextWhatsApp();
     }
 
     function exportCRMToExcel() {
