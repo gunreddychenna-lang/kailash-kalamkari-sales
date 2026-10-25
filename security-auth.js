@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 
 // KK-CEO-003 isolated Supabase Auth adapter.
 // Database RLS must independently protect all business tables.
@@ -51,12 +51,42 @@
       throw new Error("Email and password are required.");
     }
 
-    const { error } = await client.auth.signInWithPassword({
-      email: identifier,
-      password
-    });
+    if (identifier.includes("@")) {
+      const { error } = await client.auth.signInWithPassword({
+        email: identifier,
+        password
+      });
 
-    if (error) throw new Error("Invalid credentials.");
+      if (error) throw new Error("Invalid credentials.");
+    } else {
+      const response = await fetch("/api/staff-login", {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loginId: identifier,
+          password
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Invalid credentials.");
+      }
+
+      const tokens = await response.json();
+
+      if (!tokens?.access_token || !tokens?.refresh_token) {
+        throw new Error("Invalid credentials.");
+      }
+
+      const { error } = await client.auth.setSession({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token
+      });
+
+      if (error) throw new Error("Invalid credentials.");
+    }
 
     const profile = await getStaff(client);
     if (!profile) {
