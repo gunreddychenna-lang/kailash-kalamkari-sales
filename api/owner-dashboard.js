@@ -1,12 +1,12 @@
-﻿"use strict";
+"use strict";
 
 // KK-CEO-003 — isolated development only.
 // Owner/Admin authenticated, read-only financial dashboard API.
 
 const DATASETS = Object.freeze([
-  ["sales", "id", 25000],
-  ["receivables", "id", 10000],
-  ["bills_master", "bill_no", 15000]
+  ["sales", "id.asc", 25000],
+  ["receivables", "id.asc", 10000],
+  ["bills_master", "bill_no.asc,branch.asc", 15000]
 ]);
 
 function send(res, status, body) {
@@ -35,30 +35,89 @@ async function getJSON(base, secret, path, jwt) {
 }
 
 async function allRows(base, secret, name, order, maxRows) {
-  const result = [];
-  const size = 500;
+  const rows = [];
+  const seen = new Set();
+  let expected = null;
+  let offset = 0;
 
-  for (let offset = 0; offset <= maxRows; offset += size) {
-    const url =
-      `/rest/v1/${name}?select=*&order=${order}.asc` +
-      `&limit=${size}&offset=${offset}`;
+  while (offset <= maxRows) {
+    const response = await fetch(
+      `${base}/rest/v1/${name}?select=*&order=${order}&limit=500&offset=${offset}`,
+      {
+        method: "GET",
+        headers: {
+          apikey: secret,
+          Authorization: `Bearer ${secret}`,
+          Accept: "application/json",
+          Prefer: "count=exact"
+        }
+      }
+    );
 
-    const page = await getJSON(base, secret, url);
+    if (!response.ok) throw new Error("Dataset request failed");
 
-    if (!Array.isArray(page)) throw new Error("Invalid dataset");
+    const range = response.headers?.get("content-range") || "";
+    const page = await response.json();
 
-    if (page.length > size || result.length + page.length > maxRows) {
-      throw new Error("Dataset safety limit reached");
+    if (!Array.isArray(page) || page.length > 500) {
+      throw new Error("Invalid dataset page");
     }
 
-    result.push(...page);
+    if (range === "*/0" && offset === 0 && page.length === 0) {
+      return [];
+    }
 
-    if (page.length < size) return result;
+    const match = /^(\d+)-(\d+)\/(\d+)$/.exec(range);
+    if (!match) throw new Error("Missing exact row count");
+
+    const [start, end, total] = match.slice(1).map(Number);
+
+    if (
+      ![start, end, total].every(Number.isSafeInteger) ||
+      total > maxRows ||
+      total < 0
+    ) {
+      throw new Error("Invalid dataset range");
+    }
+
+    if (expected === null) expected = total;
+    if (total !== expected) throw new Error("Dataset count changed");
+
+    if (
+      page.length === 0 ||
+      start !== offset ||
+      end !== offset + page.length - 1 ||
+      rows.length + page.length > total
+    ) {
+      throw new Error("Incomplete dataset");
+    }
+
+    for (const item of page) {
+      if (!item || typeof item !== "object") {
+        throw new Error("Invalid dataset row");
+      }
+
+      const identity = name === "bills_master"
+        ? item.bill_no != null && item.branch != null
+          ? JSON.stringify([item.bill_no, item.branch])
+          : null
+        : item.id != null ? String(item.id) : null;
+
+      if (identity === null || seen.has(identity)) {
+        throw new Error("Missing or duplicate record");
+      }
+
+      seen.add(identity);
+    }
+
+    rows.push(...page);
+
+    if (rows.length === total) return rows;
+    offset += page.length;
   }
 
-  throw new Error("Dataset safety limit reached");
+  throw new Error("Dataset limit reached");
 }
-
 module.exports = async function handler(req, res) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -120,7 +179,7 @@ module.exports = async function handler(req, res) {
       );
     }
 
-    return send(res, 200, {
+    const payload = {
       ...data,
       counts: {
         sales: data.sales.length,
@@ -128,7 +187,15 @@ module.exports = async function handler(req, res) {
         bills_master: data.bills_master.length
       },
       read_only: true
-    });
+    };
+
+    const bytes = Buffer.byteLength(JSON.stringify(payload), "utf8");
+    if (bytes > 3500000) {
+      throw new Error("Dashboard response exceeds safe size");
+    }
+
+    return send(res, 200, payload);
+
 
   } catch (_) {
     return send(res, 503, {

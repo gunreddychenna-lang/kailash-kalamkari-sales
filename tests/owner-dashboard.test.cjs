@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -30,7 +30,7 @@ async function invoke({ method = "GET", token = "jwt",
     } else if (url.includes("/rest/v1/receivables?")) {
       data = [{ id: 2, amount: 500 }];
     } else if (url.includes("/rest/v1/bills_master?")) {
-      data = [{ bill_no: "TEST-001" }];
+      data = [{ bill_no: "TEST-001", branch: "Main Branch" }];
     } else {
       throw new Error("Unexpected API call");
     }
@@ -41,6 +41,15 @@ async function invoke({ method = "GET", token = "jwt",
 
     return {
       ok: true,
+      headers: {
+        get(name) {
+          if (name.toLowerCase() !== "content-range") return null;
+          if (!Array.isArray(data)) return null;
+          return data.length
+            ? `0-${data.length - 1}/${data.length}`
+            : "*/0";
+        }
+      },
       json: async () => data
     };
   };
