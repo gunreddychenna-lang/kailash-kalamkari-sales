@@ -370,11 +370,48 @@ async function fetchData(user, pass) {
     currentDisplayName = session.displayName;
     isAdmin = currentRole === 'Admin';
 
-    const [recRows, masters, allSalesRecords] = await Promise.all([
-      KK.rows(supabaseClient, 'receivables', 'id, bill_no, bank_account, amount, store_name, bill_date'),
-      KK.rows(supabaseClient, 'bills_master', '*', 'bill_no'),
-      KK.rows(supabaseClient, 'sales')
-    ]);
+    // KK-CEO-003: Owner/Admin read-only dashboard data.
+    if (!['owner', 'admin'].includes(session.secureRole)) {
+      throw new Error('This dashboard requires Owner or Admin access.');
+    }
+
+    const { data: authSession, error: authError } =
+      await supabaseClient.auth.getSession();
+
+    const accessToken = authSession?.session?.access_token;
+
+    if (authError || !accessToken) {
+      throw new Error('Session expired. Please sign in again.');
+    }
+
+    const dashboardResponse = await fetch('/api/owner-dashboard', {
+      method: 'GET',
+      cache: 'no-store',
+      credentials: 'same-origin',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json'
+      }
+    });
+
+    if (!dashboardResponse.ok) {
+      throw new Error('Secure dashboard data could not be loaded.');
+    }
+
+    const dashboardData = await dashboardResponse.json();
+
+    if (
+      dashboardData?.read_only !== true ||
+      !Array.isArray(dashboardData.sales) ||
+      !Array.isArray(dashboardData.receivables) ||
+      !Array.isArray(dashboardData.bills_master)
+    ) {
+      throw new Error('Incomplete dashboard response.');
+    }
+
+    const recRows = dashboardData.receivables;
+    const masters = dashboardData.bills_master;
+    const allSalesRecords = dashboardData.sales;
     const masterIndex = KK.invoiceIndex(masters);
     const reconciled = KK.invoiceGroups(allSalesRecords, masterIndex);
     KK.reconciliationNotice(reconciled.excluded, reconciled.issues);
