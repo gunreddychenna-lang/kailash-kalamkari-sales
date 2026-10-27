@@ -236,7 +236,8 @@ return async function handler(req, res) {
       ? safeCode : "UNKNOWN";
     console.error("[KK_SALES_DIAGNOSTIC]", {
       category: error?.code ? "database_or_network" : "application",
-      code
+      code,
+      stage: error?.kkStage || 'configuration_or_application'
     });
     return send(res, 503, {
       error: "Dashboard data unavailable"
