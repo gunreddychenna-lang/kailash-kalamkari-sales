@@ -237,7 +237,8 @@ return async function handler(req, res) {
     console.error("[KK_SALES_DIAGNOSTIC]", {
       category: error?.code ? "database_or_network" : "application",
       code,
-      stage: error?.kkStage || 'configuration_or_application'
+      stage: error?.kkStage || 'configuration_or_application',
+      failureType: error?.kkFailureType || 'OTHER'
     });
     return send(res, 503, {
       error: "Dashboard data unavailable"
