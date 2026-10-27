@@ -428,6 +428,8 @@ async function fetchData(user, pass) {
       }
     }
     const cleanSales = [];
+    const unallocatableInvoices = [];
+    let unallocatableRows = 0;
     reconciled.groups.forEach(({ key: invoiceKey, master: masterBill, items }) => {
       const billNoUpper = KK.invoiceParts(items[0]).bill || invoiceKey;
       const masterTotal = masterBill ? (parseFloat(masterBill.bill_amount) || 0) : null;
@@ -436,7 +438,17 @@ async function fetchData(user, pass) {
       const masterAgent = masterBill ? resolveStaffToMasterName(masterBill.sm_name) : null;
       const masterChannel = masterBill ? classifyExactChannel(masterBill) : null;
 
-      const computedItemAmounts = KK.amounts(items, masterTotal);
+      let computedItemAmounts;
+      try {
+        computedItemAmounts = KK.amounts(items, masterTotal);
+      } catch (error) {
+        if (error?.message !== 'Invoice has no line amounts; cannot allocate its revenue reliably.') {
+          throw error;
+        }
+        unallocatableRows += items.length;
+        unallocatableInvoices.push(billNoUpper);
+        return;
+      }
       const lineItemSum = computedItemAmounts.reduce((sum, n) => sum + n, 0);
 
       items.forEach((r, idx) => {
@@ -472,6 +484,11 @@ async function fetchData(user, pass) {
       });
     });
 
+    KK.reconciliationNotice(
+      reconciled.excluded + unallocatableRows,
+      [...new Set([...reconciled.issues, ...unallocatableInvoices])],
+      dashboardData.reconciliation?.duplicate_invoice_references || 0
+    );
     rawData = cleanSales;
 
     // Attendance/payroll are deferred from the read-only first release.
