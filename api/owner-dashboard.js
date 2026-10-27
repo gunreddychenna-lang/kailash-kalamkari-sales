@@ -230,7 +230,14 @@ return async function handler(req, res) {
     return send(res, 200, payload);
 
 
-  } catch (_) {
+  } catch (error) {
+    const safeCode = String(error?.code || "UNKNOWN");
+    const code = /^(?:[0-9A-Z]{5}|ETIMEDOUT|ECONNREFUSED|ENOTFOUND|ECONNRESET|CERT_HAS_EXPIRED|UNABLE_TO_VERIFY_LEAF_SIGNATURE)$/.test(safeCode)
+      ? safeCode : "UNKNOWN";
+    console.error("[KK_SALES_DIAGNOSTIC]", {
+      category: error?.code ? "database_or_network" : "application",
+      code
+    });
     return send(res, 503, {
       error: "Dashboard data unavailable"
     });
