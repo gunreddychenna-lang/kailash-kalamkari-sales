@@ -25,6 +25,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <link rel="stylesheet" href="styles.css">
+  <script src="staff-config.js"></script>
   <script src="security-permissions.js"></script>
 <script src="security-auth.js"></script>
 <script src="common.js?v=3"></script>
@@ -290,8 +291,8 @@
 
   <script>
     // 1. SUPABASE CREDENTIALS
-    const SUPABASE_URL = "https://dqvqqrbvklpiibzqivbp.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdnFxcmJ2a2xwaWlienFpdmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MTk2OTUsImV4cCI6MjEwNjE5NTY5NX0.ljhpD3QBpXvi5DjrQ2wE6R4NdhOicu_3ODH7pX79K58";
+    const SUPABASE_URL = window.KK_STAFF_CONFIG.url;
+const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
 
     let supabaseClient = null;
     if (typeof supabase !== 'undefined' && supabase.createClient) {

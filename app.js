@@ -6,8 +6,8 @@
  */
 
 // 1. SUPABASE CREDENTIALS CONFIGURATION
-const SUPABASE_URL = "https://dqvqqrbvklpiibzqivbp.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdnFxcmJ2a2xwaWlienFpdmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MTk2OTUsImV4cCI6MjEwNjE5NTY5NX0.ljhpD3QBpXvi5DjrQ2wE6R4NdhOicu_3ODH7pX79K58";
+const SUPABASE_URL = window.KK_STAFF_CONFIG.url;
+const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
 
 let supabaseClient = null;
 if (typeof supabase !== 'undefined' && supabase.createClient) {

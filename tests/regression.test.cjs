@@ -108,7 +108,7 @@ function page(file) {
     if (!elements.has(id)) elements.set(id, { value: '', innerHTML: '', textContent: '', classList: { add() {}, remove() {}, toggle() {} } });
     return elements.get(id);
   } };
-  const sandbox = vm.createContext({ document, window: { addEventListener() {} }, tailwind: {}, KK: context(), supabase: { createClient: () => ({}) }, console });
+  const sandbox = vm.createContext({ document, window: { addEventListener() {}, KK_STAFF_CONFIG: { url: 'https://dev.example.invalid', anonKey: 'test-public-key' } }, tailwind: {}, KK: context(), supabase: { createClient: () => ({}) }, console });
   const html = fs.readFileSync(path.join(root, file), 'utf8');
   for (const script of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) vm.runInContext(script[1], sandbox);
   return { sandbox, document };

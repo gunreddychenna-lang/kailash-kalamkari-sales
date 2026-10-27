@@ -18,6 +18,7 @@
     .warm-shadow-hover:hover { box-shadow: 0 8px 25px rgba(92, 6, 18, 0.12); }
     .zari-line { height: 3px; background: linear-gradient(90deg, #B38F4D 0%, #DAA520 50%, #B38F4D 100%); }
   </style>
+  <script src="staff-config.js"></script>
   <script src="security-permissions.js"></script>
 <script src="security-auth.js"></script>
 <script src="common.js?v=3"></script>
@@ -232,8 +233,8 @@
 
   <!-- JAVASCRIPT LOGIC -->
   <script>
-    const SUPABASE_URL = "https://dqvqqrbvklpiibzqivbp.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdnFxcmJ2a2xwaWlienFpdmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MTk2OTUsImV4cCI6MjEwNjE5NTY5NX0.ljhpD3QBpXvi5DjrQ2wE6R4NdhOicu_3ODH7pX79K58";
+    const SUPABASE_URL = window.KK_STAFF_CONFIG.url;
+const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let rawData = [];
