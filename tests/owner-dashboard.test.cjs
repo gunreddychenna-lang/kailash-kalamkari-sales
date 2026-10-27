@@ -113,8 +113,8 @@ test("Owner receives all three read-only datasets", async () => {
     sales: 1, receivables: 1, bills_master: 1
   });
   assert.equal(res.body.read_only, true);
-  assert.equal(res.body.production_monthly_snapshot.items.length, 8);
-  assert.equal(res.body.production_monthly_snapshot.items.reduce((a, r) => a + r.recorded_sales_paise, 0), 4545148532);
+  assert.equal(res.body.production_monthly_snapshot, null);
+  
   assert.equal(calls.every(c => c.options.method === "GET"), true);
 });
 

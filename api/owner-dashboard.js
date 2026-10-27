@@ -1,6 +1,6 @@
 "use strict";
 
-// KK-CEO-003 — isolated development only.
+// KK-CEO-003 â€” isolated development only.
 // Owner/Admin authenticated, read-only financial dashboard API.
 
 const DATASETS = Object.freeze([
@@ -223,7 +223,7 @@ return async function handler(req, res) {
     }
 
     // Server-owned aggregate snapshot: only returned after Supabase Owner/Admin verification.
-    payload.production_monthly_snapshot = require("./owner-monthly-snapshot.json");
+    payload.production_monthly_snapshot = null;
 
     const bytes = Buffer.byteLength(JSON.stringify(payload), "utf8");
     if (bytes > 3500000) {
