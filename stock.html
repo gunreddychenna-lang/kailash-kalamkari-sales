@@ -229,7 +229,88 @@
       </div>
     </div>
 
-  </main>
+  <!-- KK-DRIVE-AUDIT-INTEGRATION -->
+<section id="kk-drive-audit"
+  class="bg-[#FFFDF9] p-5 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-4">
+
+  <div>
+    <h2 class="font-bold text-[#5C0612] text-lg">
+      Main Catalogue & KHPS — Drive Inventory Audit
+    </h2>
+    <p class="text-xs text-stone-500 mt-1">
+      Local Google Drive scan snapshot. Not live stock or physical stock verification.
+      Existing Catalogue Supabase inventory above remains unchanged.
+    </p>
+  </div>
+
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div class="p-3 rounded-xl bg-[#FAF6EE] border">
+      <div class="text-xs">Filtered Images</div>
+      <strong id="kk-audit-total" class="text-2xl">0</strong>
+    </div>
+    <div class="p-3 rounded-xl bg-[#FAF6EE] border">
+      <div class="text-xs">Saree Images</div>
+      <strong id="kk-audit-sarees" class="text-2xl">0</strong>
+    </div>
+    <div class="p-3 rounded-xl bg-[#FAF6EE] border">
+      <div class="text-xs">Dupatta Images</div>
+      <strong id="kk-audit-dupattas" class="text-2xl">0</strong>
+    </div>
+    <div class="p-3 rounded-xl bg-[#FAF6EE] border">
+      <div class="text-xs">Groups</div>
+      <strong id="kk-audit-groups" class="text-2xl">0</strong>
+    </div>
+  </div>
+
+  <div id="kk-audit-filters"
+    class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3"></div>
+
+  <div class="flex flex-wrap items-center gap-3">
+    <button type="button" id="kk-audit-reset"
+      class="bg-[#5C0612] text-white px-4 py-2 rounded-lg text-xs font-bold">
+      Clear Filters
+    </button>
+
+    <a href="https://drive.google.com/drive/folders/12PV7YGDYFoCOsSUcL2L8PyGanqvAlEeO"
+       target="_blank" rel="noopener noreferrer"
+       class="text-xs font-bold text-[#5C0612] underline">
+      Open KHPS Drive Folder
+    </a>
+  </div>
+
+  <h3 class="text-sm font-bold">Fabric / Design / Colour Quantity Summary</h3>
+  <div class="overflow-auto max-h-96">
+    <table class="w-full text-xs text-left">
+      <thead class="bg-[#FAF6EE] sticky top-0">
+        <tr>
+          <th class="p-2">Store</th>
+          <th class="p-2">Type</th>
+          <th class="p-2">Fabric</th>
+          <th class="p-2">Category</th>
+          <th class="p-2">Design</th>
+          <th class="p-2">Colour</th>
+          <th class="p-2">Qty</th>
+        </tr>
+      </thead>
+      <tbody id="kk-audit-summary"></tbody>
+    </table>
+  </div>
+
+  <h3 class="text-sm font-bold">Matching Image Filenames</h3>
+  <p class="text-xs text-stone-500">
+    Individual photos require a verified Google Drive file ID mapping.
+    Local Windows paths cannot be opened from the hosted portal.
+  </p>
+
+  <div id="kk-audit-list"
+    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"></div>
+
+  <button type="button" id="kk-audit-more"
+    class="bg-[#5C0612] text-white px-5 py-2 rounded-lg text-xs font-bold">
+    Load More
+  </button>
+</section>
+</main>
 
   <!-- JAVASCRIPT LOGIC -->
   <script>
@@ -262,6 +343,7 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
           throw new Error('Incomplete inventory response.');
         }
         if (payload.source !== "catalogue_products") throw new Error("Unexpected inventory source.");
+        window.KKDriveAudit.initialize(payload.drive_audit);
         const data = payload.saree_inventory;
 
         rawData = data || [];
@@ -570,5 +652,181 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
       else if (mode === 'table-view') document.getElementById('view-table').classList.remove('hidden');
     }
   </script>
+<script>
+// KK Drive Inventory Audit — separate from live Catalogue stock.
+(function () {
+  "use strict";
+
+  const fields = ["store","type","fabric","category","design","colour"];
+  const $ = id => document.getElementById(id);
+
+  let items = [];
+  let limit = 60;
+  let ready = false;
+
+  function clean(v) {
+    return String(v || "Not Defined").trim();
+  }
+
+  function norm(v) {
+    return clean(v).toLocaleLowerCase("en");
+  }
+
+  function escapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[char]);
+  }
+
+  function getSelected(field) {
+    const el = $("kk-audit-" + field);
+    return el ? el.value : "";
+  }
+
+  function matching(item, except = null) {
+    return fields.every(field =>
+      field === except ||
+      !getSelected(field) ||
+      norm(item[field]) === norm(getSelected(field))
+    );
+  }
+
+  function updateOptions() {
+    for (const field of fields) {
+      const select = $("kk-audit-" + field);
+      const selected = select.value;
+      const values = new Map();
+
+      for (const item of items.filter(row => matching(row, field))) {
+        const value = clean(item[field]);
+        if (!values.has(norm(value))) values.set(norm(value), value);
+      }
+
+      const options = [...values.values()]
+        .sort((a,b) => a.localeCompare(b));
+
+      select.replaceChildren(new Option("All", ""));
+
+      for (const value of options) {
+        select.add(new Option(value, value));
+      }
+
+      const previous = options.find(value => norm(value) === norm(selected));
+      select.value = previous || "";
+    }
+  }
+
+  function render() {
+    updateOptions();
+
+    const filtered = items.filter(item => matching(item));
+
+    $("kk-audit-total").textContent = filtered.length;
+    $("kk-audit-sarees").textContent =
+      filtered.filter(item => item.type === "Saree").length;
+    $("kk-audit-dupattas").textContent =
+      filtered.filter(item => item.type === "Dupatta").length;
+
+    const groups = new Map();
+
+    for (const item of filtered) {
+      const key = fields.map(field => norm(item[field])).join("\u001f");
+
+      if (!groups.has(key)) {
+        groups.set(key, { item, count: 0 });
+      }
+      groups.get(key).count++;
+    }
+
+    $("kk-audit-groups").textContent = groups.size;
+
+    const grouped = [...groups.values()]
+      .sort((a,b) => b.count - a.count);
+
+    $("kk-audit-summary").innerHTML = grouped.map(({item,count}) => `
+      <tr class="border-b border-stone-200">
+        ${fields.map(field =>
+          `<td class="p-2">${escapeHTML(item[field])}</td>`
+        ).join("")}
+        <td class="p-2 font-bold">${count}</td>
+      </tr>
+    `).join("");
+
+    const visible = filtered.slice(0,limit);
+
+    $("kk-audit-list").innerHTML = visible.map(item => `
+      <div class="p-3 rounded-xl border border-[#E5D5C6] bg-[#FAF6EE] text-xs">
+        <div class="font-bold break-all">${escapeHTML(item.filename)}</div>
+        <div class="mt-1">${escapeHTML(item.store)} |
+          ${escapeHTML(item.type)}</div>
+        <div>${escapeHTML(item.fabric)}</div>
+        <div>${escapeHTML(item.category)} |
+          ${escapeHTML(item.design)} |
+          ${escapeHTML(item.colour)}</div>
+      </div>
+    `).join("");
+
+    $("kk-audit-more").hidden = visible.length >= filtered.length;
+  }
+
+  function initialize(snapshot) {
+    if (ready) return;
+    if (!snapshot ||
+        snapshot.source !== "local_drive_csv_audit" ||
+        snapshot.snapshot !== true ||
+        !Array.isArray(snapshot.items) ||
+        snapshot.items.length !== snapshot.total_images ||
+        snapshot.items.length !== 1190) {
+      throw new Error("Drive audit snapshot missing or incomplete");
+    }
+
+    items = snapshot.items;
+    const container = $("kk-audit-filters");
+
+    for (const field of fields) {
+      const wrapper = document.createElement("div");
+      const label = document.createElement("label");
+      const select = document.createElement("select");
+
+      label.className = "block text-xs font-bold mb-1";
+      label.textContent = field.charAt(0).toUpperCase() + field.slice(1);
+
+      select.id = "kk-audit-" + field;
+      select.className =
+        "w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-lg p-2 text-xs";
+
+      select.addEventListener("change", () => {
+        limit = 60;
+        render();
+      });
+
+      wrapper.append(label, select);
+      container.appendChild(wrapper);
+    }
+
+    $("kk-audit-reset").addEventListener("click", () => {
+      for (const field of fields) {
+        $("kk-audit-" + field).value = "";
+      }
+      limit = 60;
+      render();
+    });
+
+    $("kk-audit-more").addEventListener("click", () => {
+      limit += 60;
+      render();
+    });
+
+    ready = true;
+    render();
+  }
+
+  window.KKDriveAudit = Object.freeze({ initialize });
+})();
+</script>
 </body>
 </html>
