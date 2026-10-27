@@ -30,6 +30,10 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <link rel="stylesheet" href="styles.css">
+  <style>
+    a[href="crm.html"], a[href="attendance.html"], a[href="entry.html"],
+    #btn-attendance-tab, #attendance-tab { display: none !important; }
+  </style>
   <script src="app.js?v=11" defer></script>
   <script src="security-permissions.js"></script>
 <script src="security-auth.js"></script>
@@ -87,6 +91,7 @@
           <span id="user-role-badge" class="text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-[#DAA520] text-[#5C0612] tracking-wider font-sans mt-0.5">ADMIN</span>
         </div>
 
+        <a href="stock.html" class="bg-[#EFE5C9] text-[#5C0612] font-bold text-xs px-3 py-2 rounded-xl">Inventory ↗</a>
         <!-- CRM CLIENTS HUB -->
         <a href="crm.html" target="_blank" class="bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs px-3 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-emerald-500 active:scale-95 duration-100" title="Open Customer Relationship & Repeat Clients Hub">
           <i class="fa-solid fa-address-book text-xs text-emerald-300"></i>
@@ -138,6 +143,39 @@
   <!-- MAIN CONTAINER -->
   <main id="standard-main" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
 
+    <!-- Isolated Phase 2: recorded production aggregates only, never merged into DEV transaction totals. -->
+    <section id="production-monthly-panel" class="hidden bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow" aria-label="Recorded production sales snapshot">
+      <h2 class="text-lg font-bold text-[#5C0612]">Production Snapshot — Recorded Sales</h2>
+      <p id="production-monthly-note" class="text-xs text-stone-600 mt-1"></p>
+      <p id="production-monthly-total" class="text-2xl font-bold text-[#5C0612] my-3"></p>
+      <div class="overflow-x-auto"><table class="w-full text-sm text-left">
+        <thead><tr class="border-b"><th class="py-2">Month</th><th>Branch</th><th class="text-right">Sales rows</th><th class="text-right">Recorded sales (₹)</th></tr></thead>
+        <tbody id="production-monthly-rows"></tbody>
+      </table></div>
+      <p class="text-sm mt-3 text-amber-800 font-semibold">Under Reconciliation: 5 repeated invoice references; payment allocations and collections are not verified.</p>
+      <p class="text-xs mt-2 text-stone-600">The existing DEV sales cards use synthetic records and are not part of this snapshot.</p>
+    </section>
+
+        <!-- Historical financial aggregates only. No customer identifiers. Not payment verified. -->
+    <section id="kk-production-reconciliation" class="bg-[#FFFDF9] p-5 rounded-2xl border border-[#E5D5C6] warm-shadow" aria-label="Production invoice reconciliation snapshot">
+      <h2 class="text-lg font-bold text-[#5C0612]">Production Invoice Reconciliation â€” Historical Extract</h2>
+      <p class="text-xs mt-1 text-stone-600">Manual read-only production extract through 24 October 2026. Aggregate matches only; not verified payments, receipts, profit or live sync.</p>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 mb-3">
+        <div><p class="text-xs text-stone-600">Invoice references</p><p class="text-xl font-bold">2,178</p></div>
+        <div><p class="text-xs text-stone-600">Aggregate matched</p><p class="text-xl font-bold">2,173</p></div>
+        <div><p class="text-xs text-stone-600">Repeated references</p><p class="text-xl font-bold">5</p></div>
+        <div><p class="text-xs text-stone-600">Recorded amount under review</p><p class="text-xl font-bold">â‚¹3,24,128.00</p></div>
+      </div>
+      <div class="overflow-x-auto"><table class="w-full text-sm text-left"><thead><tr class="border-b"><th class="py-2">Branch</th><th>Invoice</th><th class="text-right">Sales lines</th><th class="text-right">Master rows</th><th class="text-right">Recorded amount</th></tr></thead><tbody>
+        <tr class="border-b"><td class="py-2">Main Branch</td><td>111BN0126</td><td class="text-right">3</td><td class="text-right">2</td><td class="text-right">â‚¹12,240.00</td></tr>
+        <tr class="border-b"><td class="py-2">Main Branch</td><td>111BN0592</td><td class="text-right">4</td><td class="text-right">2</td><td class="text-right">â‚¹6,000.00</td></tr>
+        <tr class="border-b"><td class="py-2">Main Branch</td><td>111BN0860</td><td class="text-right">2</td><td class="text-right">2</td><td class="text-right">â‚¹12,898.00</td></tr>
+        <tr class="border-b"><td class="py-2">Main Branch</td><td>111SN0285</td><td class="text-right">16</td><td class="text-right">2</td><td class="text-right">â‚¹1,82,490.00</td></tr>
+        <tr><td class="py-2">Main Branch</td><td>111SN0475</td><td class="text-right">17</td><td class="text-right">2</td><td class="text-right">â‚¹1,10,500.00</td></tr>
+      </tbody></table></div>
+      <p class="text-xs mt-3 font-semibold text-amber-800">â‚¹3,24,128 represents combined recorded amounts on repeated references, NOT confirmed duplicate sales or financial loss. Payment-allocation exceptions remain separately unverified.</p>
+      <p class="text-xs mt-2 text-stone-600">Source: production sales vs bills_master grouped by branch and invoice; 5,051 sale lines, 2,183 master rows, total recorded amount â‚¹4,54,51,485.32. DEV synthetic transactions are displayed separately.</p>
+    </section>
     <!-- TOP ROW: FILTERS & TARGET PROGRESS -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
 

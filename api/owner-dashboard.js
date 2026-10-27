@@ -6,7 +6,7 @@
 const DATASETS = Object.freeze([
   ["sales", "id.asc", 25000],
   ["receivables", "id.asc", 10000],
-  ["bills_master", "bill_no.asc,branch.asc", 15000]
+  ["bills_master", "bill_no.asc,branch.asc,bill_date.asc,bill_amount.asc", 15000]
 ]);
 
 function send(res, status, body) {
@@ -39,6 +39,7 @@ async function allRows(base, secret, name, order, maxRows) {
   const seen = new Set();
   let expected = null;
   let offset = 0;
+  let priorLastSort = null;
 
   while (offset <= maxRows) {
     const response = await fetch(
@@ -92,16 +93,32 @@ async function allRows(base, secret, name, order, maxRows) {
       throw new Error("Incomplete dataset");
     }
 
+    // A non-unique ordering key spanning pages makes offset pagination unsafe.
+    // Reject ambiguous boundaries rather than quietly losing invoice records.
+    if (name === "bills_master") {
+      const sortKey = item => JSON.stringify([
+        item.bill_no, item.branch, item.bill_date, item.bill_amount
+      ]);
+      if (priorLastSort !== null && sortKey(page[0]) === priorLastSort) {
+        throw new Error("Ambiguous invoice page boundary");
+      }
+      priorLastSort = sortKey(page[page.length - 1]);
+    }
+
     for (const item of page) {
       if (!item || typeof item !== "object") {
         throw new Error("Invalid dataset row");
       }
 
-      const identity = name === "bills_master"
-        ? item.bill_no != null && item.branch != null
-          ? JSON.stringify([item.bill_no, item.branch])
-          : null
-        : item.id != null ? String(item.id) : null;
+      if (name === "bills_master") {
+        if (item.bill_no == null || item.branch == null) {
+          throw new Error("Missing invoice reference");
+        }
+        // Preserve repeated invoice records for reconciliation.
+        continue;
+      }
+
+      const identity = item.id != null ? String(item.id) : null;
 
       if (identity === null || seen.has(identity)) {
         throw new Error("Missing or duplicate record");
@@ -118,7 +135,8 @@ async function allRows(base, secret, name, order, maxRows) {
 
   throw new Error("Dataset limit reached");
 }
-module.exports = async function handler(req, res) {
+function createHandler(datasets = DATASETS) {
+return async function handler(req, res) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return send(res, 405, { error: "Method not allowed" });
@@ -173,7 +191,7 @@ module.exports = async function handler(req, res) {
     const data = {};
 
     // No partial successful response if any dataset fails.
-    for (const [table, order, maximum] of DATASETS) {
+    for (const [table, order, maximum] of datasets) {
       data[table] = await allRows(
         base, secret, table, order, maximum
       );
@@ -182,12 +200,30 @@ module.exports = async function handler(req, res) {
     const payload = {
       ...data,
       counts: {
-        sales: data.sales.length,
-        receivables: data.receivables.length,
-        bills_master: data.bills_master.length
+        ...Object.fromEntries(datasets.map(([name]) => [name, data[name].length]))
       },
       read_only: true
     };
+
+    if (Array.isArray(data.bills_master)) {
+      const references = new Map();
+
+      for (const bill of data.bills_master) {
+        const key = JSON.stringify([bill.branch, bill.bill_no]);
+        references.set(key, (references.get(key) || 0) + 1);
+      }
+
+      const repeats = [...references.values()].filter(n => n > 1);
+
+      payload.reconciliation = {
+        duplicate_invoice_references: repeats.length,
+        repeated_invoice_rows: repeats.reduce((n, count) => n + count - 1, 0),
+        status: repeats.length ? "under_reconciliation" : "no_duplicate_references"
+      };
+    }
+
+    // Server-owned aggregate snapshot: only returned after Supabase Owner/Admin verification.
+    payload.production_monthly_snapshot = require("./owner-monthly-snapshot.json");
 
     const bytes = Buffer.byteLength(JSON.stringify(payload), "utf8");
     if (bytes > 3500000) {
@@ -203,3 +239,7 @@ module.exports = async function handler(req, res) {
     });
   }
 };
+
+}
+module.exports = createHandler();
+module.exports.createHandler = createHandler;

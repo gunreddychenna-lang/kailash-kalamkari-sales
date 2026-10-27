@@ -97,12 +97,18 @@ test("501 sales are complete with 300-row server cap", async () => {
   assert.deepEqual(offsets, [0, 300]);
 });
 
-test("duplicate invoice identities fail closed", async () => {
+test("repeated invoice references remain under reconciliation", async () => {
   const bills = [
     { bill_no: "A1", branch: "Main Branch" },
     { bill_no: "A1", branch: "Main Branch" }
   ];
+
   const { res } = await scenario({ bills });
-  assert.equal(res.code, 503);
-  assert.equal(res.body.bills_master, undefined);
+
+  assert.equal(res.code, 200);
+  assert.equal(res.body.bills_master.length, 2);
+  assert.equal(res.body.counts.bills_master, 2);
+  assert.equal(res.body.reconciliation.duplicate_invoice_references, 1);
+  assert.equal(res.body.reconciliation.repeated_invoice_rows, 1);
+  assert.equal(res.body.reconciliation.status, "under_reconciliation");
 });

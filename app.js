@@ -404,17 +404,21 @@ async function fetchData(user, pass) {
       dashboardData?.read_only !== true ||
       !Array.isArray(dashboardData.sales) ||
       !Array.isArray(dashboardData.receivables) ||
-      !Array.isArray(dashboardData.bills_master)
+      !Array.isArray(dashboardData.bills_master) ||
+      ['sales', 'receivables', 'bills_master'].some(name =>
+        dashboardData.counts?.[name] !== dashboardData[name].length)
     ) {
       throw new Error('Incomplete dashboard response.');
     }
+
+    renderProductionMonthlySnapshot(dashboardData.production_monthly_snapshot);
 
     const recRows = dashboardData.receivables;
     const masters = dashboardData.bills_master;
     const allSalesRecords = dashboardData.sales;
     const masterIndex = KK.invoiceIndex(masters);
     const reconciled = KK.invoiceGroups(allSalesRecords, masterIndex);
-    KK.reconciliationNotice(reconciled.excluded, reconciled.issues);
+    KK.reconciliationNotice(reconciled.excluded, reconciled.issues, dashboardData.reconciliation?.duplicate_invoice_references || 0);
     const settledReceivablesMap = new Map();
     for (const receipt of recRows) {
       const match = KK.matchInvoice(receipt, masterIndex);
@@ -470,53 +474,62 @@ async function fetchData(user, pass) {
 
     rawData = cleanSales;
 
-    try {
-      const attRows = await KK.rows(supabaseClient, 'attendance');
-      if (attRows && attRows.length > 0) {
-        rawAttendanceData = attRows.map(a => {
-          let parsedDays = {};
-          if (typeof a.days_data === 'string') {
-            try { parsedDays = JSON.parse(a.days_data); } catch (e) { parsedDays = {}; }
-          } else if (typeof a.days_data === 'object' && a.days_data !== null) {
-            parsedDays = a.days_data;
-          }
-
-          return {
-            'id': a.id,
-            'Emp ID': a.emp_id,
-            'Employee Name': a.employee_name,
-            'Designation': a.designation || 'Sales (Fabrics)',
-            'Month_Sheet': a.month_sheet || 'September 2026',
-            'Phone Number': a.phone_number || '',
-            'Monthly Salary': KK.number(a.monthly_salary, 10000),
-            'Commission Pct': KK.number(a.commission_pct, 0),
-            'Advance Taken': parseFloat(a.advance_taken) || 0,
-            'status': a.status || 'Active',
-            'joining_date': a.joining_date || '',
-            'relieving_date': a.relieving_date || '',
-            'termination_reason': a.termination_reason || '',
-            ...parsedDays,
-            '_notes': a.notes_data || {}
-          };
-        });
-      } else {
-        rawAttendanceData = [];
-      }
-    } catch (e) {
-      rawAttendanceData = [];
-      alert("Attendance unavailable. Refresh before using payroll.");
-    }
+    // Attendance/payroll are deferred from the read-only first release.
+    rawAttendanceData = [];
 
     bankAccountsList = ['Cash', '42441-TJ', 'KC'];
     updateHeaderRoleBadges();
     routeUserToRolePrimaryDashboard();
 
   } catch (err) {
+    rawData = [];
+    hideEl('standard-header');
+    hideEl('standard-main');
+    showLoginError(err.message || 'Dashboard unavailable. Please retry.');
     console.error("Fetch Error:", err);
     alert("Connection failed: " + (err.message || "Network Error"));
   } finally {
     hideEl('loader');
   }
+}
+
+function renderProductionMonthlySnapshot(snapshot) {
+  const panel = document.getElementById('production-monthly-panel');
+  if (!panel) return;
+  panel.classList.add('hidden');
+  const rows = document.getElementById('production-monthly-rows');
+  const total = document.getElementById('production-monthly-total');
+  const note = document.getElementById('production-monthly-note');
+  rows.replaceChildren();
+  if (!snapshot || snapshot.type !== 'read_only_production_aggregate_snapshot' ||
+      !Array.isArray(snapshot.items) || snapshot.items.length !== 8) return;
+  const money = paise => '₹' + (paise / 100).toLocaleString('en-IN',
+    { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  let sum = 0, count = 0;
+  for (const item of snapshot.items) {
+    if (!Number.isSafeInteger(item.recorded_sales_paise) ||
+        !Number.isSafeInteger(item.sales_rows) ||
+        !/^2026-(0[6-9]|10)$/.test(item.month) ||
+        !['KHPS', 'Main Branch'].includes(item.branch)) return;
+    sum += item.recorded_sales_paise;
+    count += item.sales_rows;
+    const tr = document.createElement('tr');
+    tr.className = 'border-b border-stone-200';
+    for (const value of [item.month, item.branch, item.sales_rows.toLocaleString('en-IN'), money(item.recorded_sales_paise)]) {
+      const td = document.createElement('td');
+      td.className = 'py-2';
+      td.textContent = String(value);
+      tr.appendChild(td);
+    }
+    rows.appendChild(tr);
+  }
+  if (sum !== 4545148532 || count !== 5051) {
+    rows.replaceChildren();
+    return;
+  }
+  note.textContent = 'Read-only aggregate extract · June–October 2026 · October partial · No customer details';
+  total.textContent = `${money(sum)} recorded sales · ${count.toLocaleString('en-IN')} sales rows`;
+  panel.classList.remove('hidden');
 }
 
 function showLoginError(message) {
@@ -535,7 +548,7 @@ function updateHeaderRoleBadges() {
 
   if (badge) {
     if (isAdmin) {
-      badge.textContent = '👑 ADMIN (FULL ACCESS)';
+      badge.textContent = 'OWNER / ADMIN · READ ONLY';
       badge.className = "text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-[#DAA520] text-[#5C0612] tracking-wider font-sans";
     } else {
       badge.textContent = '👁️ VIEWER (READ ONLY)';
@@ -1354,6 +1367,7 @@ function updateStaffPayroll(index, field, val) {
 }
 
 async function saveAttendanceToSupabase() {
+  throw new Error('Attendance writes are unavailable in this read-only release.');
   if (!isAdmin) return alert("Only Admin can save attendance to database.");
 
   const saveBtn = getEl('btn-save-attendance-main');
@@ -1756,6 +1770,7 @@ window.addEventListener('popstate', (e) => {
 });
 
 function switchTab(tabId) {
+  if (tabId === 'attendance-tab') return;
   document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
   showEl(tabId);
 

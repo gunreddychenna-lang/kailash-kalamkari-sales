@@ -48,6 +48,10 @@
 
   <!-- MAIN CONTAINER -->
   <main class="max-w-7xl mx-auto px-4 mt-6 space-y-5">
+    <section id="kk-inventory-source-warning" class="bg-[#FFFDF9] p-4 rounded-xl border border-amber-400 text-amber-900 text-sm" role="note">
+      <strong>Inventory source: DEV / NOT PRODUCTION VERIFIED.</strong>
+      Quantities below come from the configured DEV Supabase inventory dataset. This release does not sync Google Drive catalogue images or verify current physical stock. Do not use these figures for purchasing, dispatch, or accounting until Google Drive availability and branch mappings are validated.
+    </section>
 
     <!-- STATS STRIP -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center font-numeric">
@@ -244,7 +248,19 @@
       if (icon) icon.classList.add('animate-spin');
 
       try {
-        const data = await KK.rows(supabaseClient, 'saree_inventory', '*', 'fabric_name');
+        const { data: auth, error } = await supabaseClient.auth.getSession();
+        if (error || !auth?.session?.access_token) throw new Error('Please sign in again.');
+        const response = await fetch('/api/owner-inventory', {
+          method: 'GET', cache: 'no-store', credentials: 'same-origin',
+          headers: { Authorization: `Bearer ${auth.session.access_token}` }
+        });
+        if (!response.ok) throw new Error('Inventory unavailable. Refresh to retry.');
+        const payload = await response.json();
+        if (payload?.read_only !== true || !Array.isArray(payload.saree_inventory) ||
+            payload.counts?.saree_inventory !== payload.saree_inventory.length) {
+          throw new Error('Incomplete inventory response.');
+        }
+        const data = payload.saree_inventory;
 
         rawData = data || [];
         document.getElementById('stat-total-qty').textContent = `${rawData.reduce((n, r) => n + KK.quantity(r), 0)} Units`;
@@ -252,6 +268,11 @@
         populateDropdowns();
         applyFilters();
       } catch (err) {
+        rawData = [];
+        currentFiltered = [];
+        document.getElementById('stat-total-qty').textContent = 'Unavailable';
+        applyFilters();
+        document.getElementById('stat-filtered-qty').textContent = 'Unavailable';
         console.error("Fetch Error:", err);
         alert("Database connection error: " + err.message);
       } finally {
@@ -289,7 +310,7 @@
       const chipContainer = document.getElementById('quick-colour-chips');
       chipContainer.innerHTML = Array.from(colours).sort().slice(0, 10).map(c => `
         <button onclick="selectQuickColour(${KK.eventArg(c)})" class="text-[9px] font-bold bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 px-2 py-0.5 rounded-lg border border-[#E5D5C6] transition-all">
-          🎨 ${c}
+          🎨 ${KK.escape(c)}
         </button>
       `).join('');
     }

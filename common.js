@@ -34,7 +34,20 @@ window.KK = (() => {
       else if (number(old.master.bill_amount) !== number(row.bill_amount) ||
         String(old.master.sm_name || '').trim().toLowerCase() !== String(row.sm_name || '').trim().toLowerCase() ||
         String(old.master.channel || '') !== String(row.channel || '')) old.conflict = true;
+      // Never treat two invoice-master rows as one verified invoice.
+      if (old) old.conflict = true;
       byBill.set(part.bill, bucket);
+    }
+    // Same bill number + branch on different dates is still ambiguous.
+    // We have no trusted unique invoice-row identifier for matching.
+    for (const bucket of byBill.values()) {
+      const branchCounts = new Map();
+      for (const candidate of bucket.values()) {
+        branchCounts.set(candidate.branch, (branchCounts.get(candidate.branch) || 0) + 1);
+      }
+      for (const candidate of bucket.values()) {
+        if (branchCounts.get(candidate.branch) > 1) candidate.conflict = true;
+      }
     }
     return byBill;
   }
@@ -58,9 +71,9 @@ window.KK = (() => {
     });
     return { groups: [...groups.values()], issues: [...issues], excluded };
   }
-  function reconciliationNotice(excluded, issues) {
+  function reconciliationNotice(excluded, issues, duplicateReferences = 0) {
     let el = document.getElementById('reconciliation-warning');
-    if (!el && excluded) {
+    if (!el && (excluded || duplicateReferences)) {
       el = document.createElement('div');
       el.id = 'reconciliation-warning';
       el.setAttribute('role', 'alert');
@@ -68,8 +81,8 @@ window.KK = (() => {
       document.body.prepend(el);
     }
     if (el) {
-      el.hidden = !excluded;
-      el.textContent = excluded ? `Totals are incomplete: ${excluded} sales rows excluded because invoice branch/date or master totals are ambiguous. Review: ${issues.slice(0, 10).join(', ')}${issues.length > 10 ? '…' : ''}.` : '';
+      el.hidden = !(excluded || duplicateReferences);
+      el.textContent = (excluded || duplicateReferences) ? `Under reconciliation: ${duplicateReferences} repeated invoice references; ${excluded} sales rows excluded from dashboard calculations. Recorded sales are not verified collections. Review: ${issues.slice(0, 10).join(', ')}${issues.length > 10 ? '…' : ''}.` : '';
     }
   }
   function amounts(items, masterTotal = null) {
@@ -124,6 +137,10 @@ window.KK = (() => {
       client, username, password
     );
 
+    if (!['owner', 'admin'].includes(profile.role)) {
+      await logout();
+      throw new Error('This release requires Owner or Admin access.');
+    }
     identity = {
       ...profile,
       role: ['owner', 'admin'].includes(profile.role)
@@ -146,7 +163,7 @@ window.KK = (() => {
     authClient = client;
     const profile = await KKSecureAuth.getStaff(client);
 
-    if (!profile) {
+    if (!profile || !['owner', 'admin'].includes(profile.role)) {
       if (redirect) location.replace('index.html');
       return null;
     }
@@ -176,6 +193,6 @@ window.KK = (() => {
   }
   return { number, escape, phone, invoiceParts, invoiceIndex, matchInvoice, invoiceGroups, reconciliationNotice, rows, session, login, logout, saveSettlements, amounts, validateSplits, identity: () => identity,
     eventArg: value => escape(JSON.stringify(String(value ?? ''))),
-    quantity: row => number(row.qty ?? row.QTY ?? row.Qty, 1)
+    quantity: row => number(row.qty ?? row.quantity ?? row.QTY ?? row.Qty, 1)
   };
 })();
