@@ -1,831 +1,254 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kailash Kalamkari - Intelligent Inventory & Theme Analytics</title>
-
-  <!-- Supabase JS & Tailwind -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Lora:wght@400;600;700&display=swap" rel="stylesheet">
-
-  <style>
-    body { background-color: #FAF6EE; font-family: 'Lora', serif; }
-    .font-traditional { font-family: 'Marcellus', serif; }
-    .warm-shadow { box-shadow: 0 4px 20px rgba(92, 6, 18, 0.06); }
-    .warm-shadow-hover:hover { box-shadow: 0 8px 25px rgba(92, 6, 18, 0.12); }
-    .zari-line { height: 3px; background: linear-gradient(90deg, #B38F4D 0%, #DAA520 50%, #B38F4D 100%); }
-  </style>
-  <script src="staff-config.js"></script>
-  <script src="security-permissions.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kailash Kalamkari - Inventory</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f7f5f1;color:#29251e;font-family:Arial,sans-serif}
+header{background:#25231f;color:white;padding:24px}
+header h1{margin:0;font-size:25px}
+header p{color:#ccc;font-size:13px}
+main{max-width:1400px;margin:auto;padding:20px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat,.panel,.product{background:white;border:1px solid #e6e1d9;border-radius:10px}
+.stat{padding:17px}
+.stat strong{display:block;font-size:30px;margin-top:8px}
+.stat span{color:#736c62;font-size:13px}
+.panel{padding:18px;margin-top:18px}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px}
+label{display:block;font-size:12px;font-weight:bold;margin-bottom:6px}
+select,input,button{width:100%;padding:11px;border:1px solid #d8d2c8;border-radius:7px;background:white}
+button{cursor:pointer;background:#29251e;color:white}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+.product{overflow:hidden}
+.product img{width:100%;height:215px;object-fit:contain;background:#f1efea}
+.details{padding:12px;font-size:13px;line-height:1.6}
+.muted{color:#746d64}
+.group-table{width:100%;border-collapse:collapse;font-size:13px}
+.group-table th,.group-table td{padding:10px;border-bottom:1px solid #eee;text-align:left}
+.group-table th{background:#f7f5f1}
+.scroll{overflow:auto;max-height:400px}
+@media(max-width:600px){header{padding:18px}main{padding:12px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.product img{height:155px}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="staff-config.js"></script>
+<script src="security-permissions.js"></script>
 <script src="security-auth.js"></script>
 <script src="common.js?v=3"></script>
 </head>
-<body class="pb-20 min-h-screen text-stone-800">
+<body>
+<header>
+<h1>Kailash Kalamkari - Inventory Dashboard</h1>
+<p>Main Catalogue + KHPS | Authenticated Drive inventory snapshot</p>
+<a href="index.html"
+   style="display:inline-block;margin-top:12px;color:#fff;text-decoration:underline;font-size:13px">
+   Back to Sales Dashboard
+</a>
+</header>
+<main>
+<section class="stats">
+ <div class="stat"><span>Filtered Total Images</span><strong id="total">0</strong></div>
+ <div class="stat"><span>Saree Images</span><strong id="sarees">0</strong></div>
+ <div class="stat"><span>Dupatta Images</span><strong id="dupattas">0</strong></div>
+ <div class="stat"><span>Design / Colour Groups</span><strong id="groups">0</strong></div>
+</section>
 
-  <!-- TOP HEADER -->
-  <header class="bg-[#5C0612] text-white shadow-md sticky top-0 z-50 border-b-2 border-[#DAA520]">
-    <div class="max-w-7xl mx-auto px-4 py-3.5 flex justify-between items-center">
-      <div class="flex items-center gap-3">
-        <a href="index.html" class="w-10 h-10 rounded-xl bg-[#EFE5C9] text-[#5C0612] flex items-center justify-center font-bold text-xl font-traditional border border-[#DAA520]">KK</a>
-        <div>
-          <h1 class="text-base sm:text-lg font-bold tracking-wide font-traditional text-[#EFE5C9]">Inventory & Theme Analytics Hub</h1>
-          <p class="text-[9px] text-stone-300 uppercase tracking-wider">Dynamic Pivot: Fabric • Design (Floral/Story) • Theme • Colour</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <a href="index.html" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20">
-          <i class="fa-solid fa-chart-line mr-1"></i> Dashboard
-        </a>
-        <button onclick="fetchStockData()" class="bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-4 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5">
-          <i id="refresh-icon" class="fa-solid fa-arrows-rotate text-xs"></i> Refresh
-        </button>
-      </div>
-    </div>
-    <div class="zari-line"></div>
-  </header>
+<section class="panel">
+<h3>Filter Inventory</h3>
+<div class="filters">
+ <div><label>Store</label><select id="store"></select></div>
+ <div><label>Product Type</label><select id="type"></select></div>
+ <div><label>Fabric</label><select id="fabric"></select></div>
+ <div><label>Category</label><select id="category"></select></div>
+ <div><label>Design</label><select id="design"></select></div>
+ <div><label>Colour</label><select id="colour"></select></div>
+ <div><label>Search Filename</label><input id="search" placeholder="Search image..."></div>
+ <div><label>Reset</label><button id="reset">Clear All Filters</button></div>
+</div>
+</section>
 
-  <!-- MAIN CONTAINER -->
-  <main class="max-w-7xl mx-auto px-4 mt-6 space-y-5">
-    <p id="kk-inventory-source-note" class="text-xs text-stone-500">
-  Catalogue stock is sync-based. Store mapping and physical availability
-  require verification before dispatch.
-</p>
+<section class="panel">
+<div class="row"><h3>Design & Colour Quantity Summary</h3></div>
+<div class="scroll">
+<table class="group-table">
+<thead><tr><th>Store</th><th>Type</th><th>Fabric</th><th>Category</th><th>Design</th><th>Colour</th><th>Qty</th></tr></thead>
+<tbody id="summary"></tbody>
+</table>
+</div>
+</section>
 
-    <!-- STATS STRIP -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center font-numeric">
-      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-[#E5D5C6] warm-shadow">
-        <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Total Saree Stock</span>
-        <strong id="stat-total-qty" class="text-xl font-black text-[#5C0612]">0</strong>
-      </div>
-      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-[#E5D5C6] warm-shadow">
-        <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Matching Active Filter</span>
-        <strong id="stat-filtered-qty" class="text-xl font-black text-stone-800">0</strong>
-      </div>
-      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-[#E5D5C6] warm-shadow">
-        <span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Themes Discovered</span>
-        <strong id="stat-themes-count" class="text-xl font-black text-stone-800">0</strong>
-      </div>
-      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-emerald-200 warm-shadow">
-        <span class="block text-[8px] font-bold text-emerald-800 uppercase font-traditional">Colours Available</span>
-        <strong id="stat-colours-count" class="text-xl font-black text-emerald-700">0</strong>
-      </div>
-    </div>
-
-    <!-- FILTER CONTROL SUITE -->
-    <div class="bg-[#FFFDF9] p-5 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-4">
-      <div class="flex justify-between items-center border-b border-[#E5D5C6]/60 pb-3">
-        <h2 class="text-xs font-bold uppercase tracking-wider text-stone-700 font-traditional flex items-center gap-2">
-          <i class="fa-solid fa-sliders text-[#5C0612]"></i> Slicers & Filters
-        </h2>
-        <button onclick="resetFilters()" class="text-[10px] font-bold text-[#5C0612] hover:underline uppercase font-traditional">
-          <i class="fa-solid fa-rotate-left mr-1"></i> Reset All Slicers
-        </button>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs font-sans">
-        <!-- 1. Department -->
-        <div>
-          <label class="block text-[9px] font-bold text-stone-500 uppercase mb-1 font-traditional">Department</label>
-          <select id="filter-dept" onchange="applyFilters()" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-bold text-[#5C0612] focus:outline-none">
-            <option value="All">All Departments</option>
-          </select>
-        </div>
-
-        <!-- 2. Fabric (X Fabric) -->
-        <div>
-          <label class="block text-[9px] font-bold text-stone-500 uppercase mb-1 font-traditional">Fabric Name (X Fabric)</label>
-          <select id="filter-fabric" onchange="applyFilters()" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-bold text-stone-800 focus:outline-none">
-            <option value="All">All Fabrics</option>
-          </select>
-        </div>
-
-        <!-- 3. Design (Floral / Story) -->
-        <div>
-          <label class="block text-[9px] font-bold text-stone-500 uppercase mb-1 font-traditional">Design (Floral / Story)</label>
-          <select id="filter-design" onchange="applyFilters()" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-bold text-stone-800 focus:outline-none">
-            <option value="All">All Designs (Floral & Story)</option>
-            <option value="Floral">🌸 Floral</option>
-            <option value="Story">📜 Story</option>
-          </select>
-        </div>
-
-        <!-- 4. Theme (X Theme) -->
-        <div>
-          <label class="block text-[9px] font-bold text-stone-500 uppercase mb-1 font-traditional">Theme (X Theme)</label>
-          <select id="filter-theme" onchange="applyFilters()" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-bold text-stone-800 focus:outline-none">
-            <option value="All">All Themes</option>
-          </select>
-        </div>
-
-        <!-- 5. Colour (Y Colour) -->
-        <div>
-          <label class="block text-[9px] font-bold text-stone-500 uppercase mb-1 font-traditional">Colour (Y Colour)</label>
-          <select id="filter-colour" onchange="applyFilters()" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-bold text-stone-800 focus:outline-none">
-            <option value="All">All Colours</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Quick Colour Tag Strip -->
-      <div class="pt-2 border-t border-[#E5D5C6]/40 flex items-center gap-2 flex-wrap">
-        <span class="text-[9px] font-bold uppercase tracking-wider text-stone-500 font-traditional">Quick Colour Click:</span>
-        <div id="quick-colour-chips" class="flex flex-wrap gap-1.5"></div>
-      </div>
-    </div>
-
-    <!-- VIEW MODE TABS -->
-    <div class="flex bg-[#EFE5C9]/50 rounded-2xl p-1 border border-[#E5D5C6] gap-1 overflow-x-auto max-w-2xl mx-auto">
-      <button onclick="switchViewMode('theme-view')" id="tab-theme-view" class="flex-1 min-w-[130px] py-2 text-xs font-bold rounded-xl bg-[#5C0612] text-[#EFE5C9] font-traditional shadow-sm transition-all flex items-center justify-center gap-1.5">
-        <i class="fa-solid fa-shapes text-[#DAA520]"></i> Theme Summary
-      </button>
-      <button onclick="switchViewMode('matrix-view')" id="tab-matrix-view" class="flex-1 min-w-[130px] py-2 text-xs font-bold rounded-xl text-stone-600 hover:text-stone-900 font-traditional transition-all flex items-center justify-center gap-1.5">
-        <i class="fa-solid fa-table-cells text-[#5C0612]"></i> Fabric × Design Matrix
-      </button>
-      <button onclick="switchViewMode('table-view')" id="tab-table-view" class="flex-1 min-w-[130px] py-2 text-xs font-bold rounded-xl text-stone-600 hover:text-stone-900 font-traditional transition-all flex items-center justify-center gap-1.5">
-        <i class="fa-solid fa-list-check text-stone-500"></i> Detailed Register
-      </button>
-    </div>
-
-    <!-- ========================================================= -->
-    <!-- VIEW 1: THEME SUMMARY & EXPANDABLE COLOUR DRILL-DOWN -->
-    <!-- ========================================================= -->
-    <div id="view-theme-summary" class="view-panel space-y-4">
-      <div class="bg-[#FFFDF9] p-5 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-4">
-        <div class="flex justify-between items-center border-b border-[#E5D5C6]/60 pb-2">
-          <div>
-            <h3 class="text-sm font-bold font-traditional text-stone-800 uppercase tracking-wide">
-              Theme Counts & Colour Breakdown
-            </h3>
-            <p class="text-[10px] text-stone-500">Total saree counts per theme. Click any theme card to see every colour shade inside it.</p>
-          </div>
-          <span id="theme-cards-count-badge" class="text-[10px] font-black bg-[#5C0612] text-[#EFE5C9] px-2.5 py-1 rounded-xl">0 Themes</span>
-        </div>
-
-        <div id="theme-cards-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          <!-- Populated by JS -->
-        </div>
-      </div>
-    </div>
-
-    <!-- ========================================================= -->
-    <!-- VIEW 2: FABRIC × DESIGN MATRIX (PIVOT TABLE) -->
-    <!-- ========================================================= -->
-    <div id="view-matrix" class="view-panel hidden space-y-4">
-      <div class="bg-[#FFFDF9] p-5 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-4">
-        <div class="flex justify-between items-center border-b border-[#E5D5C6]/60 pb-2">
-          <div>
-            <h3 class="text-sm font-bold font-traditional text-stone-800 uppercase tracking-wide">
-              Fabric × Design Pivot Matrix
-            </h3>
-            <p class="text-[10px] text-stone-500">Breakdown of how many sarees in each fabric have 🌸 Floral vs 📜 Story designs.</p>
-          </div>
-        </div>
-
-        <div class="overflow-x-auto rounded-2xl border border-[#E5D5C6]">
-          <table class="w-full text-left border-collapse text-xs font-numeric">
-            <thead>
-              <tr class="bg-[#F3EFE9] text-stone-700 uppercase text-[9px] font-extrabold tracking-wider border-b border-[#E5D5C6]">
-                <th class="p-3.5 font-traditional">Fabric Name</th>
-                <th class="p-3.5 text-center font-traditional text-emerald-800">🌸 Floral Sarees</th>
-                <th class="p-3.5 text-center font-traditional text-purple-800">📜 Story Sarees</th>
-                <th class="p-3.5 text-right font-traditional text-[#5C0612] w-32">Total Sarees</th>
-                <th class="p-3.5 text-center font-traditional w-24">Action</th>
-              </tr>
-            </thead>
-            <tbody id="matrix-tbody" class="divide-y divide-[#E5D5C6]/40">
-              <!-- Populated by JS -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- ========================================================= -->
-    <!-- VIEW 3: DETAILED TABLE REGISTER -->
-    <!-- ========================================================= -->
-    <div id="view-table" class="view-panel hidden space-y-4">
-      <div class="bg-[#FFFDF9] rounded-3xl border border-[#E5D5C6] overflow-hidden warm-shadow">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr class="bg-[#F3EFE9] text-stone-700 uppercase text-[9px] font-extrabold tracking-wider border-b border-[#E5D5C6]">
-                <th class="p-3.5 w-16 text-center">Preview</th>
-                <th class="p-3.5">Department</th>
-                <th class="p-3.5">Fabric Name</th>
-                <th class="p-3.5">Design</th>
-                <th class="p-3.5">Theme (X Theme)</th>
-                <th class="p-3.5">Colour (Y Colour)</th>
-                <th class="p-3.5 text-right w-24">Qty</th>
-              </tr>
-            </thead>
-            <tbody id="stock-tbody" class="divide-y divide-[#E5D5C6]/40 font-numeric">
-              <!-- Populated by JS -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-  <!-- KK-DRIVE-AUDIT-INTEGRATION -->
-<section id="kk-drive-audit"
-  class="bg-[#FFFDF9] p-5 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-4">
-
-  <div>
-    <h2 class="font-bold text-[#5C0612] text-lg">
-      Main Catalogue & KHPS — Drive Inventory Audit
-    </h2>
-    <p class="text-xs text-stone-500 mt-1">
-      Local Google Drive scan snapshot. Not live stock or physical stock verification.
-      Existing Catalogue Supabase inventory above remains unchanged.
-    </p>
-  </div>
-
-  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-    <div class="p-3 rounded-xl bg-[#FAF6EE] border">
-      <div class="text-xs">Filtered Images</div>
-      <strong id="kk-audit-total" class="text-2xl">0</strong>
-    </div>
-    <div class="p-3 rounded-xl bg-[#FAF6EE] border">
-      <div class="text-xs">Saree Images</div>
-      <strong id="kk-audit-sarees" class="text-2xl">0</strong>
-    </div>
-    <div class="p-3 rounded-xl bg-[#FAF6EE] border">
-      <div class="text-xs">Dupatta Images</div>
-      <strong id="kk-audit-dupattas" class="text-2xl">0</strong>
-    </div>
-    <div class="p-3 rounded-xl bg-[#FAF6EE] border">
-      <div class="text-xs">Groups</div>
-      <strong id="kk-audit-groups" class="text-2xl">0</strong>
-    </div>
-  </div>
-
-  <div id="kk-audit-filters"
-    class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3"></div>
-
-  <div class="flex flex-wrap items-center gap-3">
-    <button type="button" id="kk-audit-reset"
-      class="bg-[#5C0612] text-white px-4 py-2 rounded-lg text-xs font-bold">
-      Clear Filters
-    </button>
-
-    <a href="https://drive.google.com/drive/folders/12PV7YGDYFoCOsSUcL2L8PyGanqvAlEeO"
-       target="_blank" rel="noopener noreferrer"
-       class="text-xs font-bold text-[#5C0612] underline">
-      Open KHPS Drive Folder
-    </a>
-  </div>
-
-  <h3 class="text-sm font-bold">Fabric / Design / Colour Quantity Summary</h3>
-  <div class="overflow-auto max-h-96">
-    <table class="w-full text-xs text-left">
-      <thead class="bg-[#FAF6EE] sticky top-0">
-        <tr>
-          <th class="p-2">Store</th>
-          <th class="p-2">Type</th>
-          <th class="p-2">Fabric</th>
-          <th class="p-2">Category</th>
-          <th class="p-2">Design</th>
-          <th class="p-2">Colour</th>
-          <th class="p-2">Qty</th>
-        </tr>
-      </thead>
-      <tbody id="kk-audit-summary"></tbody>
-    </table>
-  </div>
-
-  <h3 class="text-sm font-bold">Matching Image Filenames</h3>
-  <p class="text-xs text-stone-500">
-    Individual photos require a verified Google Drive file ID mapping.
-    Local Windows paths cannot be opened from the hosted portal.
-  </p>
-
-  <div id="kk-audit-list"
-    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"></div>
-
-  <button type="button" id="kk-audit-more"
-    class="bg-[#5C0612] text-white px-5 py-2 rounded-lg text-xs font-bold">
-    Load More
-  </button>
+<section class="panel">
+<div class="row">
+ <h3>Product Images</h3>
+ <span class="muted" id="shown"></span>
+</div>
+<div class="grid" id="products"></div>
+<div style="margin-top:18px"><button id="more">Load More Images</button></div>
 </section>
 </main>
 
-  <!-- JAVASCRIPT LOGIC -->
-  <script>
-    const SUPABASE_URL = window.KK_STAFF_CONFIG.url;
-const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    let rawData = [];
-    let currentFiltered = [];
-    let activeView = 'theme-view';
-
-    window.addEventListener('DOMContentLoaded', fetchStockData);
-
-    async function fetchStockData() {
-      if (!await KK.session(supabaseClient, true)) return;
-      const icon = document.getElementById('refresh-icon');
-      if (icon) icon.classList.add('animate-spin');
-
-      try {
-        const { data: auth, error } = await supabaseClient.auth.getSession();
-        if (error || !auth?.session?.access_token) throw new Error('Please sign in again.');
-        const response = await fetch('/api/owner-inventory', {
-          method: 'GET', cache: 'no-store', credentials: 'same-origin',
-          headers: { Authorization: `Bearer ${auth.session.access_token}` }
-        });
-        if (!response.ok) throw new Error('Inventory unavailable. Refresh to retry.');
-        const payload = await response.json();
-        if (payload?.read_only !== true || !Array.isArray(payload.saree_inventory) ||
-            payload.counts?.saree_inventory !== payload.saree_inventory.length) {
-          throw new Error('Incomplete inventory response.');
-        }
-        if (payload.source !== "catalogue_products") throw new Error("Unexpected inventory source.");
-        window.KKDriveAudit.initialize(payload.drive_audit);
-        const data = payload.saree_inventory;
-
-        rawData = data || [];
-        document.getElementById('stat-total-qty').textContent = `${rawData.reduce((n, r) => n + KK.quantity(r), 0)} Units`;
-
-        populateDropdowns();
-        applyFilters();
-      } catch (err) {
-        rawData = [];
-        currentFiltered = [];
-        document.getElementById('stat-total-qty').textContent = 'Unavailable';
-        applyFilters();
-        document.getElementById('stat-filtered-qty').textContent = 'Unavailable';
-        console.error("Fetch Error:", err);
-        alert("Database connection error: " + err.message);
-      } finally {
-        if (icon) icon.classList.remove('animate-spin');
-      }
-    }
-
-    function populateDropdowns() {
-      const depts = new Set(), fabrics = new Set(), themes = new Set(), colours = new Set();
-
-      rawData.forEach(r => {
-        if (r.department) depts.add(r.department.trim());
-        if (r.fabric_name) fabrics.add(r.fabric_name.trim());
-        if (r.theme && r.theme !== 'Not Defined') themes.add(r.theme.trim());
-        if (r.colour && r.colour !== 'Not Defined') colours.add(r.colour.trim());
-      });
-
-      document.getElementById('stat-themes-count').textContent = `${themes.size} Themes`;
-      document.getElementById('stat-colours-count').textContent = `${colours.size} Colours`;
-
-      const fill = (id, set, label) => {
-        const el = document.getElementById(id);
-        const current = el.value;
-        el.innerHTML = `<option value="All">All ${label}</option>` +
-          Array.from(set).sort().map(v => `<option value="${KK.escape(v)}">${KK.escape(v)}</option>`).join('');
-        el.value = current || 'All';
-      };
-
-      fill('filter-dept', depts, 'Departments');
-      fill('filter-fabric', fabrics, 'Fabrics');
-      fill('filter-theme', themes, 'Themes');
-      fill('filter-colour', colours, 'Colours');
-
-      // Populate Quick Colour Chips
-      const chipContainer = document.getElementById('quick-colour-chips');
-      chipContainer.innerHTML = Array.from(colours).sort().slice(0, 10).map(c => `
-        <button onclick="selectQuickColour(${KK.eventArg(c)})" class="text-[9px] font-bold bg-[#FAF6EE] hover:bg-[#EFE5C9] text-stone-700 px-2 py-0.5 rounded-lg border border-[#E5D5C6] transition-all">
-          🎨 ${KK.escape(c)}
-        </button>
-      `).join('');
-    }
-
-    function selectQuickColour(col) {
-      document.getElementById('filter-colour').value = col;
-      applyFilters();
-    }
-
-    function resetFilters() {
-      document.getElementById('filter-dept').value = 'All';
-      document.getElementById('filter-fabric').value = 'All';
-      document.getElementById('filter-design').value = 'All';
-      document.getElementById('filter-theme').value = 'All';
-      document.getElementById('filter-colour').value = 'All';
-      applyFilters();
-    }
-
-    function applyFilters() {
-      const deptVal = document.getElementById('filter-dept').value;
-      const fabVal = document.getElementById('filter-fabric').value;
-      const desVal = document.getElementById('filter-design').value;
-      const thmVal = document.getElementById('filter-theme').value;
-      const colVal = document.getElementById('filter-colour').value;
-
-      currentFiltered = rawData.filter(r => {
-        if (deptVal !== 'All' && (r.department || '').trim() !== deptVal) return false;
-        if (fabVal !== 'All' && (r.fabric_name || '').trim() !== fabVal) return false;
-        if (desVal !== 'All' && (r.design_name || '').trim() !== desVal) return false;
-        if (thmVal !== 'All' && (r.theme || '').trim() !== thmVal) return false;
-        if (colVal !== 'All' && (r.colour || '').trim() !== colVal) return false;
-        return true;
-      });
-
-      document.getElementById('stat-filtered-qty').textContent = `${currentFiltered.reduce((n, r) => n + KK.quantity(r), 0)} Units`;
-
-      renderThemeSummaryView();
-      renderMatrixView();
-      renderTableView();
-    }
-
-    // -------------------------------------------------------------
-    // RENDER VIEW 1: THEME SUMMARY & COLOUR DRILL-DOWN CARDS
-    // -------------------------------------------------------------
-    function renderThemeSummaryView() {
-      const container = document.getElementById('theme-cards-grid');
-      const badge = document.getElementById('theme-cards-count-badge');
-
-      const themeGroups = {};
-      currentFiltered.forEach(r => {
-        const t = r.theme || 'Not Defined';
-        if (!themeGroups[t]) {
-          themeGroups[t] = { total: 0, colours: {}, fabrics: new Set(), design: r.design_name || 'Not Defined' };
-        }
-        themeGroups[t].total += KK.quantity(r);
-
-        const c = r.colour || 'Assorted';
-        themeGroups[t].colours[c] = (themeGroups[t].colours[c] || 0) + KK.quantity(r);
-        if (r.fabric_name) themeGroups[t].fabrics.add(r.fabric_name);
-      });
-
-      const sortedThemes = Object.entries(themeGroups).sort((a, b) => b[1].total - a[1].total);
-      if (badge) badge.textContent = `${sortedThemes.length} Themes`;
-
-      if (sortedThemes.length === 0) {
-        container.innerHTML = `<p class="col-span-full p-8 text-center text-stone-400 font-traditional">No themes match your active filter.</p>`;
-        return;
-      }
-
-      container.innerHTML = sortedThemes.map(([themeName, tData], idx) => {
-        const isStory = tData.design === 'Story';
-        const unknownDesign = tData.design === 'Not Defined';
-        const designBadge = isStory
-          ? `<span class="text-[8px] bg-purple-100 text-purple-900 border border-purple-300 font-black px-1.5 py-0.5 rounded uppercase">📜 Story</span>`
-          : `<span class="text-[8px] bg-emerald-100 text-emerald-900 border border-emerald-300 font-black px-1.5 py-0.5 rounded uppercase">🌸 Floral</span>`;
-
-        const colourChips = Object.entries(tData.colours).map(([cName, cCount]) => `
-          <span onclick="drillDownColour(${KK.eventArg(themeName)}, ${KK.eventArg(cName)})" class="cursor-pointer text-[9px] bg-[#FAF6EE] hover:bg-[#5C0612] hover:text-[#EFE5C9] font-bold px-2 py-0.5 rounded-lg border border-[#E5D5C6] transition-all font-numeric">
-            🎨 ${KK.escape(cName)}: <strong class="font-black">${cCount}</strong>
-          </span>
-        `).join('');
-
-        return `
-          <div class="bg-[#FFFDF9] rounded-2xl border border-[#E5D5C6] p-4 warm-shadow warm-shadow-hover transition-all flex flex-col justify-between">
-            <div>
-              <div class="flex justify-between items-start gap-2 mb-2">
-                <div>
-                  ${designBadge}
-                  <h4 class="font-bold text-stone-800 text-sm font-sans mt-1">✨ ${KK.escape(themeName)}</h4>
-                  <p class="text-[9px] text-stone-400 truncate max-w-xs">${KK.escape(Array.from(tData.fabrics).join(', '))}</p>
-                </div>
-                <div class="text-right">
-                  <span class="text-xl font-black text-[#5C0612] font-numeric">${tData.total}</span>
-                  <span class="block text-[8px] font-bold text-stone-400 uppercase">Sarees</span>
-                </div>
-              </div>
-
-              <!-- Colours Inside Theme -->
-              <div class="pt-2 border-t border-[#E5D5C6]/50">
-                <p class="text-[8px] font-bold text-stone-500 uppercase tracking-wider mb-1 font-traditional">Colours in this theme:</p>
-                <div class="flex flex-wrap gap-1">
-                  ${colourChips}
-                </div>
-              </div>
-            </div>
-
-            <div class="pt-3 mt-3 border-t border-[#E5D5C6]/30 flex justify-between items-center text-[10px]">
-              <button onclick="isolateTheme(${KK.eventArg(themeName)})" class="text-[#5C0612] font-bold hover:underline">
-                View All ${tData.total} Sarees →
-              </button>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function isolateTheme(themeName) {
-      document.getElementById('filter-theme').value = themeName;
-      switchViewMode('table-view');
-      applyFilters();
-    }
-
-    function drillDownColour(themeName, colourName) {
-      document.getElementById('filter-theme').value = themeName;
-      document.getElementById('filter-colour').value = colourName;
-      switchViewMode('table-view');
-      applyFilters();
-    }
-
-    // -------------------------------------------------------------
-    // RENDER VIEW 2: FABRIC × DESIGN MATRIX (PIVOT)
-    // -------------------------------------------------------------
-    function renderMatrixView() {
-      const tbody = document.getElementById('matrix-tbody');
-      if (!tbody) return;
-
-      const matrix = {};
-      currentFiltered.forEach(r => {
-        const fab = r.fabric_name || 'General';
-        if (!matrix[fab]) {
-          matrix[fab] = { floral: 0, story: 0, total: 0 };
-        }
-        if (r.design_name === 'Story') {
-          matrix[fab].story += KK.quantity(r);
-        } else {
-          matrix[fab].floral += KK.quantity(r);
-        }
-        matrix[fab].total += KK.quantity(r);
-      });
-
-      const sortedFabrics = Object.entries(matrix).sort((a, b) => b[1].total - a[1].total);
-
-      if (sortedFabrics.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-stone-400 font-traditional">No fabrics match your filters.</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = sortedFabrics.map(([fabName, counts]) => `
-        <tr class="hover:bg-amber-50/20 transition-colors">
-          <td class="p-3.5 font-bold text-stone-800 text-xs font-sans">
-            🧵 ${KK.escape(fabName)}
-          </td>
-          <td class="p-3.5 text-center font-bold text-emerald-800">
-            ${counts.floral > 0 ? `<button onclick="filterFabricDesign(${KK.eventArg(fabName)}, 'Floral')" class="hover:underline font-black">${counts.floral} Sarees</button>` : `<span class="text-stone-300">-</span>`}
-          </td>
-          <td class="p-3.5 text-center font-bold text-purple-800">
-            ${counts.story > 0 ? `<button onclick="filterFabricDesign(${KK.eventArg(fabName)}, 'Story')" class="hover:underline font-black">${counts.story} Sarees</button>` : `<span class="text-stone-300">-</span>`}
-          </td>
-          <td class="p-3.5 text-right font-black text-[#5C0612] text-sm">
-            ${counts.total} Sarees
-          </td>
-          <td class="p-3.5 text-center">
-            <button onclick="isolateFabric(${KK.eventArg(fabName)})" class="text-[9px] bg-[#FAF6EE] hover:bg-[#EFE5C9] text-[#5C0612] font-bold px-2 py-1 rounded-lg border border-[#DAA520]">
-              Filter →
-            </button>
-          </td>
-        </tr>
-      `).join('');
-    }
-
-    function filterFabricDesign(fab, des) {
-      document.getElementById('filter-fabric').value = fab;
-      document.getElementById('filter-design').value = des;
-      switchViewMode('table-view');
-      applyFilters();
-    }
-
-    function isolateFabric(fab) {
-      document.getElementById('filter-fabric').value = fab;
-      switchViewMode('table-view');
-      applyFilters();
-    }
-
-    // -------------------------------------------------------------
-    // RENDER VIEW 3: FULL ITEM TABLE
-    // -------------------------------------------------------------
-    function renderTableView() {
-      const tbody = document.getElementById('stock-tbody');
-      if (!tbody) return;
-
-      if (currentFiltered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-stone-400 font-traditional">No items match your active filters.</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = currentFiltered.map(r => {
-        const isStory = r.design_name === 'Story';
-        const designBadge = isStory
-          ? `<span class="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-300">📜 Story</span>`
-          : `<span class="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">🌸 Floral</span>`;
-
-        return `
-          <tr class="hover:bg-amber-50/20 transition-colors">
-            <td class="p-3 text-center">
-              <div class="w-8 h-8 bg-[#FAF6EE] border border-[#E5D5C6] rounded-lg flex items-center justify-center text-stone-400 mx-auto">
-                <i class="fa-solid fa-image text-xs text-[#DAA520]"></i>
-              </div>
-            </td>
-            <td class="p-3">
-              <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-amber-100 text-[#5C0612] border border-amber-300">
-                ${KK.escape(r.department || 'Saree')}
-              </span>
-            </td>
-            <td class="p-3 font-bold text-stone-900">${KK.escape(r.fabric_name || 'General')}</td>
-            <td class="p-3">${designBadge}</td>
-            <td class="p-3 font-bold text-stone-800">✨ ${KK.escape(r.theme)}</td>
-            <td class="p-3 font-semibold text-stone-600">🎨 ${KK.escape(r.colour)}</td>
-            <td class="p-3 text-right font-black text-[#5C0612] text-sm">${KK.quantity(r)}</td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    // -------------------------------------------------------------
-    // SWITCH TABS
-    // -------------------------------------------------------------
-    function switchViewMode(mode) {
-      activeView = mode;
-
-      document.getElementById('view-theme-summary').classList.add('hidden');
-      document.getElementById('view-matrix').classList.add('hidden');
-      document.getElementById('view-table').classList.add('hidden');
-
-      ['theme-view', 'matrix-view', 'table-view'].forEach(m => {
-        const btn = document.getElementById(`tab-${KK.escape(m)}`);
-        if (btn) {
-          btn.className = (m === mode)
-            ? "flex-1 min-w-[130px] py-2 text-xs font-bold rounded-xl bg-[#5C0612] text-[#EFE5C9] font-traditional shadow-sm transition-all flex items-center justify-center gap-1.5"
-            : "flex-1 min-w-[130px] py-2 text-xs font-bold rounded-xl text-stone-600 hover:text-stone-900 font-traditional transition-all flex items-center justify-center gap-1.5";
-        }
-      });
-
-      if (mode === 'theme-view') document.getElementById('view-theme-summary').classList.remove('hidden');
-      else if (mode === 'matrix-view') document.getElementById('view-matrix').classList.remove('hidden');
-      else if (mode === 'table-view') document.getElementById('view-table').classList.remove('hidden');
-    }
-  </script>
 <script>
-// KK Drive Inventory Audit — separate from live Catalogue stock.
-(function () {
-  "use strict";
+let DATA = [];
+const fields = ["store","type","fabric","category","design","colour"];
+const $ = id => document.getElementById(id);
+const getField = (p, f) => p[f.charAt(0).toUpperCase() + f.slice(1)];
+let limit=60;
 
-  const fields = ["store","type","fabric","category","design","colour"];
-  const $ = id => document.getElementById(id);
-
-  let items = [];
-  let limit = 60;
-  let ready = false;
-
-  function clean(v) {
-    return String(v || "Not Defined").trim();
+function escapeHtml(v){
+ return String(v??"").replace(/[&<>"']/g,c=>({
+ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+ }[c]));
+}
+function normalized(v){return String(v||"Not Defined").trim().toLowerCase();}
+function matches(p,except){
+ return fields.every(f=>
+   f===except || !$(f).value ||
+   normalized(getField(p,f))===normalized($(f).value)
+ ) && (!(
+   $("search").value.trim()
+ ) || p.Filename.toLowerCase().includes($("search").value.trim().toLowerCase()));
+}
+function refreshOptions(){
+ for(const f of fields){
+  const selected=$(f).value;
+  const available=DATA.filter(p=>matches(p,f));
+  const seen=new Map();
+  for(const p of available){
+   const val=getField(p,f)||"Not Defined", key=normalized(val);
+   if(!seen.has(key)) seen.set(key,val);
   }
-
-  function norm(v) {
-    return String(v ?? "").trim().toLocaleLowerCase("en");
+  const values=[...seen.values()].sort((a,b)=>a.localeCompare(b));
+  $(f).innerHTML='<option value="">All</option>'+
+    values.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+  if(values.some(v=>normalized(v)===normalized(selected)) && selected){
+   $(f).value=values.find(v=>normalized(v)===normalized(selected));
   }
+ }
+}
+function render(){
+ refreshOptions();
+ const filtered=DATA.filter(p=>matches(p));
+ $("total").textContent=filtered.length;
+ $("sarees").textContent=filtered.filter(p=>p.Type==="Saree").length;
+ $("dupattas").textContent=filtered.filter(p=>p.Type==="Dupatta").length;
 
-  function escapeHTML(value) {
-    return String(value ?? "").replace(/[&<>"']/g, char => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    })[char]);
-  }
+ const groups=new Map();
+ for(const p of filtered){
+  const key=[p.Store,p.Type,p.Fabric,p.Category,p.Design,p.Colour]
+    .map(normalized).join("|");
+  if(!groups.has(key)) groups.set(key,{p,qty:0});
+  groups.get(key).qty++;
+ }
+ $("groups").textContent=groups.size;
+ const sorted=[...groups.values()].sort((a,b)=>b.qty-a.qty);
 
-  function getSelected(field) {
-    const el = $("kk-audit-" + field);
-    return el ? el.value : "";
-  }
+ $("summary").innerHTML=sorted.map(({p,qty})=>
+ `<tr>${[p.Store,p.Type,p.Fabric,p.Category,p.Design,p.Colour,qty]
+ .map(v=>`<td>${escapeHtml(v)}</td>`).join("")}</tr>`
+ ).join("");
 
-  function matching(item, except = null) {
-    return fields.every(field =>
-      field === except ||
-      !getSelected(field) ||
-      norm(item[field]) === norm(getSelected(field))
+ const visible=filtered.slice(0,limit);
+ $("shown").textContent=`Showing ${visible.length} of ${filtered.length}`;
+
+ $("products").innerHTML=visible.map(p=>`
+  <div class="product">
+   <div class="muted" style="padding:24px;text-align:center;background:#f1efea">Image preview not yet linked to Drive</div>
+   <div class="details">
+    <b>${escapeHtml(p.Fabric)}</b>
+    <div>${escapeHtml(p.Store)} | ${escapeHtml(p.Type)}</div>
+    <div>Category: ${escapeHtml(p.Category)}</div>
+    <div>Design: ${escapeHtml(p.Design)}</div>
+    <div>Colour: ${escapeHtml(p.Colour)}</div>
+    <div class="muted">${escapeHtml(p.Filename)}</div>
+   </div>
+  </div>`).join("");
+
+ $("more").style.display=limit<filtered.length?"block":"none";
+}
+for(const f of fields){
+ $(f).addEventListener("change",()=>{limit=60;render()});
+}
+$("search").addEventListener("input",()=>{limit=60;render()});
+$("reset").addEventListener("click",()=>{
+ for(const f of fields) $(f).value="";
+ $("search").value="";
+ limit=60;render();
+});
+$("more").addEventListener("click",()=>{limit+=60;render()});
+render();
+</script>
+<script>
+(async function loadPortalInventory() {
+  const status = document.createElement("p");
+  status.id = "inventory-load-status";
+  status.style.cssText =
+    "max-width:1400px;margin:12px auto;padding:8px 20px;font:13px Arial;color:#746d64";
+  status.textContent = "Loading authenticated inventory...";
+  document.querySelector("main").prepend(status);
+
+  try {
+    const client = supabase.createClient(
+      window.KK_STAFF_CONFIG.url,
+      window.KK_STAFF_CONFIG.anonKey
     );
-  }
 
-  function updateOptions() {
-    for (const field of fields) {
-      const select = $("kk-audit-" + field);
-      const selected = select.value;
-      const values = new Map();
+    if (!await KK.session(client, true)) return;
 
-      for (const item of items.filter(row => matching(row, field))) {
-        const value = clean(item[field]);
-        if (!values.has(norm(value))) values.set(norm(value), value);
-      }
+    const {data: auth, error} = await client.auth.getSession();
 
-      const options = [...values.values()]
-        .sort((a,b) => a.localeCompare(b));
-
-      select.replaceChildren(new Option("All", ""));
-
-      for (const value of options) {
-        select.add(new Option(value, value));
-      }
-
-      const previous = selected ? options.find(value => norm(value) === norm(selected)) : null;
-      select.value = previous || "";
-    }
-  }
-
-  function render() {
-    updateOptions();
-
-    const filtered = items.filter(item => matching(item));
-
-    $("kk-audit-total").textContent = filtered.length;
-    $("kk-audit-sarees").textContent =
-      filtered.filter(item => item.type === "Saree").length;
-    $("kk-audit-dupattas").textContent =
-      filtered.filter(item => item.type === "Dupatta").length;
-
-    const groups = new Map();
-
-    for (const item of filtered) {
-      const key = fields.map(field => norm(item[field])).join("\u001f");
-
-      if (!groups.has(key)) {
-        groups.set(key, { item, count: 0 });
-      }
-      groups.get(key).count++;
+    if (error || !auth?.session?.access_token) {
+      throw new Error("Please sign in again.");
     }
 
-    $("kk-audit-groups").textContent = groups.size;
-
-    const grouped = [...groups.values()]
-      .sort((a,b) => b.count - a.count);
-
-    $("kk-audit-summary").innerHTML = grouped.map(({item,count}) => `
-      <tr class="border-b border-stone-200">
-        ${fields.map(field =>
-          `<td class="p-2">${escapeHTML(item[field])}</td>`
-        ).join("")}
-        <td class="p-2 font-bold">${count}</td>
-      </tr>
-    `).join("");
-
-    const visible = filtered.slice(0,limit);
-
-    $("kk-audit-list").innerHTML = visible.map(item => `
-      <div class="p-3 rounded-xl border border-[#E5D5C6] bg-[#FAF6EE] text-xs">
-        <div class="font-bold break-all">${escapeHTML(item.filename)}</div>
-        <div class="mt-1">${escapeHTML(item.store)} |
-          ${escapeHTML(item.type)}</div>
-        <div>${escapeHTML(item.fabric)}</div>
-        <div>${escapeHTML(item.category)} |
-          ${escapeHTML(item.design)} |
-          ${escapeHTML(item.colour)}</div>
-      </div>
-    `).join("");
-
-    $("kk-audit-more").hidden = visible.length >= filtered.length;
-  }
-
-  function initialize(snapshot) {
-    if (ready) return;
-    if (!snapshot ||
-        snapshot.source !== "local_drive_csv_audit" ||
-        snapshot.snapshot !== true ||
-        !Array.isArray(snapshot.items) ||
-        snapshot.items.length !== snapshot.total_images ||
-        snapshot.items.length !== 1190) {
-      throw new Error("Drive audit snapshot missing or incomplete");
-    }
-
-    items = snapshot.items;
-    const container = $("kk-audit-filters");
-
-    for (const field of fields) {
-      const wrapper = document.createElement("div");
-      const label = document.createElement("label");
-      const select = document.createElement("select");
-
-      label.className = "block text-xs font-bold mb-1";
-      label.textContent = field.charAt(0).toUpperCase() + field.slice(1);
-
-      select.id = "kk-audit-" + field;
-      select.className =
-        "w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-lg p-2 text-xs";
-
-      select.addEventListener("change", () => {
-        limit = 60;
-        render();
-      });
-
-      wrapper.append(label, select);
-      container.appendChild(wrapper);
-    }
-
-    $("kk-audit-reset").addEventListener("click", () => {
-      for (const field of fields) {
-        $("kk-audit-" + field).value = "";
+    const response = await fetch("/api/owner-inventory", {
+      method: "GET",
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: {
+        Authorization: "Bearer " + auth.session.access_token
       }
-      limit = 60;
-      render();
     });
 
-    $("kk-audit-more").addEventListener("click", () => {
-      limit += 60;
-      render();
-    });
+    if (!response.ok) {
+      throw new Error("Inventory API unavailable (" + response.status + ")");
+    }
 
-    ready = true;
+    const payload = await response.json();
+    const audit = payload.drive_audit;
+
+    if (
+      payload.read_only !== true ||
+      payload.source !== "catalogue_products" ||
+      audit?.source !== "local_drive_csv_audit" ||
+      audit?.snapshot !== true ||
+      !Array.isArray(audit.items) ||
+      audit.items.length !== audit.total_images ||
+      audit.total_images !== 1190
+    ) {
+      throw new Error("Incomplete inventory snapshot.");
+    }
+
+    DATA = audit.items.map(item => ({
+      Store: item.store,
+      Type: item.type,
+      Fabric: item.fabric,
+      Category: item.category,
+      Design: item.design,
+      Colour: item.colour,
+      Filename: item.filename
+    }));
+
     render();
-  }
+    status.textContent =
+      "Drive inventory snapshot | Not live physical stock | Confirm before dispatch.";
 
-  window.KKDriveAudit = Object.freeze({ initialize });
+  } catch (error) {
+    status.textContent = "Inventory unavailable: " + error.message;
+    console.error("Inventory loading failed:", error);
+  }
 })();
 </script>
 </body>
