@@ -76,13 +76,15 @@ window.KK = (() => {
     if (!el && (excluded || duplicateReferences)) {
       el = document.createElement('div');
       el.id = 'reconciliation-warning';
-      el.setAttribute('role', 'alert');
-      el.style.cssText = 'padding:12px;margin:12px;border:1px solid #b45309;background:#fffbeb;color:#78350f;font:14px sans-serif';
-      document.body.prepend(el);
+      el.setAttribute('role', 'note');
+      el.style.cssText = 'font:11px sans-serif;color:#78716c;margin:10px 0;padding:4px 0;';
+      const main = document.getElementById('standard-main');
+      if (main) main.appendChild(el);
     }
     if (el) {
       el.hidden = !(excluded || duplicateReferences);
-      el.textContent = (excluded || duplicateReferences) ? `Under reconciliation: ${duplicateReferences} repeated invoice references; ${excluded} sales rows excluded from dashboard calculations. Recorded sales are not verified collections. Review: ${issues.slice(0, 10).join(', ')}${issues.length > 10 ? '…' : ''}.` : '';
+
+      el.textContent = (excluded || duplicateReferences) ? 'Data quality review pending. Dashboard totals exclude unresolved sales records.' : '';
     }
   }
   function amounts(items, masterTotal = null) {

@@ -49,10 +49,10 @@
 
   <!-- MAIN CONTAINER -->
   <main class="max-w-7xl mx-auto px-4 mt-6 space-y-5">
-    <section id="kk-inventory-source-warning" class="bg-[#FFFDF9] p-4 rounded-xl border border-amber-400 text-amber-900 text-sm" role="note">
-      <strong>Inventory source: live Catalogue Supabase sync / not physically audited.</strong>
-      Available products come from the Catalogue Supabase products table, reflecting the last successful Google Drive sync. C/D are catalogue store codes, not verified mappings to Main Branch/KHPS. Design, theme, and colour are not supplied by this source; do not infer them. Verify physical stock before dispatch.
-    </section>
+    <p id="kk-inventory-source-note" class="text-xs text-stone-500">
+  Catalogue stock is sync-based. Store mapping and physical availability
+  require verification before dispatch.
+</p>
 
     <!-- STATS STRIP -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center font-numeric">
@@ -669,7 +669,7 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
   }
 
   function norm(v) {
-    return clean(v).toLocaleLowerCase("en");
+    return String(v ?? "").trim().toLocaleLowerCase("en");
   }
 
   function escapeHTML(value) {
@@ -715,7 +715,7 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
         select.add(new Option(value, value));
       }
 
-      const previous = options.find(value => norm(value) === norm(selected));
+      const previous = selected ? options.find(value => norm(value) === norm(selected)) : null;
       select.value = previous || "";
     }
   }
