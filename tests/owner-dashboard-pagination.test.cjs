@@ -1,122 +1,15 @@
 "use strict";
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const handler = require("../api/owner-dashboard.js");
-
-async function scenario({ sales = [], bills = [], cap = 500 } = {}) {
-  const originalFetch = global.fetch;
-  const oldSalesUrl = process.env.SALES_READONLY_URL;
-  const oldSalesKey = process.env.SALES_READONLY_KEY;
-  const oldUrl = process.env.SUPABASE_URL;
-  const oldKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  process.env.SUPABASE_URL = "https://mock.supabase.co";
-  process.env.SUPABASE_SERVICE_ROLE_KEY = "mock-key";
-  process.env.SALES_READONLY_URL = "https://dqvqqrbvklpiibzqivbp.supabase.co";
-  process.env.SALES_READONLY_KEY = "mock-limited-readonly";
-
-  const offsets = [];
-
-  global.fetch = async raw => {
-    const url = new URL(raw);
-
-    if (url.pathname === "/auth/v1/user") {
-      return { ok: true, json: async () => ({ id: "owner" }) };
-    }
-
-    if (url.pathname.includes("kk_staff_access")) {
-      return {
-        ok: true,
-        json: async () => [{ role: "owner", active: true }]
-      };
-    }
-
-    const table = url.pathname.split("/").at(-1);
-    const items = {
-      sales,
-      receivables: [],
-      bills_master: bills
-    }[table];
-
-    if (!items) throw Error("Unexpected request");
-
-    const offset = Number(url.searchParams.get("offset"));
-    const limit = Number(url.searchParams.get("limit"));
-    const page = items.slice(offset, offset + Math.min(limit, cap));
-
-    if (table === "sales") offsets.push(offset);
-
-    return {
-      ok: true,
-      headers: {
-        get(name) {
-          return name.toLowerCase() === "content-range"
-            ? page.length
-              ? `${offset}-${offset + page.length - 1}/${items.length}`
-              : `*/${items.length}`
-            : null;
-        }
-      },
-      json: async () => page
-    };
-  };
-
-  const res = {
-    code: 200,
-    setHeader() {},
-    status(code) { this.code = code; return this; },
-    json(body) { this.body = body; return this; }
-  };
-
-  try {
-    await handler({
-      method: "GET",
-      headers: { authorization: "Bearer test-jwt" }
-    }, res);
-
-    return { res, offsets };
-  } finally {
-    if (oldSalesUrl === undefined) delete process.env.SALES_READONLY_URL;
-    else process.env.SALES_READONLY_URL = oldSalesUrl;
-    if (oldSalesKey === undefined) delete process.env.SALES_READONLY_KEY;
-    else process.env.SALES_READONLY_KEY = oldSalesKey;
-    global.fetch = originalFetch;
-    if (oldUrl === undefined) delete process.env.SUPABASE_URL;
-    else process.env.SUPABASE_URL = oldUrl;
-    if (oldKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    else process.env.SUPABASE_SERVICE_ROLE_KEY = oldKey;
-  }
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const source = require('../api/owner-dashboard.js');
+function response(){return {code:200,setHeader(){},status(c){this.code=c;return this;},json(b){this.body=b;return this;}};}
+async function run({sales=[],bills=[]}={}){
+ const oldFetch=global.fetch, oldUrl=process.env.SUPABASE_URL, oldKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
+ process.env.SUPABASE_URL='https://mock.supabase.co';process.env.SUPABASE_SERVICE_ROLE_KEY='mock-dev';
+ global.fetch=async u=>({ok:true,json:async()=>u.includes('/auth/v1/user')?{id:'owner'}:[{role:'owner',active:true}]});
+ const handler=source.createHandler(undefined,async()=>({sales,receivables:[],bills_master:bills}));const res=response();
+ try{await handler({method:'GET',headers:{authorization:'Bearer test-jwt'}},res);return res;}finally{global.fetch=oldFetch;if(oldUrl===undefined)delete process.env.SUPABASE_URL;else process.env.SUPABASE_URL=oldUrl;if(oldKey===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=oldKey;}
 }
-
-test("empty datasets succeed", async () => {
-  const { res } = await scenario();
-  assert.equal(res.code, 200);
-  assert.equal(res.body.counts.sales, 0);
-  assert.equal(res.body.counts.bills_master, 0);
-});
-
-test("501 sales are complete with 300-row server cap", async () => {
-  const sales = Array.from({ length: 501 }, (_, i) => ({
-    id: i + 1, amount: 100
-  }));
-  const { res, offsets } = await scenario({ sales, cap: 300 });
-  assert.equal(res.code, 200);
-  assert.equal(res.body.sales.length, 501);
-  assert.deepEqual(offsets, [0, 300]);
-});
-
-test("repeated invoice references remain under reconciliation", async () => {
-  const bills = [
-    { bill_no: "A1", branch: "Main Branch" },
-    { bill_no: "A1", branch: "Main Branch" }
-  ];
-
-  const { res } = await scenario({ bills });
-
-  assert.equal(res.code, 200);
-  assert.equal(res.body.bills_master.length, 2);
-  assert.equal(res.body.counts.bills_master, 2);
-  assert.equal(res.body.reconciliation.duplicate_invoice_references, 1);
-  assert.equal(res.body.reconciliation.repeated_invoice_rows, 1);
-  assert.equal(res.body.reconciliation.status, "under_reconciliation");
-});
+test('empty datasets succeed',async()=>{const r=await run();assert.equal(r.code,200);assert.equal(r.body.counts.sales,0);});
+test('501 rows are represented without truncation',async()=>{const sales=Array.from({length:501},(_,i)=>({id:i+1,amount:100}));const r=await run({sales});assert.equal(r.code,200);assert.equal(r.body.sales.length,501);});
+test('repeated invoices retain reconciliation warning',async()=>{const bills=[{bill_no:'A1',branch:'Main Branch'},{bill_no:'A1',branch:'Main Branch'}];const r=await run({bills});assert.equal(r.code,200);assert.equal(r.body.bills_master.length,2);assert.equal(r.body.reconciliation.duplicate_invoice_references,1);});

@@ -135,7 +135,7 @@ async function allRows(base, secret, name, order, maxRows) {
 
   throw new Error("Dataset limit reached");
 }
-function createHandler(datasets = DATASETS) {
+function createHandler(datasets = DATASETS, readData = require("../lib/sales-db.cjs").readRows) {
 return async function handler(req, res) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -188,31 +188,8 @@ return async function handler(req, res) {
       return send(res, 403, { error: "Access denied" });
     }
 
-    // Optional production SALES READ-ONLY source, distinct from DEV auth.
-    // Requires a database key with SELECT only, never a service_role key.
-    const salesUrl = (process.env.SALES_READONLY_URL || '').replace(/\/$/, '');
-    const salesKey = process.env.SALES_READONLY_KEY || '';
-    if (Boolean(salesUrl) !== Boolean(salesKey)) throw new Error('Sales source misconfigured');
-    let salesOrigin;
-    try { salesOrigin = new URL(salesUrl); } catch (_) { salesOrigin = null; }
-    if (!salesOrigin || salesOrigin.protocol !== 'https:' ||
-        salesOrigin.hostname !== 'dqvqqrbvklpiibzqivbp.supabase.co' ||
-        salesOrigin.port || salesOrigin.username || salesOrigin.password ||
-        salesOrigin.pathname !== '/' || !salesKey) {
-      throw new Error('Sales source unavailable');
-    }
-    // Never substitute DEV financial records for the requested live source.
-    if (!salesUrl || !salesKey) throw new Error('Live sales source unavailable');
-    const sourceBase = salesUrl;
-    const sourceKey = salesKey;
-    const data = {};
-
-    // No partial successful response if any dataset fails.
-    for (const [table, order, maximum] of datasets) {
-      data[table] = await allRows(
-        sourceBase, sourceKey, table, order, maximum
-      );
-    }
+    // Auth verified above. Restrict Production Sales to a separate database role.
+    const data = await readData(datasets);
 
     const payload = {
       ...data,
