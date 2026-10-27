@@ -50,8 +50,8 @@
   <!-- MAIN CONTAINER -->
   <main class="max-w-7xl mx-auto px-4 mt-6 space-y-5">
     <section id="kk-inventory-source-warning" class="bg-[#FFFDF9] p-4 rounded-xl border border-amber-400 text-amber-900 text-sm" role="note">
-      <strong>Inventory source: DEV / NOT PRODUCTION VERIFIED.</strong>
-      Quantities below come from the configured DEV Supabase inventory dataset. This release does not sync Google Drive catalogue images or verify current physical stock. Do not use these figures for purchasing, dispatch, or accounting until Google Drive availability and branch mappings are validated.
+      <strong>Inventory source: live Catalogue Supabase sync / not physically audited.</strong>
+      Available products come from the Catalogue Supabase products table, reflecting the last successful Google Drive sync. C/D are catalogue store codes, not verified mappings to Main Branch/KHPS. Design, theme, and colour are not supplied by this source; do not infer them. Verify physical stock before dispatch.
     </section>
 
     <!-- STATS STRIP -->
@@ -261,6 +261,7 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
             payload.counts?.saree_inventory !== payload.saree_inventory.length) {
           throw new Error('Incomplete inventory response.');
         }
+        if (payload.source !== "catalogue_products") throw new Error("Unexpected inventory source.");
         const data = payload.saree_inventory;
 
         rawData = data || [];
@@ -364,7 +365,7 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
       currentFiltered.forEach(r => {
         const t = r.theme || 'Not Defined';
         if (!themeGroups[t]) {
-          themeGroups[t] = { total: 0, colours: {}, fabrics: new Set(), design: r.design_name || 'Floral' };
+          themeGroups[t] = { total: 0, colours: {}, fabrics: new Set(), design: r.design_name || 'Not Defined' };
         }
         themeGroups[t].total += KK.quantity(r);
 
@@ -383,6 +384,7 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
 
       container.innerHTML = sortedThemes.map(([themeName, tData], idx) => {
         const isStory = tData.design === 'Story';
+        const unknownDesign = tData.design === 'Not Defined';
         const designBadge = isStory
           ? `<span class="text-[8px] bg-purple-100 text-purple-900 border border-purple-300 font-black px-1.5 py-0.5 rounded uppercase">📜 Story</span>`
           : `<span class="text-[8px] bg-emerald-100 text-emerald-900 border border-emerald-300 font-black px-1.5 py-0.5 rounded uppercase">🌸 Floral</span>`;
