@@ -1,6 +1,6 @@
 "use strict";
 
-// KK-CEO-003 â€” isolated development only.
+// KK-CEO-003 — isolated development only.
 // Owner/Admin authenticated, read-only financial dashboard API.
 
 const DATASETS = Object.freeze([
@@ -188,12 +188,29 @@ return async function handler(req, res) {
       return send(res, 403, { error: "Access denied" });
     }
 
+    // Optional production SALES READ-ONLY source, distinct from DEV auth.
+    // Requires a database key with SELECT only, never a service_role key.
+    const salesUrl = (process.env.SALES_READONLY_URL || '').replace(/\/$/, '');
+    const salesKey = process.env.SALES_READONLY_KEY || '';
+    if (Boolean(salesUrl) !== Boolean(salesKey)) throw new Error('Sales source misconfigured');
+    let salesOrigin;
+    try { salesOrigin = new URL(salesUrl); } catch (_) { salesOrigin = null; }
+    if (!salesOrigin || salesOrigin.protocol !== 'https:' ||
+        salesOrigin.hostname !== 'dqvqqrbvklpiibzqivbp.supabase.co' ||
+        salesOrigin.port || salesOrigin.username || salesOrigin.password ||
+        salesOrigin.pathname !== '/' || !salesKey) {
+      throw new Error('Sales source unavailable');
+    }
+    // Never substitute DEV financial records for the requested live source.
+    if (!salesUrl || !salesKey) throw new Error('Live sales source unavailable');
+    const sourceBase = salesUrl;
+    const sourceKey = salesKey;
     const data = {};
 
     // No partial successful response if any dataset fails.
     for (const [table, order, maximum] of datasets) {
       data[table] = await allRows(
-        base, secret, table, order, maximum
+        sourceBase, sourceKey, table, order, maximum
       );
     }
 
@@ -223,6 +240,9 @@ return async function handler(req, res) {
     }
 
     // Server-owned aggregate snapshot: only returned after Supabase Owner/Admin verification.
+    payload.sales_source = {source: 'production_sales_live_readonly', is_live: true, checked_at: new Date().toISOString()};
+    // Historical snapshot stays explicitly separate from transaction data.
+    // Historical finance fixtures are not bundled in publicly deployable API paths.
     payload.production_monthly_snapshot = null;
 
     const bytes = Buffer.byteLength(JSON.stringify(payload), "utf8");

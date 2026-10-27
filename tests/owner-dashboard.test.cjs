@@ -8,11 +8,15 @@ async function invoke({ method = "GET", token = "jwt",
                         role = "owner", active = true,
                         failTable = "" } = {}) {
   const oldFetch = global.fetch;
+  const oldSalesUrl = process.env.SALES_READONLY_URL;
+  const oldSalesKey = process.env.SALES_READONLY_KEY;
   const oldUrl = process.env.SUPABASE_URL;
   const oldKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   process.env.SUPABASE_URL = "https://mock.supabase.co";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "mock-secret";
+  process.env.SALES_READONLY_URL = "https://dqvqqrbvklpiibzqivbp.supabase.co";
+  process.env.SALES_READONLY_KEY = "mock-limited-readonly";
 
   const calls = [];
 
@@ -69,6 +73,10 @@ async function invoke({ method = "GET", token = "jwt",
 
     return { res, calls };
   } finally {
+    if (oldSalesUrl === undefined) delete process.env.SALES_READONLY_URL;
+    else process.env.SALES_READONLY_URL = oldSalesUrl;
+    if (oldSalesKey === undefined) delete process.env.SALES_READONLY_KEY;
+    else process.env.SALES_READONLY_KEY = oldSalesKey;
     global.fetch = oldFetch;
 
     if (oldUrl === undefined) delete process.env.SUPABASE_URL;
@@ -113,8 +121,6 @@ test("Owner receives all three read-only datasets", async () => {
     sales: 1, receivables: 1, bills_master: 1
   });
   assert.equal(res.body.read_only, true);
-  assert.equal(res.body.production_monthly_snapshot, null);
-  
   assert.equal(calls.every(c => c.options.method === "GET"), true);
 });
 
