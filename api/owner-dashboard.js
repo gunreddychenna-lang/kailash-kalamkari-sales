@@ -1,4 +1,5 @@
 "use strict";
+const { safeDatabaseCode } = require('../lib/sales-db-diagnostic.cjs');
 
 // KK-CEO-003 — isolated development only.
 // Owner/Admin authenticated, read-only financial dashboard API.
@@ -231,9 +232,7 @@ return async function handler(req, res) {
 
 
   } catch (error) {
-    const safeCode = String(error?.code || "UNKNOWN");
-    const code = /^(?:[0-9A-Z]{5}|ETIMEDOUT|ECONNREFUSED|ENOTFOUND|ECONNRESET|CERT_HAS_EXPIRED|UNABLE_TO_VERIFY_LEAF_SIGNATURE)$/.test(safeCode)
-      ? safeCode : "UNKNOWN";
+    const code = safeDatabaseCode(error?.code);
     console.error("[KK_SALES_DIAGNOSTIC]", {
       category: error?.code ? "database_or_network" : "application",
       code,
