@@ -441,14 +441,9 @@ async function fetchData(user, pass) {
       reconciled.excluded -= recoveredRows;
     }
 
-    let reviewNote = document.getElementById('sales-review-note');
-    if (review?.status === 'review_candidate') {
-      if (!reviewNote) {
-        reviewNote = document.createElement('p'); reviewNote.id = 'sales-review-note';
-        document.getElementById('standard-main').prepend(reviewNote);
-      }
-      reviewNote.textContent = `Invoice matching review — ${dashboardData.counts.sales} sales records, ${dashboardData.counts.receivables} receivables, ${dashboardData.counts.bills_master} bills received. Revised totals are awaiting approval; unresolved records remain excluded. Bank allocations for recovered invoices remain unverified.`;
-    } else if (reviewNote) reviewNote.remove();
+    // Hide the detailed Preview review banner.
+    // Keep the existing data-quality warning and financial safeguards.
+    document.getElementById('sales-review-note')?.remove();
     KK.reconciliationNotice(reconciled.excluded, reconciled.issues, dashboardData.reconciliation?.duplicate_invoice_references || 0);
     const settledReceivablesMap = new Map();
     for (const receipt of recRows) {
