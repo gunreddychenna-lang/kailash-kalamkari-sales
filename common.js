@@ -97,7 +97,16 @@ window.KK = (() => {
     if (masterTotal === null || masterTotal === undefined) return lines;
     const total = number(masterTotal);
     const sum = lines.reduce((a, b) => a + b, 0);
-    if (sum === 0 && total !== 0 && items.length > 1) throw new Error('Invoice has no line amounts; cannot allocate its revenue reliably.');
+    if (sum === 0 && total !== 0 && items.length > 1) {
+      const recorded = items.map(r => number(r.amount ?? r.AMOUNT));
+      const recordedCents = recorded.map(n => Math.round(n * 100));
+      const valid = items.every((r, i) =>
+        r.amount != null || r.AMOUNT != null
+      ) && recorded.every(n => Number.isFinite(n) && n >= 0) &&
+        recordedCents.reduce((a, b) => a + b, 0) === Math.round(total * 100);
+      if (!valid) throw new Error('Invoice has no line amounts; cannot allocate its revenue reliably.');
+      return recorded;
+    }
     const result = lines.map(line => sum ? Math.round(line / sum * total * 100) / 100 : total / items.length);
     if (result.length) result[result.length - 1] = Math.round((total - result.slice(0, -1).reduce((a, b) => a + b, 0)) * 100) / 100;
     return result;
