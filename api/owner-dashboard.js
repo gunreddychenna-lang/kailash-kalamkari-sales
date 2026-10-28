@@ -200,6 +200,8 @@ return async function handler(req, res) {
       read_only: true
     };
 
+    payload.preview_reconciliation = require('../lib/sales-preview-reconciliation.cjs').previewReconciliation(data);
+
     if (Array.isArray(data.bills_master)) {
       const references = new Map();
 

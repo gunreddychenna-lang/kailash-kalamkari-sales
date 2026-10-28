@@ -418,6 +418,37 @@ async function fetchData(user, pass) {
     const allSalesRecords = dashboardData.sales;
     const masterIndex = KK.invoiceIndex(masters);
     const reconciled = KK.invoiceGroups(allSalesRecords, masterIndex);
+    // Separately gated read-only Preview review groups; receipt matching remains conservative.
+    const review = dashboardData.preview_reconciliation;
+    if (review?.status === 'review_candidate' && Array.isArray(review.groups)) {
+      const seen = new Set(reconciled.groups.flatMap(g => g.items.map(x => String(x.id))));
+      const byId = new Map(allSalesRecords.map(x => [String(x.id), x]));
+      const recovered = [];
+      for (const group of review.groups) {
+        if (!group.master || !Array.isArray(group.saleIds) || !group.saleIds.length) {
+          throw new Error('Incomplete review group');
+        }
+        const items = group.saleIds.map(id => {
+          const key = String(id), row = byId.get(key);
+          if (!row || seen.has(key)) throw new Error('Duplicate or missing review sale');
+          seen.add(key); return row;
+        });
+        recovered.push({ key: group.key, master: group.master, items });
+      }
+      const recoveredRows = recovered.reduce((n, g) => n + g.items.length, 0);
+      if (recoveredRows > reconciled.excluded) throw new Error('Invalid review count');
+      reconciled.groups.push(...recovered);
+      reconciled.excluded -= recoveredRows;
+    }
+
+    let reviewNote = document.getElementById('sales-review-note');
+    if (review?.status === 'review_candidate') {
+      if (!reviewNote) {
+        reviewNote = document.createElement('p'); reviewNote.id = 'sales-review-note';
+        document.getElementById('standard-main').prepend(reviewNote);
+      }
+      reviewNote.textContent = `Invoice matching review — ${dashboardData.counts.sales} sales records, ${dashboardData.counts.receivables} receivables, ${dashboardData.counts.bills_master} bills received. Revised totals are awaiting approval; unresolved records remain excluded. Bank allocations for recovered invoices remain unverified.`;
+    } else if (reviewNote) reviewNote.remove();
     KK.reconciliationNotice(reconciled.excluded, reconciled.issues, dashboardData.reconciliation?.duplicate_invoice_references || 0);
     const settledReceivablesMap = new Map();
     for (const receipt of recRows) {
