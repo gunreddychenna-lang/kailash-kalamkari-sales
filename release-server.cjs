@@ -8,7 +8,8 @@ const assets = new Set(['index.html', 'stock.html', 'app.js', 'styles.css',
 const endpoints = {
   '/api/owner-dashboard': require('./api/owner-dashboard.js'),
   '/api/owner-inventory': require('./api/owner-inventory.js'),
-  '/api/staff-login': require('./api/staff-login.js')
+  '/api/staff-login': require('./api/staff-login.js'),
+  '/api/payment-requests': require('./api/payment-requests.js')
 };
 const productionHost = 'dqvqqrbvklpiibzqivbp.supabase.co';
 function createServer({ base = process.env.SUPABASE_URL,
@@ -25,7 +26,7 @@ function createServer({ base = process.env.SUPABASE_URL,
       const url = new URL(req.url, 'http://localhost');
       const endpoint = endpoints[url.pathname];
       if (endpoint) {
-        if (url.pathname === '/api/staff-login' && req.method === 'POST') {
+        if (['/api/staff-login', '/api/payment-requests'].includes(url.pathname) && req.method === 'POST') {
           let size = 0; const chunks = [];
           for await (const chunk of req) {
             size += chunk.length;

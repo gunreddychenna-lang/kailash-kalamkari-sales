@@ -19,8 +19,14 @@ test('DEV and preview HTTP surfaces expose only sales, inventory and login',asyn
       assert.ok(text.includes('fixture-public'));
     }
    }
-   for(const route of ['/entry.html','/staff.html','/attendance.html','/crm.html','/api/staff','/api/payment-requests','/api/owner-sales','/security/008_consolidated_rls_REVIEW_ONLY.sql','/.git','/app.js.pre-repair-20261026-184742.bak'])
+   for(const route of ['/entry.html','/staff.html','/attendance.html','/crm.html','/api/staff','/api/owner-sales','/security/008_consolidated_rls_REVIEW_ONLY.sql','/.git','/app.js.pre-repair-20261026-184742.bak'])
     assert.equal((await fetch(base+route)).status,404,label+route);
+   assert.equal((await fetch(base+'/api/payment-requests')).status,405);
+   assert.equal((await fetch(base+'/api/payment-requests',{
+     method:'POST',
+     headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({})
+   })).status,503);
    assert.equal((await fetch(base+'/api/owner-inventory',{method:'POST'})).status,405);
    assert.equal((await fetch(base+'/api/owner-dashboard',{method:'DELETE'})).status,405);
    assert.equal((await fetch(base+'/stock.html',{method:'POST'})).status,405);
