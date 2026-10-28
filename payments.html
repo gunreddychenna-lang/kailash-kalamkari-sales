@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payments · Kailash Kalamkari</title>
+<style>
+body{margin:0;background:#faf6ee;color:#312820;font:16px system-ui,sans-serif}header{background:#5c0612;color:white;padding:22px}header a{color:#ffe1a3}main{max-width:900px;margin:25px auto;padding:0 20px}section{background:white;padding:24px;margin:20px 0;border:1px solid #e6d9bf;border-radius:12px}h1{font-family:Georgia,serif;margin:12px 0}label{display:block;font-size:14px}input,select,button{font:inherit;padding:10px;border:1px solid #bcae96;border-radius:6px;box-sizing:border-box}input,select{width:100%;margin-top:6px}button{cursor:pointer;background:#5c0612;color:white;margin-top:12px}button:disabled{opacity:.5;cursor:default}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:14px}.notice{background:#fff0c9;padding:15px;border-radius:8px}.numbers{display:flex;gap:30px;flex-wrap:wrap}.numbers strong{display:block;font-size:26px}.payment{border-bottom:1px solid #e6d9bf;padding:18px 0}fieldset{border:0;padding:0;margin:0}#status{white-space:pre-wrap}table{border-collapse:collapse;width:100%;font-size:14px}td,th{text-align:left;padding:10px;border-bottom:1px solid #e6d9bf}.scroll{overflow:auto}[hidden]{display:none!important}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="staff-config.js"></script><script src="security-permissions.js"></script><script src="security-auth.js"></script><script src="common.js"></script><script defer src="payments.js"></script>
+</head><body><header><a href="index.html">← Sales dashboard</a><h1>Kailash Kalamkari · Payments</h1></header>
+<main><p class="notice"><strong>Test payments only.</strong> This page saves to the separate test database. Real customer payments are not enabled here. Use test bill <strong>TEST-PAY-10000</strong>, Main Branch.</p>
+<p id="status" role="status" aria-live="polite">Checking sign-in…</p>
+<section><form id="lookup"><fieldset id="lookup-fields" disabled><div class="grid"><label>Branch<select id="branch"><option>Main Branch</option><option>KHPS</option></select></label><label>Bill number<input id="bill" required maxlength="64" value="TEST-PAY-10000"></label></div><button>Load bill / Refresh receipts</button></fieldset></form></section>
+<section id="invoice" hidden><h2 id="invoice-title"></h2><div class="numbers"><div>Original bill amount<strong id="bill-total"></strong></div><div>Saved payments<strong id="paid-total"></strong></div><div>Remaining balance<strong id="balance"></strong></div></div>
+<p>The bill amount stays fixed. Enter one payment, or add another account if needed.</p>
+<form id="payment-form"><fieldset id="payment-fields"><div id="payment-rows"></div><button id="add-payment" type="button">+ Add another payment (optional)</button><p id="draft-summary"></p><button id="save-payment" type="submit">Save test payment</button></fieldset></form>
+<button id="retry-payment" type="button" hidden>Retry same submission</button>
+<h2>Saved receipt history</h2><div class="scroll"><table><thead><tr><th>Received date</th><th>Account</th><th>Amount</th><th>Reference</th><th>Entered at</th></tr></thead><tbody id="history"></tbody></table></div></section>
+</main></body></html>

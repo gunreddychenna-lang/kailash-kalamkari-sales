@@ -188,12 +188,37 @@ window.KK = (() => {
     }
   }
   function validateSplits(splits, total) {
-    if (!splits.length || splits.some(s => !s.account?.trim() || !Number.isFinite(Number(s.amount)) || Number(s.amount) <= 0)) throw new Error('Enter a bank account and a positive amount for every split.');
-    const sum = splits.reduce((n, s) => n + number(s.amount), 0);
-    if (Math.round(sum * 100) > Math.round(number(total) * 100)) throw new Error('Settlement exceeds the invoice total.');
-    return splits.map(s => ({ account: s.account.trim(), amount: Math.round(number(s.amount) * 100) / 100 }));
+    paymentSummary(total, splits);
+    return splits.map(s => ({ account: s.account.trim(), amount: moneyPaise(s.amount) / 100 }));
   }
-  return { number, escape, phone, invoiceParts, invoiceIndex, matchInvoice, invoiceGroups, reconciliationNotice, rows, session, login, logout, saveSettlements, amounts, validateSplits, identity: () => identity,
+  function moneyPaise(value) {
+    if (!['number', 'string'].includes(typeof value) ||
+        !/^(?:0|[1-9]\d{0,9})(?:\.\d{1,2})?$/.test(String(value))) {
+      throw new Error('Enter a positive amount with at most two decimal places.');
+    }
+    const [whole, fraction = ''] = String(value).split('.');
+    return Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+  }
+  // Calculation only: callers must supply verified saved receipts, not pending requests,
+  // when presenting this as paid. The bill total is never derived from payments.
+  function paymentSummary(total, payments) {
+    const bill = moneyPaise(total);
+    if (bill <= 0 || !Array.isArray(payments) || !payments.length || payments.length > 100) {
+      throw new Error('Enter a valid bill total and at least one payment.');
+    }
+    const paid = payments.reduce((sum, payment) => {
+      if (!payment || typeof payment.account !== 'string' ||
+          !payment.account.trim() || payment.account.trim().length > 120) {
+        throw new Error('Choose an account for every payment.');
+      }
+      const amount = moneyPaise(payment.amount);
+      if (amount <= 0) throw new Error('Payment amount must be positive.');
+      return sum + amount;
+    }, 0);
+    if (paid > bill) throw new Error('Settlement exceeds the invoice total.');
+    return { billAmount: bill / 100, paidAmount: paid / 100, balance: (bill - paid) / 100 };
+  }
+  return { number, escape, phone, invoiceParts, invoiceIndex, matchInvoice, invoiceGroups, reconciliationNotice, rows, session, login, logout, saveSettlements, amounts, validateSplits, paymentSummary, identity: () => identity,
     eventArg: value => escape(JSON.stringify(String(value ?? ''))),
     quantity: row => number(row.qty ?? row.quantity ?? row.QTY ?? row.Qty, 1)
   };

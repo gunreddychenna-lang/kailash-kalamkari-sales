@@ -4,8 +4,9 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const assets = new Set(['index.html', 'stock.html', 'app.js', 'styles.css',
-  'common.js', 'security-auth.js', 'security-permissions.js', 'staff-config.js']);
+  'common.js', 'security-auth.js', 'security-permissions.js', 'staff-config.js', 'payments.html', 'payments.js']);
 const endpoints = {
+  '/api/payments': require('./api/payments.js'),
   '/api/owner-dashboard': require('./api/owner-dashboard.js'),
   '/api/owner-inventory': require('./api/owner-inventory.js'),
   '/api/staff-login': require('./api/staff-login.js'),
@@ -26,7 +27,7 @@ function createServer({ base = process.env.SUPABASE_URL,
       const url = new URL(req.url, 'http://localhost');
       const endpoint = endpoints[url.pathname];
       if (endpoint) {
-        if (['/api/staff-login', '/api/payment-requests'].includes(url.pathname) && req.method === 'POST') {
+        if (['/api/staff-login', '/api/payment-requests', '/api/payments'].includes(url.pathname) && req.method === 'POST') {
           let size = 0; const chunks = [];
           for await (const chunk of req) {
             size += chunk.length;

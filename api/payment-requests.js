@@ -165,12 +165,13 @@ module.exports = async function handler(req, res) {
       return send(res, 403, { error: "Access denied" });
     }
 
-    // Verify that invoice belongs to the requested branch.
+    // Item rows are not invoices. Use the authoritative master total and
+    // reject repeated bill references until an explicit invoice ID is available.
     const invoiceResult = await upstream(
-      "/rest/v1/sales" +
+      "/rest/v1/bills_master" +
       "?bill_no=eq." + encodeURIComponent(bill) +
-      "&store_name=eq." + encodeURIComponent(store) +
-      "&select=id,amount&limit=2"
+      "&branch=eq." + encodeURIComponent(store) +
+      "&select=bill_amount&limit=2"
     );
 
     if (!invoiceResult.ok ||
@@ -186,7 +187,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const invoiceAmount = Number(invoiceResult.body[0].amount);
+    const invoiceAmount = Number(invoiceResult.body[0].bill_amount);
 
     if (!Number.isFinite(invoiceAmount) ||
         invoiceAmount <= 0 ||

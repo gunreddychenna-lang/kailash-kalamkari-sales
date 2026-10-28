@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -20,7 +20,7 @@ async function check(options = {}) {
 
   global.fetch = async (url, init) => {
     const path = new URL(url).pathname;
-    calls.push({ path, init });
+    calls.push({ path, url, init });
 
     let status = 200;
     let body;
@@ -34,8 +34,8 @@ async function check(options = {}) {
         stores: options.stores ?? ["Main Branch"],
         features: options.features ?? ["payments"]
       }];
-    } else if (path === "/rest/v1/sales") {
-      body = options.invoice ?? [{ id: 1, amount: 1000 }];
+    } else if (path === "/rest/v1/bills_master") {
+      body = options.invoice ?? [{ bill_amount: 1000 }];
     } else if (path === "/rest/v1/kk_payment_requests") {
       status = options.duplicate ? 409 : 201;
       body = options.duplicate
@@ -179,4 +179,47 @@ test("Admin request allowed", async () => {
   assert.equal(
     (await check({ role: "admin" })).status, 201
   );
+});
+
+test("September backfill preserves received date and never writes invoice totals", async () => {
+  const invoice = [{ bill_amount: 1000 }];
+  const before = JSON.stringify(invoice);
+  const result = await check({ invoice, body: { payment_date: "2026-09-01", amount: "125.50" } });
+  assert.equal(result.status, 201);
+  const writes = result.calls.filter(call => call.init.method !== "GET");
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].path, "/rest/v1/kk_payment_requests");
+  const saved = JSON.parse(writes[0].init.body);
+  assert.equal(saved.payment_date, "2026-09-01");
+  assert.equal(saved.amount, "125.50");
+  assert.equal(saved.status, "pending");
+  assert.equal(saved.idempotency_key, requestId);
+  assert.equal(Object.hasOwn(saved, "created_at"), false);
+  assert.equal(JSON.stringify(invoice), before);
+});
+
+test("Invalid dates and forged invoice totals cannot reach storage", async () => {
+  for (const body of [{ payment_date: "2026-09-31" }, { bill_amount: 1 }, { created_at: "2026-09-01" }]) {
+    const result = await check({ body });
+    assert.equal(result.status, 400);
+    assert.equal(result.calls.length, 0);
+  }
+});
+
+test("Repeated invoice masters fail closed without writing payments", async () => {
+  const result = await check({ invoice: [{ bill_amount: 600 }, { bill_amount: 400 }] });
+  assert.equal(result.status, 422);
+  assert.equal(result.calls.some(call => call.init.method === "POST"), false);
+});
+
+test("Payment limit uses the branch invoice master, not a single item amount", async () => {
+  const result = await check({ invoice: [{ bill_amount: 10000 }], body: { amount: 8000 } });
+  assert.equal(result.status, 201);
+  const lookup = result.calls.find(call => call.path === '/rest/v1/bills_master');
+  const query = new URL(lookup.url).searchParams;
+  assert.equal(query.get('bill_no'), 'eq.TEST-M001');
+  assert.equal(query.get('branch'), 'eq.Main Branch');
+  assert.equal(query.get('select'), 'bill_amount');
+  assert.equal(query.get('limit'), '2');
+  assert.equal(result.calls.some(call => call.path === '/rest/v1/sales'), false);
 });
