@@ -62,11 +62,11 @@
   }
   async function submitPending() {
     if (!pending || busy) return;
-    busy = true; lock(); status('Saving test payment…');
+    busy = true; lock(); status('Saving payment…');
     try {
       const result = await api('POST', pending);
       sessionStorage.removeItem(storageKey); pending = null;
-      render(result); status(result.replayed ? 'Already saved. The retry did not count it again.' : 'Test payment saved. Bill amount unchanged.');
+      render(result); status(result.replayed ? 'Already saved. The retry did not count it again.' : 'Payment recorded in receipt ledger. Bill amount unchanged.');
     } catch (e) {
       // A definite validation rejection can be corrected; unknown outcomes retain the same key.
       if ([400,403,409,422].includes(e.status)) { sessionStorage.removeItem(storageKey); pending = null; }
