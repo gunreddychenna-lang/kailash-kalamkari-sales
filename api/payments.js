@@ -11,7 +11,18 @@ module.exports = async function handler(req, res) {
   }
   const base = process.env.SUPABASE_URL?.replace(/\/$/, '');
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (base !== DEV || !secret || process.env.VERCEL_ENV === 'production') {
+  const PROD = 'https://dqvqqrbvklpiibzqivbp.supabase.co';
+
+  const devAllowed =
+    base === DEV &&
+    process.env.VERCEL_ENV !== 'production';
+
+  const prodAllowed =
+    base === PROD &&
+    process.env.VERCEL_ENV === 'production' &&
+    process.env.PAYMENTS_WRITE_ENABLED === 'true';
+
+  if (!secret || (!devAllowed && !prodAllowed)) {
     return send(503, { error: 'Payment trial unavailable. Production saving is disabled.' });
   }
   const token = (req.headers?.authorization || '').match(/^Bearer ([^\s]+)$/i)?.[1];
