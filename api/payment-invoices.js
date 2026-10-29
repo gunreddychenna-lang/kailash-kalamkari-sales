@@ -82,7 +82,7 @@ module.exports = async function handler(req, res) {
     const params = new URLSearchParams();
     params.set(
       "select",
-      "bill_no,branch,bill_date,bill_amount,customer_name"
+      "bill_no,branch,bill_date,bill_amount,customer_name,sm_name,channel"
     );
     params.set("order", "bill_date.desc,bill_no.asc,branch.asc");
     params.set("limit", "50");
