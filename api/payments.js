@@ -39,6 +39,34 @@ module.exports = async function handler(req, res) {
       !/^[0-9]+(?:\.[0-9]{1,2})?$/.test(String(input.expected_bill_amount)))) {
     return send(400, { error: 'Invalid payment submission.' });
   }
+  if (req.method === 'POST') {
+    const accounts = new Set([
+      '42441-TJ', 'Kailash Kalamkari', 'KC', 'Paytm',
+      'SBI', 'T Dhanalakshmi', 'T Janakamma', 'T KAILASAM'
+    ]);
+    for (const payment of input.payments) {
+      if (!payment || typeof payment !== 'object' || Array.isArray(payment)) {
+        return send(400, { error: 'Invalid payment.' });
+      }
+      if (payment.account === 'Cash') {
+        if (typeof payment.reference !== 'string') {
+          return send(400, { error: 'Invalid Cash reference.' });
+        }
+        continue;
+      }
+      if (typeof payment.account !== 'string' ||
+          typeof payment.reference !== 'string' ||
+          !payment.reference.trim()) {
+        return send(400, { error: 'UPI/Card reference required.' });
+      }
+      const parts = payment.account.split('::');
+      if (parts.length !== 2 ||
+          !['UPI_STORE','UPI_ONLINE','CARD'].includes(parts[0]) ||
+          !accounts.has(parts[1])) {
+        return send(400, { error: 'Invalid payment type or bank account.' });
+      }
+    }
+  }
   async function upstream(path, jwt, body) {
     const response = await fetch(base + path, {
       method: body ? 'POST' : 'GET',

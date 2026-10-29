@@ -24,7 +24,17 @@
   }
   function readRows() {
     return [...el('payment-rows').children].map(row => ({
-      account: row.querySelector('[name=account]').value.trim(),
+      account: (() => {
+        const method = row.querySelector('[name=method]').value;
+        const account = row.querySelector('[name=account]').value;
+        if (!method || !account) throw new Error('Select payment type and settlement account.');
+        if (method === 'CASH') return 'Cash';
+        if (method === 'TAKE_BY_HAND') throw new Error('Reseller settlement requires Owner review.');
+        if (!row.querySelector('[name=reference]').value.trim()) {
+          throw new Error('UPI/Card transaction reference is required.');
+        }
+        return method + '::' + account;
+      })(),
       amount: row.querySelector('[name=amount]').value,
       payment_date: row.querySelector('[name=date]').value,
       reference: row.querySelector('[name=reference]').value.trim()
@@ -39,7 +49,24 @@
   function addRow() {
     if (el('payment-rows').children.length >= 20) return;
     const row = document.createElement('div'); row.className = 'payment';
-    row.innerHTML = '<div class="grid"><label>Received date<input name="date" type="date" required min="2026-09-01"></label><label>Cash / bank account<input name="account" required maxlength="120" placeholder="e.g. Cash or TD"></label><label>Amount (₹)<input name="amount" type="number" required min="0.01" step="0.01"></label><label>Receipt reference (optional)<input name="reference" maxlength="120"></label></div><button type="button">Remove payment</button>';
+    row.innerHTML = '<div class="grid"><label>Received date<input name="date" type="date" required min="2026-09-01"></label><label>Payment type<select name="method" required><option value="">Select type</option><option value="UPI_STORE">UPI Store</option><option value="UPI_ONLINE">UPI Online</option><option value="CARD">Card</option><option value="CASH">Cash</option></select></label><label>Settlement account<select name="account" required><option value="">Select account</option></select></label><label>Amount (₹)<input name="amount" type="number" required min="0.01" step="0.01"></label><label>Receipt reference (optional)<input name="reference" maxlength="120"></label></div><button type="button">Remove payment</button>';
+    const bankNames = [
+      '42441-TJ', 'Kailash Kalamkari', 'KC', 'Paytm',
+      'SBI', 'T Dhanalakshmi', 'T Janakamma', 'T KAILASAM'
+    ];
+    const methodSelect = row.querySelector('[name=method]');
+    const accountSelect = row.querySelector('[name=account]');
+    methodSelect.addEventListener('change', () => {
+      accountSelect.replaceChildren();
+      const choices = methodSelect.value === 'CASH' ? ['Cash'] : bankNames;
+      for (const name of choices) {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        accountSelect.append(option);
+      }
+      draft();
+    });
     row.querySelector('[name=date]').value = today;
     row.querySelector('[name=date]').max = today;
     row.querySelector('button').addEventListener('click', () => { if (el('payment-rows').children.length > 1) { row.remove(); draft(); } });
@@ -76,7 +103,7 @@
   el('lookup').addEventListener('submit', async event => {
     event.preventDefault(); if (busy || pending) return; busy = true; lock(); status('Loading bill…');
     el('invoice').hidden = true; invoice = null;
-    try { render(await api('GET', { bill_no: el('bill').value.trim(), branch: el('branch').value })); status('Test bill loaded.'); }
+    try { render(await api('GET', { bill_no: el('bill').value.trim(), branch: el('branch').value })); status('Invoice loaded. Review existing receipts before saving.'); }
     catch (e) { status(e.message); } finally { busy = false; lock(); }
   });
   el('add-payment').addEventListener('click', addRow);
@@ -100,6 +127,6 @@
     pending = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
     lock();
     if (pending) { el('invoice').hidden = false; status('An earlier submission needs confirmation. Retry the same submission safely.'); }
-    else status('Ready. Load a test bill to begin.');
+    else status('Ready. Load an invoice to begin.');
   } catch (e) { status(e.message); }
 })();
