@@ -80,7 +80,7 @@ module.exports = async function handler(req, res) {
     if (!Array.isArray(profiles) ||
         profiles.length !== 1 ||
         profiles[0].active !== true ||
-        !["owner", "admin"]
+        !["owner", "admin", "employee"]
           .includes(profiles[0].role) ||
         !profiles[0].auth_user_id) {
       return invalid(res);
