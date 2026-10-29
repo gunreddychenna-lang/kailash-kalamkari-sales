@@ -3,17 +3,90 @@
 (async () => {
   const el = id => document.getElementById(id);
   const drafts = new Map();
-  let client, page = 1, rows = [], sortBy = "bill", descending = false;
+
+  let client;
+  let page = 1;
+  let rows = [];
+  let sortBy = "bill";
+  let descending = false;
+
+  const defaultAccounts = [
+    "42441-TJ",
+    "Kailash Kalamkari",
+    "KC",
+    "Paytm",
+    "SBI",
+    "T Dhanalakshmi",
+    "T Janakamma",
+    "T KAILASAM"
+  ];
+
+  const storageKey = "kk-preview-payment-bank-options-v1";
+
+  let extraAccounts = [];
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) || "[]");
+    if (Array.isArray(saved)) {
+      extraAccounts = saved.filter(x =>
+        typeof x === "string" &&
+        /^[A-Za-z0-9 ._-]{2,60}$/.test(x) &&
+        !defaultAccounts.includes(x)
+      ).slice(0, 30);
+    }
+  } catch {
+    extraAccounts = [];
+  }
+
+  const allAccounts = () =>
+    [...new Set([...defaultAccounts, ...extraAccounts])];
 
   const money = value =>
     Number(value).toLocaleString("en-IN", {
-      style: "currency", currency: "INR"
+      style: "currency",
+      currency: "INR"
     });
 
   const keyOf = bill =>
     JSON.stringify([bill.branch, bill.bill_no, bill.bill_date]);
 
-  function cell(tr, value, className = "") {
+  const newSplit = () => ({
+    amount: "",
+    bank: "",
+    method: "",
+    reference: ""
+  });
+
+  function getDraft(bill) {
+    const key = keyOf(bill);
+
+    if (!drafts.has(key)) {
+      drafts.set(key, {
+        bill,
+        splits: [newSplit()]
+      });
+    }
+
+    return drafts.get(key);
+  }
+
+  function activeDraftCount() {
+    return [...drafts.values()].filter(d =>
+      d.splits.some(s =>
+        s.amount !== "" ||
+        s.method !== "" ||
+        s.bank !== "" ||
+        s.reference !== ""
+      )
+    ).length;
+  }
+
+  function updateCount() {
+    el("draft-count").textContent =
+      `${activeDraftCount()} edited bill(s) — NOT SAVED`;
+  }
+
+  function addCell(tr, value, className = "") {
     const td = document.createElement("td");
     td.className = className;
     td.textContent = value ?? "";
@@ -21,177 +94,363 @@
     return td;
   }
 
-  function updateDraftCount() {
-    el("draft-count").textContent =
-      `${drafts.size} draft bill(s) — unsaved`;
-  }
+  function createSelect(options, value, onChange) {
+    const select = document.createElement("select");
 
-  function createLedger(bill) {
-    const key = keyOf(bill);
-    const container = document.createElement("div");
-    container.className = "ledger-details";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Select";
+    select.append(placeholder);
 
-    const warning = document.createElement("p");
-    warning.className = "small";
-    warning.textContent =
-      "Draft only. Historical paid amount and balance are not verified.";
-    container.append(warning);
-
-    const items = document.createElement("div");
-    container.append(items);
-
-    const add = document.createElement("button");
-    add.type = "button";
-    add.textContent = "+ Add Payment Method";
-
-    function addMethod() {
-      const line = document.createElement("div");
-      line.className = "ledger-row";
-
-      const method = document.createElement("select");
-      for (const name of ["Select Method","UPI Store","UPI Online","Card","Cash"]) {
-        const option = document.createElement("option");
-        option.value = name === "Select Method" ? "" : name;
-        option.textContent = name;
-        method.append(option);
-      }
-
-      const account = document.createElement("select");
-      const bankNames = [
-        "Select Account","42441-TJ","Kailash Kalamkari",
-        "KC","Paytm","SBI","T Dhanalakshmi",
-        "T Janakamma","T KAILASAM"
-      ];
-
-      function fillAccounts() {
-        account.replaceChildren();
-        const names = method.value === "Cash" ? ["Cash"] : bankNames;
-        for (const name of names) {
-          const option = document.createElement("option");
-          option.value = name === "Select Account" ? "" : name;
-          option.textContent = name;
-          account.append(option);
-        }
-      }
-
-      method.addEventListener("change", fillAccounts);
-      fillAccounts();
-
-      const amount = document.createElement("input");
-      amount.type = "number";
-      amount.min = "0.01";
-      amount.step = "0.01";
-      amount.placeholder = "Amount";
-
-      const reference = document.createElement("input");
-      reference.placeholder = "UTR / RRN / Reference";
-      reference.maxLength = 120;
-
-      for (const control of [method,account,amount,reference]) {
-        control.addEventListener("change", () => {
-          drafts.set(key, true);
-          updateDraftCount();
-        });
-        line.append(control);
-      }
-
-      items.append(line);
+    for (const name of options) {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      select.append(option);
     }
 
-    add.onclick = addMethod;
-    container.append(add);
-    addMethod();
+    select.value = value || "";
+    select.addEventListener("change", () => {
+      onChange(select.value);
+      updateCount();
+    });
 
-    return container;
+    return select;
+  }
+
+  function input(value, placeholder, onChange, type = "text") {
+    const control = document.createElement("input");
+
+    control.type = type;
+    control.value = value ?? "";
+    control.placeholder = placeholder;
+
+    if (type === "number") {
+      control.min = "0.01";
+      control.step = "0.01";
+    } else {
+      control.maxLength = 120;
+    }
+
+    control.addEventListener("input", () => {
+      onChange(control.value);
+      updateCount();
+    });
+
+    return control;
+  }
+
+  function addSplitLine(bill, split, index) {
+    const tr = document.createElement("tr");
+    const draft = getDraft(bill);
+
+    addCell(tr, "↳ Additional payment");
+    addCell(tr, bill.channel || "—");
+    addCell(tr, bill.bill_no);
+    addCell(tr, money(bill.bill_amount), "amount");
+
+    const amountCell = document.createElement("td");
+    amountCell.append(
+      input(split.amount, "Received ₹", v => {
+        split.amount = v;
+        updateLedger(bill);
+      }, "number")
+    );
+    tr.append(amountCell);
+
+    const bankCell = document.createElement("td");
+    const methodCell = document.createElement("td");
+
+    function bankOptions() {
+      return split.method === "Cash"
+        ? ["Cash"]
+        : allAccounts();
+    }
+
+    function redrawBank() {
+      const select = createSelect(
+        bankOptions(),
+        split.bank,
+        v => { split.bank = v; }
+      );
+      bankCell.replaceChildren(select);
+    }
+
+    const method = createSelect(
+      ["UPI Store", "UPI Online", "Card", "Cash"],
+      split.method,
+      v => {
+        split.method = v;
+        split.bank = v === "Cash" ? "Cash" : "";
+        redrawBank();
+        updateLedger(bill);
+      }
+    );
+
+    methodCell.append(method);
+    redrawBank();
+
+    tr.append(bankCell, methodCell);
+
+    const refCell = document.createElement("td");
+    refCell.append(
+      input(split.reference, "UTR / RRN", v => {
+        split.reference = v;
+      })
+    );
+    tr.append(refCell);
+
+    const action = document.createElement("td");
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "Remove Split";
+
+    remove.onclick = () => {
+      draft.splits.splice(index, 1);
+      render();
+      updateCount();
+    };
+
+    action.append(remove);
+    tr.append(action);
+
+    return tr;
+  }
+
+  function updateLedger(bill) {
+    const draft = getDraft(bill);
+    const total = draft.splits.reduce((sum, split) => {
+      const n = Number(split.amount);
+      return sum + (Number.isFinite(n) && n > 0 ? n : 0);
+    }, 0);
+
+    const node = document.getElementById(
+      "ledger-" + encodeKey(keyOf(bill))
+    );
+
+    if (node) {
+      node.textContent =
+        `Draft: ${money(total)} / Bill: ${money(bill.bill_amount)}`;
+    }
+  }
+
+  function encodeKey(value) {
+    return Array.from(value)
+      .map(ch => ch.charCodeAt(0).toString(16).padStart(4, "0"))
+      .join("");
   }
 
   function render() {
     const tbody = el("invoice-rows");
     tbody.replaceChildren();
 
-    const values = [...rows].sort((a,b) => {
-      let x, y;
+    const values = [...rows].sort((a, b) => {
       if (sortBy === "amount") {
-        x = Number(a.bill_amount);
-        y = Number(b.bill_amount);
-        return descending ? y - x : x - y;
+        const difference =
+          Number(a.bill_amount) - Number(b.bill_amount);
+        return descending ? -difference : difference;
       }
+
       const fields = {
         agent: "sm_name",
         channel: "channel",
         bill: "bill_no"
       };
-      x = String(a[fields[sortBy]] || "");
-      y = String(b[fields[sortBy]] || "");
+
+      const x = String(a[fields[sortBy]] || "");
+      const y = String(b[fields[sortBy]] || "");
+
       return (descending ? -1 : 1) * x.localeCompare(y);
     });
 
     for (const bill of values) {
+      const draft = getDraft(bill);
       const tr = document.createElement("tr");
-      cell(tr, bill.sm_name || "—");
-      cell(tr, bill.channel || "—");
-      cell(tr, bill.bill_no);
-      cell(tr, money(bill.bill_amount), "amount");
 
-      const td = document.createElement("td");
-      td.className = "ledger";
+      addCell(tr, bill.sm_name || "—");
+      addCell(tr, bill.channel || "—");
+      addCell(tr, bill.bill_no);
+      addCell(tr, money(bill.bill_amount), "amount");
 
-      const toggle = document.createElement("button");
-      toggle.type = "button";
-      toggle.textContent = "View / Enter Payments";
+      const split = draft.splits[0] || newSplit();
+      if (!draft.splits.length) draft.splits.push(split);
 
-      const details = createLedger(bill);
-      details.hidden = true;
+      const amountCell = document.createElement("td");
+      amountCell.append(
+        input(split.amount, "Amount ₹", v => {
+          split.amount = v;
+          updateLedger(bill);
+        }, "number")
+      );
+      tr.append(amountCell);
 
-      toggle.onclick = () => {
-        details.hidden = !details.hidden;
+      const bankCell = document.createElement("td");
+      const methodCell = document.createElement("td");
+
+      function bankOptions() {
+        return split.method === "Cash"
+          ? ["Cash"]
+          : allAccounts();
+      }
+
+      function redrawBank() {
+        bankCell.replaceChildren(
+          createSelect(bankOptions(), split.bank, v => {
+            split.bank = v;
+          })
+        );
+      }
+
+      const method = createSelect(
+        ["UPI Store", "UPI Online", "Card", "Cash"],
+        split.method,
+        v => {
+          split.method = v;
+          split.bank = v === "Cash" ? "Cash" : "";
+          redrawBank();
+          updateLedger(bill);
+        }
+      );
+
+      methodCell.append(method);
+      redrawBank();
+
+      tr.append(bankCell, methodCell);
+
+      const refCell = document.createElement("td");
+      refCell.append(
+        input(split.reference, "UTR / RRN", v => {
+          split.reference = v;
+        })
+      );
+      tr.append(refCell);
+
+      const ledgerCell = document.createElement("td");
+      const summary = document.createElement("div");
+      summary.id = "ledger-" + encodeKey(keyOf(bill));
+
+      const add = document.createElement("button");
+      add.type = "button";
+      add.textContent = "+ Add Split";
+
+      add.onclick = () => {
+        if (draft.splits.length >= 20) {
+          el("status").textContent =
+            "Maximum 20 payment splits per invoice.";
+          return;
+        }
+        draft.splits.push(newSplit());
+        render();
+        updateCount();
       };
 
-      td.append(toggle, details);
-      tr.append(td);
+      ledgerCell.append(summary, add);
+
+      const warning = document.createElement("div");
+      warning.className = "small";
+      warning.textContent = "Unverified opening balance";
+      ledgerCell.append(warning);
+
+      tr.append(ledgerCell);
       tbody.append(tr);
+      updateLedger(bill);
+
+      draft.splits.slice(1).forEach((extra, i) => {
+        tbody.append(addSplitLine(bill, extra, i + 1));
+      });
     }
+
+    updateCount();
   }
 
   async function load() {
     el("status").textContent = "Loading invoices...";
-    const {data} = await client.auth.getSession();
+
+    const { data } = await client.auth.getSession();
     const token = data?.session?.access_token;
-    if (!token) throw new Error("Sign in required.");
+
+    if (!token) throw new Error("Sign in required");
 
     const query = new URLSearchParams({
-      branch: el("store").value,
       search: el("search").value.trim(),
+      branch: el("store").value,
       page: String(page)
     });
 
-    const response = await fetch("/api/payment-invoices?" + query, {
-      cache: "no-store",
-      headers: {Authorization: `Bearer ${token}`}
-    });
+    const response = await fetch(
+      "/api/payment-invoices?" + query,
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
 
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "Invoice lookup failed");
+
+    if (!response.ok) {
+      throw new Error(result.error || "Failed to load bills");
+    }
 
     rows = result.invoices;
     render();
+
     el("next").disabled = !result.has_more;
     el("status").textContent =
-      `${rows.length} invoices loaded. Page ${page}. Draft only.`;
+      `${rows.length} bills loaded. Page ${page}. Preview drafts only.`;
   }
+
+  el("add-bank").onclick = () => {
+    const name = prompt(
+      "New bank / settlement account name (Preview only):"
+    );
+
+    if (name === null) return;
+
+    const value = name.trim();
+
+    if (!/^[A-Za-z0-9 ._-]{2,60}$/.test(value)) {
+      alert("Enter a valid account name (2–60 characters).");
+      return;
+    }
+
+    if (allAccounts().some(x =>
+      x.toLowerCase() === value.toLowerCase()
+    )) {
+      alert("Account already exists.");
+      return;
+    }
+
+    if (extraAccounts.length >= 30) {
+      alert("Preview account limit reached.");
+      return;
+    }
+
+    extraAccounts.push(value);
+    localStorage.setItem(storageKey, JSON.stringify(extraAccounts));
+
+    render();
+    el("status").textContent =
+      `${value} added to this browser's Preview options only. Not saved to database.`;
+  };
 
   el("find").onclick = async () => {
     page = 1;
-    try { await load(); }
-    catch(e) { el("status").textContent = e.message; }
+    try {
+      await load();
+    } catch (error) {
+      el("status").textContent = error.message;
+    }
   };
 
   el("next").onclick = async () => {
     page++;
-    try { await load(); }
-    catch(e) {
+    try {
+      await load();
+    } catch (error) {
       page--;
-      el("status").textContent = e.message;
+      el("status").textContent = error.message;
     }
   };
 
@@ -211,10 +470,15 @@
       KK_STAFF_CONFIG.url,
       KK_STAFF_CONFIG.anonKey
     );
+
     const profile = await KK.session(client);
-    if (!profile) throw new Error("Owner/Admin login required.");
+
+    if (!profile || !["owner", "admin"].includes(profile.role)) {
+      throw new Error("Owner/Admin access required");
+    }
+
     await load();
-  } catch(e) {
-    el("status").textContent = e.message;
+  } catch (error) {
+    el("status").textContent = error.message;
   }
 })();
