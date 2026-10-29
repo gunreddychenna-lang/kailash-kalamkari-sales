@@ -473,7 +473,7 @@
 
     const profile = await KK.session(client);
 
-    if (!profile || !["owner", "admin"].includes(profile.role)) {
+    if (!profile || !["owner", "admin"].includes(profile.secureRole)) {
       throw new Error("Owner/Admin access required");
     }
 
