@@ -71,7 +71,7 @@ async function handler(req, res) {
   const catalog = CATALOGUE_URL(), publicKey = CATALOGUE_KEY();
   const token = (req.headers?.authorization || "").match(/^Bearer ([^\s]+)$/i)?.[1];
   if (!base || !secret || !catalog || !publicKey ||
-      base.includes("dqvqqrbvklpiibzqivbp") ||
+
       !/^https:\/\/ehovvhckvgwfkbgfvchi\.supabase\.co$/.test(catalog)) {
     return reply(res, 503, {error:"Inventory backend unavailable"});
   }

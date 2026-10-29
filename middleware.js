@@ -1,7 +1,6 @@
-﻿const blocked = [
-  /^\/(?:stock|payments|crm|attendance|entry)\.html$/i,
+const blocked = [
+  /^\/(?:payments|crm|attendance|entry)\.html$/i,
   /^\/api\/payments(?:\/|$)/i,
-  /^\/api\/owner-inventory(?:\/|$)/i,
   /^\/api\/replace-settlements(?:\/|$)/i
 ];
 
@@ -21,15 +20,12 @@ export default function middleware(request) {
 
 export const config = {
   matcher: [
-    "/stock.html",
     "/payments.html",
     "/crm.html",
     "/attendance.html",
     "/entry.html",
     "/api/payments",
     "/api/payments/:path*",
-    "/api/owner-inventory",
-    "/api/owner-inventory/:path*",
     "/api/replace-settlements",
     "/api/replace-settlements/:path*"
   ]
