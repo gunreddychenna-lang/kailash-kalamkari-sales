@@ -7,6 +7,18 @@ const blocked = [
 export default function middleware(request) {
   const path = new URL(request.url).pathname;
 
+  // Allow the isolated DEV payment trial in Preview only.
+  const isPaymentRoute =
+    path === "/payments.html" ||
+    path === "/api/payments";
+
+  if (
+    process.env.VERCEL_ENV === "preview" &&
+    isPaymentRoute
+  ) {
+    return;
+  }
+
   if (blocked.some(pattern => pattern.test(path))) {
     return new Response("Not available in Sales-only release.", {
       status: 404,
