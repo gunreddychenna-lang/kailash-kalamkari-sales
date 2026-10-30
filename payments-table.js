@@ -406,6 +406,27 @@
         `Balance: ${money(result.balance)}`;
       target.append(heading);
 
+      const paid = Math.round(Number(result.paid_amount) * 100);
+      const balance = Math.round(Number(result.balance) * 100);
+      const total = Math.round(Number(result.bill_amount) * 100);
+
+      const status = document.createElement("div");
+      status.className = "small";
+
+      if (
+        ![paid, balance, total].every(Number.isSafeInteger) ||
+        paid < 0 || balance < 0 || total <= 0 ||
+        paid + balance !== total
+      ) {
+        status.textContent = "NEEDS REVIEW — Ledger mismatch";
+      } else if (balance === 0) {
+        status.textContent = "SETTLED — DEV receipts";
+      } else {
+        status.textContent = "PENDING — DEV receipts";
+      }
+
+      target.append(status);
+
       const history = Array.isArray(result.history)
         ? result.history
         : [];
@@ -507,7 +528,14 @@
           idempotency_key: id
         });
 
-        if (!result || result.bill_no !== bill.bill_no) {
+        if (
+          !result ||
+          result.bill_no !== bill.bill_no ||
+          result.branch !== bill.branch ||
+          !Array.isArray(result.history) ||
+          !Number.isFinite(Number(result.paid_amount)) ||
+          !Number.isFinite(Number(result.balance))
+        ) {
           throw new Error("Receipt confirmation mismatch");
         }
 
@@ -516,9 +544,10 @@
         saved++;
 
       } catch (error) {
-        el("status").textContent =
-          `${saved} saved; stopped at ${bill.bill_no}: ` +
-          `${error.message}. Review ledger before retrying.`;
+        saveStatus(
+          `${saved} bill(s) confirmed. ${bill.bill_no} needs review: ` +
+          `${error.message}. Check View Saved Receipts before retrying.`
+        );
         render();
         saveButton.disabled = false;
         return;
