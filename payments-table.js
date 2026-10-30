@@ -253,9 +253,24 @@
   }
 
   const DEV_URL = "https://yiaipfquxyrqxvkvjykp.supabase.co";
-  const isDev = () =>
-    KK_STAFF_CONFIG.url === DEV_URL &&
-    location.hostname.endsWith(".vercel.app");
+  const isDev = () => {
+    const configured = String(KK_STAFF_CONFIG?.url || "")
+      .replace(/\/$/, "");
+    const host = location.hostname.toLowerCase();
+
+    return configured === DEV_URL &&
+      host.endsWith(".vercel.app") &&
+      host.startsWith("kailash-kalamkari-sales-");
+  };
+
+  function saveStatus(message) {
+    const status = el("status");
+    status.textContent = message;
+    status.scrollIntoView({
+      behavior: "smooth",
+      block: "center"
+    });
+  }
 
   const todayIST = () => {
     const parts = new Intl.DateTimeFormat("en-GB", {
@@ -421,7 +436,10 @@
   }
 
   async function saveAllDev() {
-    if (!isDev()) return;
+    if (!isDev()) {
+      saveStatus("Save blocked: not a verified DEV Preview.");
+      return;
+    }
 
     const changed = [...drafts.values()].filter(d =>
       d.splits.some(s =>
@@ -443,7 +461,7 @@
         payload: preparedDraft(d)
       }));
     } catch (error) {
-      el("status").textContent = error.message;
+      saveStatus(error.message);
       return;
     }
 
@@ -712,7 +730,7 @@
       el("status").textContent =
         `${value} saved in DEV bank accounts database.`;
     } catch (error) {
-      el("status").textContent = error.message;
+      saveStatus(error.message);
       alert(error.message);
     } finally {
       button.disabled = false;
@@ -725,7 +743,7 @@
     try {
       await load();
     } catch (error) {
-      el("status").textContent = error.message;
+      saveStatus(error.message);
     }
   };
 
@@ -735,7 +753,7 @@
       await load();
     } catch (error) {
       page--;
-      el("status").textContent = error.message;
+      saveStatus(error.message);
     }
   };
 
@@ -765,12 +783,19 @@
     await refreshBankAccounts();
     await load();
 
+    const saveButton = el("save-all");
+
     if (isDev()) {
-      el("save-all").disabled = false;
+      saveButton.disabled = false;
+      saveButton.textContent = "Save All (DEV TEST)";
+      saveButton.title = "Saves TEST invoices only";
       el("status").textContent +=
         " DEV TEST-only Save All enabled.";
+    } else {
+      saveButton.disabled = true;
+      saveButton.title = "Not a verified DEV Preview";
     }
   } catch (error) {
-    el("status").textContent = error.message;
+    saveStatus(error.message);
   }
 })();
