@@ -39,6 +39,16 @@ module.exports = async function handler(req, res) {
       !/^[0-9]+(?:\.[0-9]{1,2})?$/.test(String(input.expected_bill_amount)))) {
     return send(400, { error: 'Invalid payment submission.' });
   }
+  // Server-enforced restriction. Client-side guards are insufficient.
+  if (
+    req.method === 'POST' &&
+    base === DEV &&
+    !/^TEST-[A-Za-z0-9_-]+$/.test(input.bill_no)
+  ) {
+    return send(403, {
+      error: 'DEV writes restricted to TEST invoices.'
+    });
+  }
   if (req.method === 'POST') {
 
     for (const payment of input.payments) {
