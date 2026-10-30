@@ -252,6 +252,267 @@
       .join("");
   }
 
+  const DEV_URL = "https://yiaipfquxyrqxvkvjykp.supabase.co";
+  const isDev = () =>
+    KK_STAFF_CONFIG.url === DEV_URL &&
+    location.hostname.endsWith(".vercel.app");
+
+  const todayIST = () => {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).formatToParts(new Date());
+
+    const get = type => parts.find(p => p.type === type).value;
+    return `${get("year")}-${get("month")}-${get("day")}`;
+  };
+
+  const methodCodes = {
+    "UPI Store": "UPI_STORE",
+    "UPI Online": "UPI_ONLINE",
+    "Card": "CARD"
+  };
+
+  async function receiptRequest(method, payload) {
+    const { data } = await client.auth.getSession();
+    const token = data?.session?.access_token;
+
+    if (!token) throw new Error("Login required");
+
+    const url = method === "GET"
+      ? "/api/payments?" + new URLSearchParams(payload)
+      : "/api/payments";
+
+    const response = await fetch(url, {
+      method,
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(method === "POST"
+          ? { "Content-Type": "application/json" }
+          : {})
+      },
+      ...(method === "POST"
+        ? { body: JSON.stringify(payload) }
+        : {})
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || "Receipt request failed");
+    }
+
+    return result;
+  }
+
+  function preparedDraft(draft) {
+    const bill = draft.bill;
+
+    if (!/^TEST-[A-Za-z0-9_-]+$/.test(bill.bill_no)) {
+      throw new Error("Only DEV TEST invoices can be saved.");
+    }
+
+    const payments = draft.splits.filter(s =>
+      [s.amount, s.bank, s.method, s.reference]
+        .some(v => String(v || "").trim())
+    ).map(s => {
+      const amount = String(s.amount || "").trim();
+
+      if (!/^[0-9]+(?:\.[0-9]{1,2})?$/.test(amount) ||
+          Number(amount) <= 0) {
+        throw new Error(`${bill.bill_no}: Invalid received amount`);
+      }
+
+      if (!s.method) {
+        throw new Error(`${bill.bill_no}: Select Received Via`);
+      }
+
+      if (s.method === "Cash") {
+        if (s.bank !== "Cash") {
+          throw new Error(`${bill.bill_no}: Cash account mismatch`);
+        }
+      } else if (
+        !methodCodes[s.method] ||
+        !bankAccounts.includes(s.bank) ||
+        !String(s.reference || "").trim()
+      ) {
+        throw new Error(
+          `${bill.bill_no}: Select valid bank and UTR/RRN`
+        );
+      }
+
+      return {
+        account: s.method === "Cash"
+          ? "Cash"
+          : `${methodCodes[s.method]}::${s.bank}`,
+        amount,
+        payment_date: todayIST(),
+        reference: String(s.reference || "").trim()
+      };
+    });
+
+    if (!payments.length) {
+      throw new Error(`${bill.bill_no}: No payment entered`);
+    }
+
+    const totalCents = payments.reduce(
+      (sum, p) => sum + Math.round(Number(p.amount) * 100), 0
+    );
+
+    if (totalCents > Math.round(Number(bill.bill_amount) * 100)) {
+      throw new Error(`${bill.bill_no}: Amount exceeds bill total`);
+    }
+
+    return {
+      bill_no: bill.bill_no,
+      branch: bill.branch,
+      expected_bill_amount: bill.bill_amount,
+      payments
+    };
+  }
+
+  async function viewHistory(bill, target) {
+    target.textContent = "Loading saved receipts...";
+
+    try {
+      const result = await receiptRequest("GET", {
+        bill_no: bill.bill_no,
+        branch: bill.branch
+      });
+
+      target.replaceChildren();
+
+      const heading = document.createElement("strong");
+      heading.textContent =
+        `Recorded: ${money(result.paid_amount)} | ` +
+        `Balance: ${money(result.balance)}`;
+      target.append(heading);
+
+      const history = Array.isArray(result.history)
+        ? result.history
+        : [];
+
+      if (!history.length) {
+        const empty = document.createElement("p");
+        empty.textContent = "No DEV receipts saved for this bill.";
+        target.append(empty);
+        return;
+      }
+
+      for (const batch of history) {
+        for (const receipt of (batch.payments || [])) {
+          const line = document.createElement("p");
+          line.className = "small";
+          line.textContent = [
+            receipt.payment_date,
+            receipt.account,
+            money(receipt.amount),
+            receipt.reference || "No reference"
+          ].join(" | ");
+          target.append(line);
+        }
+      }
+    } catch (error) {
+      target.textContent = `Ledger unavailable: ${error.message}`;
+    }
+  }
+
+  async function saveAllDev() {
+    if (!isDev()) return;
+
+    const changed = [...drafts.values()].filter(d =>
+      d.splits.some(s =>
+        [s.amount, s.bank, s.method, s.reference]
+          .some(v => String(v || "").trim())
+      )
+    );
+
+    if (!changed.length) {
+      el("status").textContent = "No payment drafts to save.";
+      return;
+    }
+
+    let submissions;
+
+    try {
+      submissions = changed.map(d => ({
+        draft: d,
+        payload: preparedDraft(d)
+      }));
+    } catch (error) {
+      el("status").textContent = error.message;
+      return;
+    }
+
+    // Confirm explicitly before modifying DEV receipt records.
+    if (!confirm(
+      `Save payments for ${submissions.length} DEV TEST bills? ` +
+      "Each bill saves separately. Do not close the page."
+    )) return;
+
+    const saveButton = el("save-all");
+    saveButton.disabled = true;
+
+    let saved = 0;
+
+    for (const item of submissions) {
+      const bill = item.draft.bill;
+
+      try {
+        // Reuse the same idempotency key for retry of identical details.
+        const fingerprint = JSON.stringify(item.payload);
+        const storageKey =
+          "kk-dev-payment-retry-" + keyOf(bill);
+
+        let previous = null;
+
+        try {
+          previous = JSON.parse(
+            sessionStorage.getItem(storageKey) || "null"
+          );
+        } catch {}
+
+        const id = previous?.fingerprint === fingerprint
+          ? previous.id
+          : crypto.randomUUID();
+
+        sessionStorage.setItem(storageKey, JSON.stringify({
+          fingerprint,
+          id
+        }));
+
+        const result = await receiptRequest("POST", {
+          ...item.payload,
+          idempotency_key: id
+        });
+
+        if (!result || result.bill_no !== bill.bill_no) {
+          throw new Error("Receipt confirmation mismatch");
+        }
+
+        sessionStorage.removeItem(storageKey);
+        drafts.delete(keyOf(bill));
+        saved++;
+
+      } catch (error) {
+        el("status").textContent =
+          `${saved} saved; stopped at ${bill.bill_no}: ` +
+          `${error.message}. Review ledger before retrying.`;
+        render();
+        saveButton.disabled = false;
+        return;
+      }
+    }
+
+    render();
+    saveButton.disabled = false;
+    el("status").textContent =
+      `${saved} DEV TEST bill(s) saved successfully. ` +
+      "Use View Saved Receipts to verify.";
+  }
   function render() {
     const tbody = el("invoice-rows");
     tbody.replaceChildren();
@@ -362,6 +623,19 @@
 
       ledgerCell.append(summary, add);
 
+      const historyButton = document.createElement("button");
+      historyButton.type = "button";
+      historyButton.textContent = "View Saved Receipts";
+
+      const historyPanel = document.createElement("div");
+      historyPanel.className = "small";
+      historyPanel.style.marginTop = "8px";
+
+      historyButton.onclick = () =>
+        viewHistory(bill, historyPanel);
+
+      ledgerCell.append(historyButton, historyPanel);
+
       const warning = document.createElement("div");
       warning.className = "small";
       warning.textContent = "Unverified opening balance";
@@ -444,6 +718,8 @@
       button.disabled = false;
     }
   };
+  el("save-all").onclick = saveAllDev;
+
   el("find").onclick = async () => {
     page = 1;
     try {
@@ -488,6 +764,12 @@
 
     await refreshBankAccounts();
     await load();
+
+    if (isDev()) {
+      el("save-all").disabled = false;
+      el("status").textContent +=
+        " DEV TEST-only Save All enabled.";
+    }
   } catch (error) {
     el("status").textContent = error.message;
   }
