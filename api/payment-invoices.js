@@ -106,8 +106,52 @@ module.exports = async function handler(req, res) {
       throw new Error("Invalid invoice response");
     }
 
+    // Read original sale payment type, without modifying Sales records.
+    let saleModes = [];
+    if (rows.length) {
+      const billNumbers = [...new Set(rows.map(r => r.bill_no))];
+      const params = new URLSearchParams();
+      params.set("select", "bill_no,bill_date,store_name,pay_mode");
+      params.set(
+        "bill_no",
+        "in.(" + billNumbers.map(v =>
+          '"' + String(v).replace(/["\\]/g, "") + '"'
+        ).join(",") + ")"
+      );
+      params.set("limit", "1000");
+
+      try {
+        const matches = await get(
+          "/rest/v1/sales?" + params.toString(),
+          secret
+        );
+        if (Array.isArray(matches)) saleModes = matches;
+      } catch (_) {
+        // DEV fixtures may not have pay_mode yet.
+      }
+    }
+
+    const invoices = rows.map(row => {
+      const matching = saleModes.filter(s =>
+        s.bill_no === row.bill_no &&
+        s.bill_date === row.bill_date &&
+        s.store_name === row.branch
+      );
+      const modes = [...new Set(
+        matching.map(s => String(s.pay_mode || "").trim())
+          .filter(Boolean)
+      )];
+
+      return {
+        ...row,
+        original_payment_type: modes.length
+          ? modes.join(" + ")
+          : null
+      };
+    });
+
     return send(200, {
-      invoices: rows,
+      invoices,
       page,
       has_more: rows.length === 50,
       read_only: true

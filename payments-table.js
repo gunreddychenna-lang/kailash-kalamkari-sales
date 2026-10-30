@@ -148,6 +148,10 @@
     addCell(tr, bill.channel || "—");
     addCell(tr, bill.bill_no);
     addCell(tr, money(bill.bill_amount), "amount");
+      addCell(
+        tr,
+        bill.original_payment_type || "Not available in source"
+      );
 
     const amountCell = document.createElement("td");
     amountCell.append(
@@ -271,6 +275,10 @@
       addCell(tr, bill.channel || "—");
       addCell(tr, bill.bill_no);
       addCell(tr, money(bill.bill_amount), "amount");
+      addCell(
+        tr,
+        bill.original_payment_type || "Not available in source"
+      );
 
       const split = draft.splits[0] || newSplit();
       if (!draft.splits.length) draft.splits.push(split);
