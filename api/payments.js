@@ -40,10 +40,7 @@ module.exports = async function handler(req, res) {
     return send(400, { error: 'Invalid payment submission.' });
   }
   if (req.method === 'POST') {
-    const accounts = new Set([
-      '42441-TJ', 'Kailash Kalamkari', 'KC', 'Paytm',
-      'SBI', 'T Dhanalakshmi', 'T Janakamma', 'T KAILASAM'
-    ]);
+
     for (const payment of input.payments) {
       if (!payment || typeof payment !== 'object' || Array.isArray(payment)) {
         return send(400, { error: 'Invalid payment.' });
@@ -62,7 +59,7 @@ module.exports = async function handler(req, res) {
       const parts = payment.account.split('::');
       if (parts.length !== 2 ||
           !['UPI_STORE','UPI_ONLINE','CARD'].includes(parts[0]) ||
-          !accounts.has(parts[1])) {
+          !parts[1]) {
         return send(400, { error: 'Invalid payment type or bank account.' });
       }
     }
@@ -79,6 +76,36 @@ module.exports = async function handler(req, res) {
   try {
     const identity = await upstream('/auth/v1/user', token);
     if (!identity.ok || !UUID.test(identity.data?.id || '')) return send(401, { error: 'Please sign in again.' });
+    // Verify every non-cash bank against the active DEV account catalog.
+    if (req.method === 'POST' && base === DEV) {
+      const lookup = await upstream(
+        '/rest/v1/kk_payment_accounts?select=account_name,account_type,is_active',
+        secret
+      );
+
+      if (!lookup.ok || !Array.isArray(lookup.data)) {
+        return send(503, { error: 'Bank account verification unavailable.' });
+      }
+
+      const activeBanks = new Set(
+        lookup.data
+          .filter(a => a.is_active === true)
+          .filter(a => !['Cash', 'Reseller'].includes(a.account_type))
+          .map(a => a.account_name)
+      );
+
+      for (const payment of input.payments) {
+        if (payment.account === 'Cash') continue;
+
+        const bank = payment.account.split('::')[1];
+
+        if (!activeBanks.has(bank)) {
+          return send(422, {
+            error: 'Unknown or inactive bank account.'
+          });
+        }
+      }
+    }
     // RPC checks the trusted staff table too. Browser cannot supply actor or bill total.
     const result = await upstream('/rest/v1/rpc/kk_receipt_flow', secret, {
       p_actor: identity.data.id, p_bill: input.bill_no, p_branch: input.branch,

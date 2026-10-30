@@ -144,6 +144,10 @@ module.exports = async function handler(req, res) {
       }
     );
 
+    if (created.status === 409) {
+      return send(409, { error: "Account already exists" });
+    }
+
     if (!created.ok || !Array.isArray(created.data) ||
         created.data.length !== 1) {
       throw new Error("Account creation failed");
