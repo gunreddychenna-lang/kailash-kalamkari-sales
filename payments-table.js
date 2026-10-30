@@ -389,6 +389,78 @@
     };
   }
 
+  async function approveOpening(bill, panel) {
+    if (!isDev() || !/^TEST-[A-Za-z0-9_-]+$/.test(bill.bill_no)) {
+      saveStatus("Opening approval is DEV TEST-only.");
+      return;
+    }
+
+    const amount = prompt(
+      `Verified opening paid for ${bill.bill_no} (₹):`
+    );
+
+    if (amount === null) return;
+
+    if (!/^[0-9]+(?:\.[0-9]{1,2})?$/.test(amount.trim())) {
+      saveStatus("Enter a valid amount with maximum 2 decimals.");
+      return;
+    }
+
+    const evidence = prompt(
+      "Evidence reference (receipt, register or verification note):"
+    );
+
+    if (evidence === null) return;
+
+    if (evidence.trim().length < 3 ||
+        evidence.trim().length > 500) {
+      saveStatus("Evidence reference must be 3–500 characters.");
+      return;
+    }
+
+    if (!confirm(
+      `Approve ${bill.bill_no} opening paid ₹${amount}? ` +
+      "This approval is immutable and cannot be edited in this screen."
+    )) return;
+
+    try {
+      const { data } = await client.auth.getSession();
+      const token = data?.session?.access_token;
+
+      if (!token) throw new Error("Login required");
+
+      const response = await fetch("/api/payment-opening", {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          bill_no: bill.bill_no,
+          branch: bill.branch,
+          opening_paid: amount.trim(),
+          evidence: evidence.trim()
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Approval failed");
+      }
+
+      saveStatus(
+        `${bill.bill_no}: Opening paid ${money(result.opening_paid)} ` +
+        "approved successfully."
+      );
+
+      await viewHistory(bill, panel);
+
+    } catch (error) {
+      saveStatus(`${bill.bill_no}: ${error.message}`);
+    }
+  }
   async function viewHistory(bill, target) {
     target.textContent = "Loading saved receipts...";
 
@@ -401,9 +473,12 @@
       target.replaceChildren();
 
       const heading = document.createElement("strong");
-      heading.textContent =
-        `Recorded: ${money(result.paid_amount)} | ` +
-        `Balance: ${money(result.balance)}`;
+      heading.textContent = result.opening_approved === true
+        ? `Opening Paid: ${money(result.opening_paid)} | ` +
+          `New Receipts: ${money(result.paid_amount)} | ` +
+          `Balance: ${money(result.balance)}`
+        : `Opening Balance: NEEDS REVIEW | ` +
+          `New Receipts: ${money(result.paid_amount)}`;
       target.append(heading);
 
       const paid = Math.round(Number(result.paid_amount) * 100);
@@ -414,9 +489,10 @@
       status.className = "small";
 
       if (
+        result.opening_approved !== true ||
         ![paid, balance, total].every(Number.isSafeInteger) ||
         paid < 0 || balance < 0 || total <= 0 ||
-        paid + balance !== total
+        paid + Math.round(Number(result.opening_paid) * 100) + balance !== total
       ) {
         status.textContent = "NEEDS REVIEW — Ledger mismatch";
       } else if (balance === 0) {
@@ -685,8 +761,16 @@
 
       const warning = document.createElement("div");
       warning.className = "small";
-      warning.textContent = "Unverified opening balance";
+      warning.textContent = "Opening balance: verify before saving";
       ledgerCell.append(warning);
+
+      if (isDev() && /^TEST-[A-Za-z0-9_-]+$/.test(bill.bill_no)) {
+        const approve = document.createElement("button");
+        approve.type = "button";
+        approve.textContent = "Approve Opening (DEV)";
+        approve.onclick = () => approveOpening(bill, historyPanel);
+        ledgerCell.append(approve);
+      }
 
       tr.append(ledgerCell);
       tbody.append(tr);
