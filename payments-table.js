@@ -10,37 +10,45 @@
   let sortBy = "bill";
   let descending = false;
 
-  const defaultAccounts = [
-    "42441-TJ",
-    "Kailash Kalamkari",
-    "KC",
-    "Paytm",
-    "SBI",
-    "T Dhanalakshmi",
-    "T Janakamma",
-    "T KAILASAM"
-  ];
+  let bankAccounts = [];
 
-  const storageKey = "kk-preview-payment-bank-options-v1";
+  const allAccounts = () => bankAccounts;
 
-  let extraAccounts = [];
+  async function bankRequest(method = "GET", body) {
+    const { data } = await client.auth.getSession();
+    const token = data?.session?.access_token;
 
-  try {
-    const saved = JSON.parse(localStorage.getItem(storageKey) || "[]");
-    if (Array.isArray(saved)) {
-      extraAccounts = saved.filter(x =>
-        typeof x === "string" &&
-        /^[A-Za-z0-9 ._-]{2,60}$/.test(x) &&
-        !defaultAccounts.includes(x)
-      ).slice(0, 30);
+    if (!token) throw new Error("Login required");
+
+    const response = await fetch("/api/payment-accounts", {
+      method,
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(body ? { "Content-Type": "application/json" } : {})
+      },
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || "Bank request failed");
     }
-  } catch {
-    extraAccounts = [];
+
+    return result;
   }
 
-  const allAccounts = () =>
-    [...new Set([...defaultAccounts, ...extraAccounts])];
+  async function refreshBankAccounts() {
+    const result = await bankRequest();
 
+    if (!Array.isArray(result.accounts)) {
+      throw new Error("Invalid bank list");
+    }
+
+    bankAccounts = result.accounts;
+    render();
+  }
   const money = value =>
     Number(value).toLocaleString("en-IN", {
       style: "currency",
@@ -409,40 +417,33 @@
       `${rows.length} bills loaded. Page ${page}. Preview drafts only.`;
   }
 
-  el("add-bank").onclick = () => {
-    const name = prompt(
-      "New bank / settlement account name (Preview only):"
-    );
-
+  el("add-bank").onclick = async () => {
+    const name = prompt("New bank / settlement account name:");
     if (name === null) return;
 
     const value = name.trim();
 
     if (!/^[A-Za-z0-9 ._-]{2,60}$/.test(value)) {
-      alert("Enter a valid account name (2–60 characters).");
+      alert("Enter valid account name (2-60 characters).");
       return;
     }
 
-    if (allAccounts().some(x =>
-      x.toLowerCase() === value.toLowerCase()
-    )) {
-      alert("Account already exists.");
-      return;
+    const button = el("add-bank");
+    button.disabled = true;
+
+    try {
+      await bankRequest("POST", { account_name: value });
+      await refreshBankAccounts();
+
+      el("status").textContent =
+        `${value} saved in DEV bank accounts database.`;
+    } catch (error) {
+      el("status").textContent = error.message;
+      alert(error.message);
+    } finally {
+      button.disabled = false;
     }
-
-    if (extraAccounts.length >= 30) {
-      alert("Preview account limit reached.");
-      return;
-    }
-
-    extraAccounts.push(value);
-    localStorage.setItem(storageKey, JSON.stringify(extraAccounts));
-
-    render();
-    el("status").textContent =
-      `${value} added to this browser's Preview options only. Not saved to database.`;
   };
-
   el("find").onclick = async () => {
     page = 1;
     try {
@@ -485,6 +486,7 @@
       throw new Error("Owner/Admin access required");
     }
 
+    await refreshBankAccounts();
     await load();
   } catch (error) {
     el("status").textContent = error.message;
