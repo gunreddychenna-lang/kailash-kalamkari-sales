@@ -1,6 +1,7 @@
 "use strict";
 
 const DEV = "https://yiaipfquxyrqxvkvjykp.supabase.co";
+const PROD = "https://dqvqqrbvklpiibzqivbp.supabase.co";
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -16,13 +17,21 @@ module.exports = async function handler(req, res) {
   const base = process.env.SUPABASE_URL?.replace(/\/$/, "");
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  // Never permit production account writes here.
-  if (
-    process.env.VERCEL_ENV !== "preview" ||
-    base !== DEV ||
-    !secret
-  ) {
-    return send(503, { error: "DEV only" });
+  const isDev =
+    process.env.VERCEL_ENV === "preview" &&
+    base === DEV;
+
+  const isProd =
+    process.env.VERCEL_ENV === "production" &&
+    base === PROD;
+
+  if (!secret || (!isDev && !isProd)) {
+    return send(503, { error: "Account service unavailable" });
+  }
+
+  // Production is strictly read-only.
+  if (isProd && req.method !== "GET") {
+    return send(405, { error: "Production account editing disabled" });
   }
 
   const token = (req.headers.authorization || "")
