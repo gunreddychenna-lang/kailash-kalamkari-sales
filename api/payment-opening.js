@@ -1,6 +1,7 @@
 "use strict";
 
 const DEV = "https://yiaipfquxyrqxvkvjykp.supabase.co";
+const PROD = "https://dqvqqrbvklpiibzqivbp.supabase.co";
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -15,9 +16,17 @@ module.exports = async function handler(req, res) {
   const base = process.env.SUPABASE_URL?.replace(/\/$/, "");
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (process.env.VERCEL_ENV !== "preview" ||
-      base !== DEV || !secret) {
-    return send(503, { error: "DEV approval only" });
+  const devAllowed =
+    process.env.VERCEL_ENV === "preview" &&
+    base === DEV;
+
+  const prodAllowed =
+    process.env.VERCEL_ENV === "production" &&
+    base === PROD &&
+    process.env.PAYMENTS_WRITE_ENABLED === "true";
+
+  if (!secret || (!devAllowed && !prodAllowed)) {
+    return send(503, { error: "Opening approval disabled" });
   }
 
   const token = (req.headers.authorization || "")
@@ -32,7 +41,9 @@ module.exports = async function handler(req, res) {
         !["bill_no", "branch", "opening_paid", "evidence"].includes(k)
       ) ||
       typeof b.bill_no !== "string" ||
-      !/^TEST-[A-Za-z0-9_-]+$/.test(b.bill_no) ||
+      !(devAllowed
+        ? /^TEST-[A-Za-z0-9_-]+$/.test(b.bill_no)
+        : /^[A-Za-z0-9_-]{1,64}$/.test(b.bill_no)) ||
       !["Main Branch", "KHPS"].includes(b.branch) ||
       !["string", "number"].includes(typeof b.opening_paid) ||
       !/^[0-9]+(?:\.[0-9]{1,2})?$/.test(String(b.opening_paid)) ||
