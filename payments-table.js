@@ -263,6 +263,17 @@
       host.startsWith("kailash-kalamkari-sales-");
   };
 
+  const PROD_URL = "https://dqvqqrbvklpiibzqivbp.supabase.co";
+
+  const isProd = () => {
+    const configured = String(KK_STAFF_CONFIG?.url || "")
+      .replace(/\/$/, "");
+    return configured === PROD_URL &&
+      !isDev();
+  };
+
+  const canPreparePayments = () => isDev() || isProd();
+
   function saveStatus(message) {
     const status = el("status");
     status.textContent = message;
@@ -326,7 +337,9 @@
   function preparedDraft(draft) {
     const bill = draft.bill;
 
-    if (!/^TEST-[A-Za-z0-9_-]+$/.test(bill.bill_no)) {
+    if (!(isDev()
+      ? /^TEST-[A-Za-z0-9_-]+$/.test(bill.bill_no)
+      : isProd() && /^[A-Za-z0-9_-]{1,64}$/.test(bill.bill_no))) {
       throw new Error("Only DEV TEST invoices can be saved.");
     }
 
@@ -390,7 +403,8 @@
   }
 
   async function approveOpening(bill, panel) {
-    if (!isDev() || !/^TEST-[A-Za-z0-9_-]+$/.test(bill.bill_no)) {
+    if (!canPreparePayments() ||
+        (isDev() && !/^TEST-[A-Za-z0-9_-]+$/.test(bill.bill_no))) {
       saveStatus("Opening approval is DEV TEST-only.");
       return;
     }
@@ -551,8 +565,8 @@
   }
 
   async function saveAllDev() {
-    if (!isDev()) {
-      saveStatus("Save blocked: not a verified DEV Preview.");
+    if (!canPreparePayments()) {
+      saveStatus("Save blocked: unverified environment.");
       return;
     }
 
@@ -782,7 +796,7 @@
       warning.textContent = "Opening balance: verify before saving";
       ledgerCell.append(warning);
 
-      if (isDev() && /^TEST-[A-Za-z0-9_-]+$/.test(bill.bill_no)) {
+      if (canPreparePayments() && (!isDev() || /^TEST-[A-Za-z0-9_-]+$/.test(bill.bill_no))) {
         const approve = document.createElement("button");
         approve.type = "button";
         approve.className = "opening-approval-button";
@@ -924,9 +938,14 @@
       saveButton.title = "Saves TEST invoices only";
       el("status").textContent +=
         " DEV TEST-only Save All enabled.";
+    } else if (isProd()) {
+      saveButton.disabled = true;
+      saveButton.textContent = "Production Save — Awaiting Release";
+      saveButton.title = "Financial writes require final Owner authorization";
+      el("add-bank").disabled = true;
     } else {
       saveButton.disabled = true;
-      saveButton.title = "Not a verified DEV Preview";
+      saveButton.title = "Unverified environment";
     }
   } catch (error) {
     saveStatus(error.message);
