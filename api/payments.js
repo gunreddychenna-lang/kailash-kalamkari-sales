@@ -22,7 +22,13 @@ module.exports = async function handler(req, res) {
     process.env.VERCEL_ENV === 'production' &&
     process.env.PAYMENTS_WRITE_ENABLED === 'true';
 
-  if (!secret || (!devAllowed && !prodAllowed)) {
+  const prodReadAllowed =
+    base === PROD &&
+    process.env.VERCEL_ENV === 'production';
+
+  if (!secret ||
+      (!devAllowed && !prodReadAllowed) ||
+      (req.method === 'POST' && prodReadAllowed && !prodAllowed)) {
     return send(503, { error: 'Payment trial unavailable. Production saving is disabled.' });
   }
   const token = (req.headers?.authorization || '').match(/^Bearer ([^\s]+)$/i)?.[1];
@@ -87,7 +93,7 @@ module.exports = async function handler(req, res) {
     const identity = await upstream('/auth/v1/user', token);
     if (!identity.ok || !UUID.test(identity.data?.id || '')) return send(401, { error: 'Please sign in again.' });
     // Verify every non-cash bank against the active DEV account catalog.
-    if (req.method === 'POST' && base === DEV) {
+    if (req.method === 'POST') {
       const lookup = await upstream(
         '/rest/v1/kk_payment_accounts?select=account_name,account_type,is_active',
         secret
@@ -129,7 +135,14 @@ module.exports = async function handler(req, res) {
         'Existing receipts need review before new entry','Original bill amount changed; review required',
         'Invalid payments or stale bill amount','Invalid payment details','Invalid payment date or amount',
         'Submission key belongs to different payment details','Identical payment already saved; check receipt history',
-        'Payments exceed remaining bill balance']);
+        'Payments exceed remaining bill balance',
+        'Opening approval required',
+        'Historical receivables require reconciliation',
+        'Unknown or inactive bank',
+        'Inactive cash account',
+        'Payments exceed remaining balance',
+        'Identical receipt already saved',
+        'Invalid payment submission']);
       if (known.has(result.data?.message)) return send(result.data.code === '23505' ? 409 : 422, { error: result.data.message });
       return send(503, { error: 'Payment unavailable. Refresh receipt history before retrying.' });
     }
