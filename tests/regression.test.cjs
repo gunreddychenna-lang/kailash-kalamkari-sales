@@ -14,6 +14,15 @@ function context() {
 test('all application JavaScript compiles', () => {
   for (const file of fs.readdirSync(root).filter(f => /\.(html|js)$/.test(f))) {
     const text = fs.readFileSync(path.join(root, file), 'utf8');
+        if (file === 'middleware.js') {
+      const result = require('node:child_process').spawnSync(
+        process.execPath,
+        ['--input-type=module', '--check'],
+        { input: text, encoding: 'utf8' }
+      );
+      assert.equal(result.status, 0, result.stderr);
+      continue;
+    }
     const scripts = file.endsWith('.js') ? [text] : [...text.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
     scripts.forEach(source => new vm.Script(source, { filename: file }));
   }

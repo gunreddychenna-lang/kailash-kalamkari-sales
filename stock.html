@@ -18,7 +18,7 @@
     .warm-shadow-hover:hover { box-shadow: 0 8px 25px rgba(92, 6, 18, 0.12); }
     .zari-line { height: 3px; background: linear-gradient(90deg, #B38F4D 0%, #DAA520 50%, #B38F4D 100%); }
   </style>
-  <script src="/api/staff-config"></script>
+  <script src="staff-config.js"></script>
   <script src="security-permissions.js"></script>
 <script src="security-auth.js"></script>
 <script src="common.js?v=3"></script>
@@ -144,6 +144,19 @@
       </div>
     </div>
 
+    <!-- DESIGN / COLOUR / FABRIC INSIGHTS -->
+    <section class="bg-[#FFFDF9] p-5 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-3" aria-label="Selected inventory breakdown">
+      <h3 class="text-sm font-bold font-traditional text-stone-800">Design × Colour × Fabric Insights</h3>
+      <p class="text-[10px] text-stone-500">Counts represent scanned catalogue images in the saved Drive audit snapshot, not verified live stock. Unknown names are counted separately and never treated as an identified design.</p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-3"><div class="text-[9px] uppercase font-bold text-stone-500">Unique designs</div><strong id="insight-designs" class="text-xl text-[#5C0612]">0</strong></div>
+        <div class="bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-3"><div class="text-[9px] uppercase font-bold text-stone-500">Unique colours</div><strong id="insight-colours" class="text-xl text-[#5C0612]">0</strong></div>
+        <div class="bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-3"><div class="text-[9px] uppercase font-bold text-stone-500">Unique fabrics</div><strong id="insight-fabrics" class="text-xl text-[#5C0612]">0</strong></div>
+        <div class="bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-3"><div class="text-[9px] uppercase font-bold text-stone-500">Needs review</div><strong id="insight-review" class="text-xl text-[#5C0612]">0</strong></div>
+      </div>
+      <div class="overflow-x-auto"><table class="w-full text-left text-xs"><thead><tr class="bg-[#F3EFE9] text-stone-700 text-[9px] uppercase"><th class="p-2">Design</th><th class="p-2">Colours</th><th class="p-2">Fabrics</th><th class="p-2 text-right">Sarees</th></tr></thead><tbody id="insight-tbody"></tbody></table></div>
+    </section>
+
     <!-- VIEW MODE TABS -->
     <div class="flex bg-[#EFE5C9]/50 rounded-2xl p-1 border border-[#E5D5C6] gap-1 overflow-x-auto max-w-2xl mx-auto">
       <button onclick="switchViewMode('theme-view')" id="tab-theme-view" class="flex-1 min-w-[130px] py-2 text-xs font-bold rounded-xl bg-[#5C0612] text-[#EFE5C9] font-traditional shadow-sm transition-all flex items-center justify-center gap-1.5">
@@ -188,7 +201,7 @@
             <h3 class="text-sm font-bold font-traditional text-stone-800 uppercase tracking-wide">
               Fabric × Design Pivot Matrix
             </h3>
-            <p class="text-[10px] text-stone-500">Breakdown of how many sarees in each fabric have 🌸 Floral vs 📜 Story designs.</p>
+            <p class="text-[10px] text-stone-500">Unique design and colour counts for each fabric, with total scanned sarees.</p>
           </div>
         </div>
 
@@ -197,8 +210,8 @@
             <thead>
               <tr class="bg-[#F3EFE9] text-stone-700 uppercase text-[9px] font-extrabold tracking-wider border-b border-[#E5D5C6]">
                 <th class="p-3.5 font-traditional">Fabric Name</th>
-                <th class="p-3.5 text-center font-traditional text-emerald-800">🌸 Floral Sarees</th>
-                <th class="p-3.5 text-center font-traditional text-purple-800">📜 Story Sarees</th>
+                <th class="p-3.5 text-center font-traditional text-emerald-800">Unique Designs</th>
+                <th class="p-3.5 text-center font-traditional text-purple-800">Unique Colours</th>
                 <th class="p-3.5 text-right font-traditional text-[#5C0612] w-32">Total Sarees</th>
                 <th class="p-3.5 text-center font-traditional w-24">Action</th>
               </tr>
@@ -276,24 +289,21 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
             audit.source !== "local_drive_csv_audit" ||
             audit.snapshot !== true ||
             !Array.isArray(audit.items) ||
-            audit.items.length !== audit.total_images ||
-            audit.total_images !== 1190) {
+            audit.items.length !== audit.total_images) {
           throw new Error("Drive inventory snapshot unavailable.");
         }
 
-        const data = audit.items.map((item, index) => ({
-          id: String(index),
-          code: "",
-          store: item.store,
-          branch: item.store,
-          department: item.type,
-          fabric_name: item.fabric,
-          design_name: item.category,
-          theme: item.design,
-          colour: item.colour,
-          filename: item.filename,
-          qty: 1
-        }));
+        const data = audit.items.map((item, index) => {
+          const parsed = parseCatalogueFilename(item.filename);
+          return {
+            id: String(index), code: "", store: item.store,
+            branch: item.store, department: item.type,
+            fabric_name: item.fabric, design_name: item.category,
+            theme: parsed.design, colour: parsed.colour,
+            filename: item.filename, parse_issue: parsed.issue,
+            qty: 1
+          };
+        });
 
         rawData = data || [];
         document.getElementById('stat-total-qty').textContent = `${rawData.reduce((n, r) => n + KK.quantity(r), 0)} Units`;
@@ -313,6 +323,36 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
       }
     }
 
+    // Filename is the only source for design/colour when available.
+    // e.g. "Peacock & Red (2).jpg" => Peacock / Red; sequence does not create a new design.
+    function parseCatalogueFilename(value) {
+      let name = String(value ?? '').trim();
+      name = name.replace(/\.(jpe?g|png|webp|heic|gif)$/i, '').trim();
+      name = name.replace(/\s*\(\d+\)\s*$/u, '').trim();
+      const pos = name.indexOf('&');
+      if (pos < 0) return { design: 'Unknown Design', colour: 'Unknown Colour', issue: 'Missing & separator' };
+      const design = name.slice(0, pos).trim().replace(/\s+/g, ' ');
+      const colour = name.slice(pos + 1).trim().replace(/\s+/g, ' ');
+      const invalid = v => !v || /^(not defined|undefined|null|unknown|n\/?a)$/i.test(v);
+      return {
+        design: invalid(design) ? 'Unknown Design' : design,
+        colour: invalid(colour) ? 'Unknown Colour' : colour,
+        issue: invalid(design) || invalid(colour) ? 'Missing design or colour' : ''
+      };
+    }
+
+    // Group spelling/case variants without changing original filenames.
+    function groupingKey(value) { return String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-IN'); }
+    function distinctNames(rows, column, unknown) {
+      const entries = new Map();
+      rows.forEach(r => {
+        const v = String(r[column] || unknown).trim();
+        const k = groupingKey(v);
+        if (v !== unknown && !entries.has(k)) entries.set(k, v);
+      });
+      return entries;
+    }
+
     function populateDropdowns() {
       const stores = new Set(), depts = new Set(), fabrics = new Set(), themes = new Set(), colours = new Set();
 
@@ -320,8 +360,8 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
         if (r.store) stores.add(r.store.trim());
         if (r.department) depts.add(r.department.trim());
         if (r.fabric_name) fabrics.add(r.fabric_name.trim());
-        if (r.theme && r.theme !== 'Not Defined') themes.add(r.theme.trim());
-        if (r.colour && r.colour !== 'Not Defined') colours.add(r.colour.trim());
+        if (r.theme && r.theme !== 'Unknown Design') themes.add(r.theme.trim());
+        if (r.colour && r.colour !== 'Unknown Colour') colours.add(r.colour.trim());
       });
 
       document.getElementById('stat-themes-count').textContent = `${themes.size} Themes`;
@@ -338,6 +378,8 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
       fill('filter-store', stores, 'Stores');
       fill('filter-dept', depts, 'Departments');
       fill('filter-fabric', fabrics, 'Fabrics');
+      themes.add('Unknown Design');
+      colours.add('Unknown Colour');
       fill('filter-theme', themes, 'Themes');
       fill('filter-colour', colours, 'Colours');
 
@@ -385,9 +427,35 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
 
       document.getElementById('stat-filtered-qty').textContent = `${currentFiltered.reduce((n, r) => n + KK.quantity(r), 0)} Units`;
 
+      renderInsights();
       renderThemeSummaryView();
       renderMatrixView();
       renderTableView();
+    }
+
+    function renderInsights() {
+      const rows = currentFiltered;
+      const designs = distinctNames(rows, 'theme', 'Unknown Design');
+      const colours = distinctNames(rows, 'colour', 'Unknown Colour');
+      const fabrics = distinctNames(rows, 'fabric_name', 'Unknown Fabric');
+      document.getElementById('insight-designs').textContent = designs.size;
+      document.getElementById('insight-colours').textContent = colours.size;
+      document.getElementById('insight-fabrics').textContent = fabrics.size;
+      document.getElementById('insight-review').textContent = rows.filter(r => r.parse_issue).length;
+      const map = new Map();
+      rows.forEach(r => {
+        const label = r.theme || 'Unknown Design';
+        const key = groupingKey(label);
+        if (!map.has(key)) map.set(key, { label, colours: new Set(), fabrics: new Set(), total: 0 });
+        const group = map.get(key);
+        if (r.colour !== 'Unknown Colour') group.colours.add(groupingKey(r.colour));
+        if (r.fabric_name) group.fabrics.add(groupingKey(r.fabric_name));
+        group.total += KK.quantity(r);
+      });
+      const tbody = document.getElementById('insight-tbody');
+      tbody.innerHTML = [...map.values()].sort((a,b) => b.total-a.total)
+        .map(g => `<tr class="border-b border-[#E5D5C6]/50"><td class="p-2 font-bold">${KK.escape(g.label)}</td><td class="p-2">${g.colours.size}</td><td class="p-2">${g.fabrics.size}</td><td class="p-2 text-right">${g.total}</td></tr>`).join('')
+        || `<tr><td colspan="4" class="p-3 text-center">No matching items</td></tr>`;
     }
 
     // -------------------------------------------------------------
@@ -399,7 +467,7 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
 
       const themeGroups = {};
       currentFiltered.forEach(r => {
-        const t = r.theme || 'Not Defined';
+        const t = r.theme || 'Unknown Design';
         if (!themeGroups[t]) {
           themeGroups[t] = { total: 0, colours: {}, fabrics: new Set(), design: r.design_name || 'Not Defined' };
         }
@@ -420,9 +488,10 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
 
       container.innerHTML = sortedThemes.map(([themeName, tData], idx) => {
         const isStory = tData.design === 'Story';
-        const unknownDesign = tData.design === 'Not Defined';
+        const unknownDesign = tData.design !== 'Story' && tData.design !== 'Floral';
         const designBadge = isStory
           ? `<span class="text-[8px] bg-purple-100 text-purple-900 border border-purple-300 font-black px-1.5 py-0.5 rounded uppercase">📜 Story</span>`
+          : unknownDesign ? `<span class="text-[8px] bg-stone-100 text-stone-700 border border-stone-300 font-black px-1.5 py-0.5 rounded uppercase">Unclassified</span>`
           : `<span class="text-[8px] bg-emerald-100 text-emerald-900 border border-emerald-300 font-black px-1.5 py-0.5 rounded uppercase">🌸 Floral</span>`;
 
         const colourChips = Object.entries(tData.colours).map(([cName, cCount]) => `
@@ -483,50 +552,24 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
     // -------------------------------------------------------------
     function renderMatrixView() {
       const tbody = document.getElementById('matrix-tbody');
-      if (!tbody) return;
-
-      const matrix = {};
+      const matrix = new Map();
       currentFiltered.forEach(r => {
-        const fab = r.fabric_name || 'General';
-        if (!matrix[fab]) {
-          matrix[fab] = { floral: 0, story: 0, total: 0 };
-        }
-        if (r.design_name === 'Story') {
-          matrix[fab].story += KK.quantity(r);
-        } else {
-          matrix[fab].floral += KK.quantity(r);
-        }
-        matrix[fab].total += KK.quantity(r);
+        const fab = String(r.fabric_name || 'Unknown Fabric').trim();
+        const key = groupingKey(fab);
+        if (!matrix.has(key)) matrix.set(key, { name: fab, designs: new Set(), colours: new Set(), total: 0 });
+        const group = matrix.get(key);
+        if (r.theme !== 'Unknown Design') group.designs.add(groupingKey(r.theme));
+        if (r.colour !== 'Unknown Colour') group.colours.add(groupingKey(r.colour));
+        group.total += KK.quantity(r);
       });
-
-      const sortedFabrics = Object.entries(matrix).sort((a, b) => b[1].total - a[1].total);
-
-      if (sortedFabrics.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-stone-400 font-traditional">No fabrics match your filters.</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = sortedFabrics.map(([fabName, counts]) => `
-        <tr class="hover:bg-amber-50/20 transition-colors">
-          <td class="p-3.5 font-bold text-stone-800 text-xs font-sans">
-            🧵 ${KK.escape(fabName)}
-          </td>
-          <td class="p-3.5 text-center font-bold text-emerald-800">
-            ${counts.floral > 0 ? `<button onclick="filterFabricDesign(${KK.eventArg(fabName)}, 'Floral')" class="hover:underline font-black">${counts.floral} Sarees</button>` : `<span class="text-stone-300">-</span>`}
-          </td>
-          <td class="p-3.5 text-center font-bold text-purple-800">
-            ${counts.story > 0 ? `<button onclick="filterFabricDesign(${KK.eventArg(fabName)}, 'Story')" class="hover:underline font-black">${counts.story} Sarees</button>` : `<span class="text-stone-300">-</span>`}
-          </td>
-          <td class="p-3.5 text-right font-black text-[#5C0612] text-sm">
-            ${counts.total} Sarees
-          </td>
-          <td class="p-3.5 text-center">
-            <button onclick="isolateFabric(${KK.eventArg(fabName)})" class="text-[9px] bg-[#FAF6EE] hover:bg-[#EFE5C9] text-[#5C0612] font-bold px-2 py-1 rounded-lg border border-[#DAA520]">
-              Filter →
-            </button>
-          </td>
-        </tr>
-      `).join('');
+      const groups = [...matrix.values()].sort((a,b) => b.total-a.total);
+      tbody.innerHTML = groups.map(g => `<tr class="hover:bg-amber-50/20 transition-colors">
+        <td class="p-3.5 font-bold">${KK.escape(g.name)}</td>
+        <td class="p-3.5 text-center font-bold">${g.designs.size}</td>
+        <td class="p-3.5 text-center font-bold">${g.colours.size}</td>
+        <td class="p-3.5 text-right font-black">${g.total} Sarees</td>
+        <td class="p-3.5 text-center"><button onclick="isolateFabric(${KK.eventArg(g.name)})" class="text-[#5C0612] font-bold hover:underline">Filter →</button></td>
+      </tr>`).join('') || '<tr><td colspan="5" class="p-6 text-center">No fabrics match your filters.</td></tr>';
     }
 
     function filterFabricDesign(fab, des) {
@@ -558,6 +601,7 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
         const isStory = r.design_name === 'Story';
         const designBadge = isStory
           ? `<span class="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-300">📜 Story</span>`
+          : r.design_name !== 'Floral' ? `<span class="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-stone-100 text-stone-700 border border-stone-300">Unclassified</span>`
           : `<span class="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">🌸 Floral</span>`;
 
         return `
