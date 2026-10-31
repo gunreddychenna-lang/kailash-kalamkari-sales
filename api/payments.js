@@ -69,12 +69,12 @@ module.exports = async function handler(req, res) {
       }
       if (typeof payment.account !== 'string' ||
           typeof payment.reference !== 'string' ||
-          !payment.reference.trim()) {
+          (!payment.account.startsWith('TBH::') && !payment.reference.trim())) {
         return send(400, { error: 'UPI/Card reference required.' });
       }
       const parts = payment.account.split('::');
       if (parts.length !== 2 ||
-          !['UPI_STORE','UPI_ONLINE','CARD'].includes(parts[0]) ||
+          !['UPI_STORE','UPI_ONLINE','CARD','TBH'].includes(parts[0]) ||
           !parts[1]) {
         return send(400, { error: 'Invalid payment type or bank account.' });
       }
@@ -110,12 +110,19 @@ module.exports = async function handler(req, res) {
           .map(a => a.account_name)
       );
 
+      const activeResellers = new Set(
+        lookup.data
+          .filter(a => a.is_active === true && a.account_type === 'Reseller')
+          .map(a => a.account_name)
+      );
+
       for (const payment of input.payments) {
         if (payment.account === 'Cash') continue;
 
         const bank = payment.account.split('::')[1];
+        const reseller = payment.account.startsWith('TBH::');
 
-        if (!activeBanks.has(bank)) {
+        if (reseller ? !activeResellers.has(bank) : !activeBanks.has(bank)) {
           return send(422, {
             error: 'Unknown or inactive bank account.'
           });

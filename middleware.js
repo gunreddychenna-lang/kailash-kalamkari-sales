@@ -13,7 +13,7 @@ export default function middleware(request) {
     path === "/api/payments";
 
   if (
-    process.env.VERCEL_ENV === "preview" &&
+    ["preview", "production"].includes(process.env.VERCEL_ENV) &&
     isPaymentRoute
   ) {
     return;

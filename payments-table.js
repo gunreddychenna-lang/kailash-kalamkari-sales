@@ -176,7 +176,7 @@
     function bankOptions() {
       return split.method === "Cash"
         ? ["Cash"]
-        : allAccounts();
+        : split.method === "Take By Hand" ? ["Take By Hand"] : allAccounts();
     }
 
     function redrawBank() {
@@ -189,11 +189,11 @@
     }
 
     const method = createSelect(
-      ["UPI Store", "UPI Online", "Card", "Cash"],
+      ["UPI Store", "UPI Online", "Card", "Cash", ...(isProd() ? ["Take By Hand"] : [])],
       split.method,
       v => {
         split.method = v;
-        split.bank = v === "Cash" ? "Cash" : "";
+        split.bank = v === "Cash" ? "Cash" : v === "Take By Hand" ? "Take By Hand" : "";
         redrawBank();
         updateLedger(bill);
       }
@@ -269,7 +269,7 @@
     const configured = String(KK_STAFF_CONFIG?.url || "")
       .replace(/\/$/, "");
     return configured === PROD_URL &&
-      !isDev();
+      location.hostname.toLowerCase() === "kailash-kalamkari-sales.vercel.app";
   };
 
   const canPreparePayments = () => isDev() || isProd();
@@ -298,7 +298,7 @@
   const methodCodes = {
     "UPI Store": "UPI_STORE",
     "UPI Online": "UPI_ONLINE",
-    "Card": "CARD"
+    "Card": "CARD", "Take By Hand": "TBH"
   };
 
   async function receiptRequest(method, payload) {
@@ -362,6 +362,10 @@
         if (s.bank !== "Cash") {
           throw new Error(`${bill.bill_no}: Cash account mismatch`);
         }
+      } else if (s.method === "Take By Hand") {
+        if (s.bank !== "Take By Hand") {
+          throw new Error(`${bill.bill_no}: Take By Hand account mismatch`);
+        }
       } else if (
         !methodCodes[s.method] ||
         !bankAccounts.includes(s.bank) ||
@@ -375,6 +379,8 @@
       return {
         account: s.method === "Cash"
           ? "Cash"
+          : s.method === "Take By Hand"
+          ? "TBH::Take By Hand"
           : `${methodCodes[s.method]}::${s.bank}`,
         amount,
         payment_date: todayIST(),
@@ -405,7 +411,7 @@
   async function approveOpening(bill, panel) {
     if (!canPreparePayments() ||
         (isDev() && !/^TEST-[A-Za-z0-9_-]+$/.test(bill.bill_no))) {
-      saveStatus("Opening approval is DEV TEST-only.");
+      saveStatus("Opening approval unavailable for this invoice.");
       return;
     }
 
@@ -512,9 +518,9 @@
           ? "NEEDS REVIEW — Opening approval required"
           : "NEEDS REVIEW — Ledger mismatch";
       } else if (balance === 0) {
-        status.textContent = "SETTLED — DEV receipts";
+        status.textContent = (isDev() ? "SETTLED — DEV receipts" : "SETTLED — Production receipts");
       } else {
-        status.textContent = "PENDING — DEV receipts";
+        status.textContent = (isDev() ? "PENDING — DEV receipts" : "PENDING — Production receipts");
       }
 
       target.append(status);
@@ -529,7 +535,7 @@
         openingButton.disabled = approved;
         openingButton.textContent = approved
           ? "Opening Approved"
-          : "Approve Opening (DEV)";
+          : (isDev() ? "Approve Opening (DEV)" : "Approve Opening");
         openingWarning.textContent = approved
           ? "Opening balance verified"
           : "Opening approval required";
@@ -541,9 +547,9 @@
 
       if (!history.length) {
         const empty = document.createElement("p");
-        empty.textContent = "No DEV receipts saved for this bill.";
+        empty.textContent = (isDev() ? "No DEV receipts saved for this bill." : "No Production receipts saved for this bill.");
         target.append(empty);
-        return;
+        return result;
       }
 
       for (const batch of history) {
@@ -559,8 +565,9 @@
           target.append(line);
         }
       }
+      return result;
     } catch (error) {
-      target.textContent = `Ledger unavailable: ${error.message}`;
+      target.textContent = `Ledger unavailable: ${error.message}`; return null;
     }
   }
 
@@ -596,7 +603,7 @@
 
     // Confirm explicitly before modifying DEV receipt records.
     if (!confirm(
-      `Save payments for ${submissions.length} DEV TEST bills? ` +
+      `Save payments for ${submissions.length} ${isDev() ? "DEV TEST" : "PRODUCTION"} bills? ` +
       "Each bill saves separately. Do not close the page."
     )) return;
 
@@ -612,7 +619,7 @@
         // Reuse the same idempotency key for retry of identical details.
         const fingerprint = JSON.stringify(item.payload);
         const storageKey =
-          "kk-dev-payment-retry-" + keyOf(bill);
+          "kk-" + (isDev() ? "dev" : "prod") + "-payment-retry-" + keyOf(bill);
 
         let previous = null;
 
@@ -665,7 +672,7 @@
     render();
     saveButton.disabled = false;
     el("status").textContent =
-      `${saved} DEV TEST bill(s) saved successfully. ` +
+      `${saved} ${isDev() ? "DEV TEST" : "PRODUCTION"} bill(s) saved successfully. ` +
       "Use View Saved Receipts to verify.";
   }
   function render() {
@@ -722,7 +729,7 @@
       function bankOptions() {
         return split.method === "Cash"
           ? ["Cash"]
-          : allAccounts();
+          : split.method === "Take By Hand" ? ["Take By Hand"] : allAccounts();
       }
 
       function redrawBank() {
@@ -734,11 +741,11 @@
       }
 
       const method = createSelect(
-        ["UPI Store", "UPI Online", "Card", "Cash"],
+        ["UPI Store", "UPI Online", "Card", "Cash", ...(isProd() ? ["Take By Hand"] : [])],
         split.method,
         v => {
           split.method = v;
-          split.bank = v === "Cash" ? "Cash" : "";
+          split.bank = v === "Cash" ? "Cash" : v === "Take By Hand" ? "Take By Hand" : "";
           redrawBank();
           updateLedger(bill);
         }
@@ -800,10 +807,16 @@
         const approve = document.createElement("button");
         approve.type = "button";
         approve.className = "opening-approval-button";
-        approve.textContent = "Approve Opening (DEV)";
-        approve.onclick = () => approveOpening(bill, historyPanel);
+        approve.textContent = isDev() ? "Approve Opening (DEV)" : "Approve Opening";
+        approve.onclick = async () => {
+          if (isProd()) {
+            const ledger = await viewHistory(bill, historyPanel);
+            if (!ledger || ledger.opening_approved === true) return;
+          }
+          await approveOpening(bill, historyPanel);
+        };
         ledgerCell.append(approve);
-        viewHistory(bill, historyPanel);
+        if (isDev()) viewHistory(bill, historyPanel);
       }
 
       tr.append(ledgerCell);
@@ -939,9 +952,9 @@
       el("status").textContent +=
         " DEV TEST-only Save All enabled.";
     } else if (isProd()) {
-      saveButton.disabled = true;
-      saveButton.textContent = "Production Save — Awaiting Release";
-      saveButton.title = "Financial writes require final Owner authorization";
+      saveButton.disabled = false;
+      saveButton.textContent = "Save All (PRODUCTION)";
+      saveButton.title = "Server and database release gates must both be active";
       el("add-bank").disabled = true;
     } else {
       saveButton.disabled = true;
