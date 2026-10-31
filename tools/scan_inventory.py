@@ -33,7 +33,58 @@ def atomic_write(path, data):
     finally:
         if os.path.exists(temp): os.unlink(temp)
 
+def recover_checkpoint(state_path, snapshot_path):
+    """Complete an interrupted two-file checkpoint before any new scan."""
+    journal = os.path.abspath(state_path) + '.pending.json'
+    if not os.path.isfile(journal):
+        return
+
+    with open(journal, encoding='utf-8') as f:
+        pending = json.load(f)
+
+    if pending.get('version') != 1:
+        raise RuntimeError('Unsupported inventory checkpoint journal')
+
+    state = pending.get('state')
+    snapshot = pending.get('snapshot')
+    if not isinstance(state, dict) or not isinstance(snapshot, dict):
+        raise RuntimeError('Invalid inventory checkpoint journal')
+
+    if len(state.get('records', [])) != snapshot.get('total_images'):
+        raise RuntimeError('Checkpoint record count mismatch')
+
+    if len(snapshot.get('items', [])) != snapshot.get('total_images'):
+        raise RuntimeError('Checkpoint snapshot count mismatch')
+
+    atomic_write(state_path, state)
+    atomic_write(snapshot_path, snapshot)
+    os.unlink(journal)
+
+
+def write_checkpoint(state_path, snapshot_path, state, snapshot):
+    """Persist recoverable intent before updating two separate JSON files."""
+    if len(state['records']) != snapshot['total_images']:
+        raise RuntimeError('Inventory checkpoint count mismatch')
+
+    if len(snapshot['items']) != snapshot['total_images']:
+        raise RuntimeError('Inventory snapshot count mismatch')
+
+    journal = os.path.abspath(state_path) + '.pending.json'
+    atomic_write(journal, {
+        'version': 1,
+        'state': state,
+        'snapshot': snapshot
+    })
+
+    atomic_write(state_path, state)
+    atomic_write(snapshot_path, snapshot)
+    os.unlink(journal)
+
 def scan(sources, state_path, snapshot_path, approve=False):
+    if approve:
+        recover_checkpoint(state_path, snapshot_path)
+    elif os.path.isfile(os.path.abspath(state_path) + '.pending.json'):
+        raise RuntimeError('Pending checkpoint requires recovery before scanning')
     if not all(os.path.isdir(root) for _, root in sources):
         raise RuntimeError('A required catalogue root is unavailable. No snapshot changed.')
     seen = []
@@ -139,9 +190,13 @@ def scan(sources, state_path, snapshot_path, approve=False):
         print('DRY RUN: no output files changed. Add --write to save a local snapshot.'); return
     snapshot = {'source':'local_drive_csv_audit','snapshot':True, 'total_images':len(entries),
                 'items':[{k:r[k] for k in ('store','type','fabric','category','design','colour','filename')} for r in entries]}
-    # Preserve state first; no production writes performed. Snapshot is only a local file.
-    atomic_write(state_path, {'scan_number':prev.get('scan_number',0)+1,'records':entries})
-    atomic_write(snapshot_path, snapshot)
+    # Recovery journal prevents an interrupted two-file update from going unnoticed.
+    write_checkpoint(
+        state_path,
+        snapshot_path,
+        {'scan_number': prev.get('scan_number', 0) + 1, 'records': entries},
+        snapshot
+    )
     print('LOCAL files saved. This does NOT update your live website.')
 
 if __name__ == '__main__':
