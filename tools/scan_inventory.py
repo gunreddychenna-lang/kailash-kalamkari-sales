@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Read-only Google Drive Desktop catalogue snapshot builder. No remote writes."""
-import argparse, hashlib, json, os, pathlib, re, sys, tempfile
+import argparse, hashlib, json, os, pathlib, re, sys, tempfile, contextlib, msvcrt
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -79,6 +79,31 @@ def write_checkpoint(state_path, snapshot_path, state, snapshot):
     atomic_write(state_path, state)
     atomic_write(snapshot_path, snapshot)
     os.unlink(journal)
+
+@contextlib.contextmanager
+def inventory_lock(state_path):
+    """Windows process lock to prevent concurrent scanner state updates."""
+    lock_path = os.path.abspath(state_path) + '.lock'
+    os.makedirs(os.path.dirname(lock_path), exist_ok=True)
+
+    with open(lock_path, 'a+b') as lock_file:
+        lock_file.seek(0)
+        lock_file.write(b'\0')
+        lock_file.flush()
+        lock_file.seek(0)
+
+        try:
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+        except OSError as exc:
+            raise RuntimeError(
+                'Another inventory scanner is running. No changes made.'
+            ) from exc
+
+        try:
+            yield
+        finally:
+            lock_file.seek(0)
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
 
 def scan(sources, state_path, snapshot_path, approve=False):
     if approve:
@@ -206,5 +231,7 @@ if __name__ == '__main__':
     p.add_argument('--state', default='tools/inventory-scan-state.json')
     p.add_argument('--snapshot', default='lib/drive-audit-snapshot.json')
     a=p.parse_args()
-    try: scan([('Main Catalogue',a.root_kk),('KHPS',a.root_khps)], a.state, a.snapshot,a.write)
+    try:
+        with inventory_lock(a.state):
+            scan([('Main Catalogue',a.root_kk),('KHPS',a.root_khps)], a.state, a.snapshot,a.write)
     except Exception as e: print('SCAN FAILED:',e,file=sys.stderr);sys.exit(1)
