@@ -494,7 +494,9 @@
         paid < 0 || balance < 0 || total <= 0 ||
         paid + Math.round(Number(result.opening_paid) * 100) + balance !== total
       ) {
-        status.textContent = "NEEDS REVIEW — Ledger mismatch";
+        status.textContent = result.opening_approved !== true
+          ? "NEEDS REVIEW — Opening approval required"
+          : "NEEDS REVIEW — Ledger mismatch";
       } else if (balance === 0) {
         status.textContent = "SETTLED — DEV receipts";
       } else {
@@ -502,6 +504,22 @@
       }
 
       target.append(status);
+
+      const openingButton =
+        target.parentElement?.querySelector(".opening-approval-button");
+      const openingWarning =
+        target.parentElement?.querySelector(".opening-status");
+
+      if (openingButton && openingWarning) {
+        const approved = result.opening_approved === true;
+        openingButton.disabled = approved;
+        openingButton.textContent = approved
+          ? "Opening Approved"
+          : "Approve Opening (DEV)";
+        openingWarning.textContent = approved
+          ? "Opening balance verified"
+          : "Opening approval required";
+      }
 
       const history = Array.isArray(result.history)
         ? result.history
@@ -760,16 +778,18 @@
       ledgerCell.append(historyButton, historyPanel);
 
       const warning = document.createElement("div");
-      warning.className = "small";
+      warning.className = "small opening-status";
       warning.textContent = "Opening balance: verify before saving";
       ledgerCell.append(warning);
 
       if (isDev() && /^TEST-[A-Za-z0-9_-]+$/.test(bill.bill_no)) {
         const approve = document.createElement("button");
         approve.type = "button";
+        approve.className = "opening-approval-button";
         approve.textContent = "Approve Opening (DEV)";
         approve.onclick = () => approveOpening(bill, historyPanel);
         ledgerCell.append(approve);
+        viewHistory(bill, historyPanel);
       }
 
       tr.append(ledgerCell);
