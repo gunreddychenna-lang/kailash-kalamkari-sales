@@ -62,6 +62,46 @@ async function catalogueRows(base, key) {
   }
   throw new Error("Inventory limit reached");
 }
+async function liveDriveSnapshot(base, secret) {
+  const url = base +
+    "/rest/v1/kk_inventory_snapshots?id=eq.current&select=payload";
+
+  const rows = await jsonRequest(url, secret, secret);
+
+  if (!Array.isArray(rows) || rows.length !== 1) {
+    throw new Error("Live inventory snapshot missing");
+  }
+
+  const audit = rows[0].payload;
+
+  if (!audit ||
+      audit.source !== "local_drive_csv_audit" ||
+      audit.snapshot !== true ||
+      !Array.isArray(audit.items) ||
+      !Number.isSafeInteger(audit.total_images) ||
+      audit.total_images < 1 ||
+      audit.total_images > 25000 ||
+      audit.items.length !== audit.total_images) {
+    throw new Error("Invalid live inventory snapshot");
+  }
+
+  const ids = new Set();
+
+  for (const item of audit.items) {
+    if (!item || typeof item !== "object" ||
+        typeof item.store !== "string" ||
+        typeof item.fabric !== "string" ||
+        typeof item.filename !== "string" ||
+        typeof item.stable_id !== "string" ||
+        !/^[a-f0-9]{24}$/.test(item.stable_id) ||
+        ids.has(item.stable_id)) {
+      throw new Error("Invalid inventory item");
+    }
+    ids.add(item.stable_id);
+  }
+
+  return audit;
+}
 async function handler(req, res) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -87,7 +127,15 @@ async function handler(req, res) {
       return reply(res, 403, {error:"Access denied"});
     }
     const saree_inventory = await catalogueRows(catalog, publicKey);
-    const response = { drive_audit: kkDriveAudit, saree_inventory, counts:{saree_inventory:saree_inventory.length},
+    const liveMode = process.env.KK_INVENTORY_LIVE_DEV === "1";
+    if (liveMode &&
+        base !== "https://yiaipfquxyrqxvkvjykp.supabase.co") {
+      throw new Error("Live inventory restricted to approved DEV project");
+    }
+    const driveAudit = liveMode
+      ? await liveDriveSnapshot(base, secret)
+      : kkDriveAudit;
+    const response = { drive_audit: driveAudit, saree_inventory, counts:{saree_inventory:saree_inventory.length},
       source:"catalogue_products", read_only:true, source_note:"Catalogue sync; not physically audited" };
     if (Buffer.byteLength(JSON.stringify(response)) > 5000000) throw Error("Response too large");
     return reply(res, 200, response);

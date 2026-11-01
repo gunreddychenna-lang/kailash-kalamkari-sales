@@ -296,10 +296,13 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
         const data = audit.items.map((item, index) => {
           const parsed = parseCatalogueFilename(item.filename);
           return {
-            id: String(index), code: "", store: item.store,
+            id: item.stable_id || String(index), code: "", store: item.store,
             branch: item.store, department: item.type,
             fabric_name: item.fabric, design_name: item.category,
-            theme: parsed.design, colour: parsed.colour,
+            theme: item.design && item.design !== 'Not Defined'
+              ? item.design : parsed.design,
+            colour: item.colour && item.colour !== 'Not Defined'
+              ? item.colour : parsed.colour,
             filename: item.filename, parse_issue: parsed.issue,
             qty: 1
           };
