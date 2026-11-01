@@ -193,13 +193,31 @@ test("write methods denied", async () => {
   assert.equal((await run({method: "POST"})).res.code, 405);
 });
 
-test("production database rejected", async () => {
+test("production Sales auth uses separate DEV inventory", async () => {
   const {res, requests} = await run({
     database: "https://dqvqqrbvklpiibzqivbp.supabase.co"
   });
 
-  assert.equal(res.code, 503);
-  assert.equal(requests.length, 0);
+  assert.equal(res.code, 200);
+  assert.equal(res.body.read_only, true);
+
+  const salesHost = "dqvqqrbvklpiibzqivbp.supabase.co";
+  const inventoryHost = "yiaipfquxyrqxvkvjykp.supabase.co";
+
+  assert.ok(requests.some(r =>
+    r.url.hostname === salesHost &&
+    r.url.pathname === "/auth/v1/user"
+  ));
+
+  assert.ok(requests.some(r =>
+    r.url.hostname === salesHost &&
+    r.url.pathname === "/rest/v1/kk_staff_access"
+  ));
+
+  assert.ok(requests.some(r =>
+    r.url.hostname === inventoryHost &&
+    r.url.pathname === "/rest/v1/kk_inventory_snapshots"
+  ));
 });
 
 test("missing snapshot fails closed", async () => {

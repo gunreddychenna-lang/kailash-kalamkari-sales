@@ -120,7 +120,13 @@ async function handler(req, res) {
         !catalog || !publicKey ||
         !/^https:\/\/ehovvhckvgwfkbgfvchi\.supabase\.co$/.test(catalog)
       )) ||
-      base.includes("dqvqqrbvklpiibzqivbp")) {
+      (
+  (liveMode && ![
+    "https://yiaipfquxyrqxvkvjykp.supabase.co",
+    "https://dqvqqrbvklpiibzqivbp.supabase.co"
+  ].includes(base)) ||
+  (!liveMode && base.includes("dqvqqrbvklpiibzqivbp"))
+)) {
     return reply(res, 503, {error:"Inventory backend unavailable"});
   }
   if (!token) return reply(res, 401, {error:"Authentication required"});
