@@ -108,11 +108,17 @@ async function handler(req, res) {
     return reply(res, 405, {error:"Method not allowed"});
   }
   const base = DEV_URL(), secret = DEV_KEY();
+  const liveMode = process.env.KK_INVENTORY_LIVE_DEV === "1";
   const catalog = CATALOGUE_URL(), publicKey = CATALOGUE_KEY();
   const token = (req.headers?.authorization || "").match(/^Bearer ([^\s]+)$/i)?.[1];
-  if (!base || !secret || !catalog || !publicKey ||
-      base.includes("dqvqqrbvklpiibzqivbp") ||
-      !/^https:\/\/ehovvhckvgwfkbgfvchi\.supabase\.co$/.test(catalog)) {
+
+  if (!base || !secret ||
+      (liveMode && base !== "https://yiaipfquxyrqxvkvjykp.supabase.co") ||
+      (!liveMode && (
+        !catalog || !publicKey ||
+        !/^https:\/\/ehovvhckvgwfkbgfvchi\.supabase\.co$/.test(catalog)
+      )) ||
+      base.includes("dqvqqrbvklpiibzqivbp")) {
     return reply(res, 503, {error:"Inventory backend unavailable"});
   }
   if (!token) return reply(res, 401, {error:"Authentication required"});
@@ -126,17 +132,24 @@ async function handler(req, res) {
       !["owner","admin"].includes(staff[0].role)) {
       return reply(res, 403, {error:"Access denied"});
     }
-    const saree_inventory = await catalogueRows(catalog, publicKey);
-    const liveMode = process.env.KK_INVENTORY_LIVE_DEV === "1";
-    if (liveMode &&
-        base !== "https://yiaipfquxyrqxvkvjykp.supabase.co") {
-      throw new Error("Live inventory restricted to approved DEV project");
-    }
     const driveAudit = liveMode
       ? await liveDriveSnapshot(base, secret)
       : kkDriveAudit;
-    const response = { drive_audit: driveAudit, saree_inventory, counts:{saree_inventory:saree_inventory.length},
-      source:"catalogue_products", read_only:true, source_note:"Catalogue sync; not physically audited" };
+
+    const saree_inventory = liveMode
+      ? []
+      : await catalogueRows(catalog, publicKey);
+
+    const response = {
+      drive_audit: driveAudit,
+      saree_inventory,
+      counts: {saree_inventory: saree_inventory.length},
+      source: liveMode ? "dev_inventory_metadata" : "catalogue_products",
+      read_only: true,
+      source_note: liveMode
+        ? "DEV Drive metadata snapshot; physical availability not verified"
+        : "Catalogue sync; not physically audited"
+    };
     if (Buffer.byteLength(JSON.stringify(response)) > 5000000) throw Error("Response too large");
     return reply(res, 200, response);
   } catch (_) {

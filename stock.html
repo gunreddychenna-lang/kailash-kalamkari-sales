@@ -282,7 +282,9 @@ const SUPABASE_ANON_KEY = window.KK_STAFF_CONFIG.anonKey;
             payload.counts?.saree_inventory !== payload.saree_inventory.length) {
           throw new Error('Incomplete inventory response.');
         }
-        if (payload.source !== "catalogue_products") throw new Error("Unexpected inventory source.");
+        if (!["catalogue_products", "dev_inventory_metadata"].includes(payload.source)) {
+          throw new Error("Unexpected inventory source.");
+        }
         const audit = payload.drive_audit;
 
         if (!audit ||
