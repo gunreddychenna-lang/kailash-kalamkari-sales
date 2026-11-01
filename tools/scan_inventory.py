@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Read-only Google Drive Desktop catalogue snapshot builder. No remote writes."""
-import argparse, hashlib, json, os, pathlib, re, sys, tempfile, contextlib, msvcrt
+import argparse, hashlib, json, os, pathlib, re, sys, tempfile, contextlib, msvcrt, uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -188,7 +188,7 @@ def scan(sources, state_path, snapshot_path, approve=False):
         if idx is None:
             idx = next((i for i in by_hash[(item['store'], item['content_sha256'])] if i not in used), None)
         if idx is None:
-            item['stable_id'] = hashlib.sha256((item['store']+':'+item['relative_path']+':'+item['content_sha256']).encode()).hexdigest()[:24]
+            item['stable_id'] = uuid.uuid4().hex[:24]
             new_count += 1
         else:
             used.add(idx)
