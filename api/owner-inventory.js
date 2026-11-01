@@ -109,11 +109,13 @@ async function handler(req, res) {
   }
   const base = DEV_URL(), secret = DEV_KEY();
   const liveMode = process.env.KK_INVENTORY_LIVE_DEV === "1";
+  const inventoryBase = process.env.KK_INVENTORY_SUPABASE_URL?.replace(/\/$/, "");
+  const inventorySecret = process.env.KK_INVENTORY_SUPABASE_SERVICE_ROLE_KEY;
   const catalog = CATALOGUE_URL(), publicKey = CATALOGUE_KEY();
   const token = (req.headers?.authorization || "").match(/^Bearer ([^\s]+)$/i)?.[1];
 
   if (!base || !secret ||
-      (liveMode && base !== "https://yiaipfquxyrqxvkvjykp.supabase.co") ||
+      (liveMode && (inventoryBase !== "https://yiaipfquxyrqxvkvjykp.supabase.co" || !inventorySecret)) ||
       (!liveMode && (
         !catalog || !publicKey ||
         !/^https:\/\/ehovvhckvgwfkbgfvchi\.supabase\.co$/.test(catalog)
@@ -133,7 +135,7 @@ async function handler(req, res) {
       return reply(res, 403, {error:"Access denied"});
     }
     const driveAudit = liveMode
-      ? await liveDriveSnapshot(base, secret)
+      ? await liveDriveSnapshot(inventoryBase, inventorySecret)
       : kkDriveAudit;
 
     const saree_inventory = liveMode

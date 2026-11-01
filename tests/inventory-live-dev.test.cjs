@@ -22,7 +22,7 @@ async function run({
     "SUPABASE_SERVICE_ROLE_KEY",
     "CATALOGUE_SUPABASE_URL",
     "CATALOGUE_SUPABASE_ANON_KEY",
-    "KK_INVENTORY_LIVE_DEV"
+    "KK_INVENTORY_LIVE_DEV", "KK_INVENTORY_SUPABASE_URL", "KK_INVENTORY_SUPABASE_SERVICE_ROLE_KEY"
   ];
 
   const original = Object.fromEntries(
@@ -35,6 +35,8 @@ async function run({
   process.env.SUPABASE_URL = database;
   process.env.SUPABASE_SERVICE_ROLE_KEY = "fake-test-service-key";
   process.env.KK_INVENTORY_LIVE_DEV = "1";
+  process.env.KK_INVENTORY_SUPABASE_URL = DEV;
+  process.env.KK_INVENTORY_SUPABASE_SERVICE_ROLE_KEY = "fake-inventory-key";
 
   delete process.env.CATALOGUE_SUPABASE_URL;
   delete process.env.CATALOGUE_SUPABASE_ANON_KEY;
