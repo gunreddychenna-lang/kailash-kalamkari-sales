@@ -50,7 +50,7 @@ async function reconcile(db, rows, dryRun) {
     await client.query('SELECT pg_advisory_xact_lock($1,$2)',[20461103,1102]);
     const uniqInvoice=[...new Set(rows.map(r=>r.bill_no))];
     const store=rows[0].store_name;
-    const prior=(await client.query('SELECT store_name,bill_no,sl_no,item_name,bill_date::text,qty,rate,discount,amount,line_id FROM public.sales WHERE store_name=$1 AND bill_no = ANY($2::text[]) FOR UPDATE',[store,uniqInvoice])).rows;
+    const prior=(await client.query('SELECT store_name,bill_no,sl_no,item_name,bill_date::text,qty,rate,discount,amount,line_id FROM public.sales WHERE store_name=$1 AND bill_no = ANY($2::text[])',[store,uniqInvoice])).rows;
     // Existing historical invoice records may not have line IDs. Never add to them.
     const unacceptable=prior.find(x=>!x.line_id||!x.line_id.startsWith('KKGS-'));
     if(unacceptable) {await client.query('ROLLBACK');return {status:409,error:'Invoice already exists outside this importer',bill_no:unacceptable.bill_no};}
