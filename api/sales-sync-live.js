@@ -36,7 +36,7 @@ function coreMatches(db,r) {
     amt(db.rate,r.rate)&&amt(db.discount,r.discount)&&amt(db.amount,r.amount);
 }
 function getPool() {
-  const url=process.env.SALES_DATABASE_URL;
+  const url=process.env.KK_SALES_IMPORT_DATABASE_URL;
   if(!url||!/^postgres(ql)?:\/\//.test(url)) throw new Error('Sales DB unavailable');
   if(!poolByUrl.has(url))poolByUrl.set(url,new (require('pg').Pool)({connectionString:url,max:2,connectionTimeoutMillis:7000,idleTimeoutMillis:10000}));
   return poolByUrl.get(url);
