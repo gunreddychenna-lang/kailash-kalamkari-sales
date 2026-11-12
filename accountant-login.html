@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Accountant Sign In · Kailash Kalamkari</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#33271e;background:#faf6ee}*{box-sizing:border-box}body{margin:0}header{background:#5c0612;color:#fff1d0;padding:22px}main{max-width:470px;margin:45px auto;padding:0 18px}section{background:#fff;padding:25px;border-radius:14px;border:1px solid #e5d5c6}h1{font-family:Georgia,serif;margin:5px 0}h2{margin-top:0}label{display:block;margin:16px 0 5px}input,button{width:100%;font:inherit;padding:12px;border:1px solid #bda98b;border-radius:7px}button{background:#5c0612;color:white;cursor:pointer;margin-top:20px;border-color:#5c0612}button.secondary{background:#fff;color:#5c0612}button:disabled{opacity:.5}#status{white-space:pre-wrap;min-height:25px}small{color:#64574b}[hidden]{display:none!important}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/api/staff-config"></script>
+<script src="security-permissions.js"></script>
+<script src="security-auth.js"></script>
+<script defer src="accountant-login.js"></script>
+</head><body><header><h1>Kailash Kalamkari</h1><span>Secure Accountant Sign In</span></header>
+<main><section><h2>Accountant Access</h2>
+<p id="status" role="status">Checking secure connection…</p>
+<form id="login"><label for="email">Account Email</label><input type="email" autocomplete="username" id="email" required>
+<label for="password">Password</label><input type="password" autocomplete="current-password" id="password" required minlength="12">
+<button id="sign-in">Sign In</button></form>
+<form id="recovery" hidden><label for="new-password">Set a new password (12+ characters)</label><input id="new-password" type="password" autocomplete="new-password" minlength="12" required><button>Set Password</button></form>
+<button type="button" class="secondary" id="forgot">Forgot Password? Email Recovery Link</button>
+<small>Only approved staff can access payment entry. Do not share passwords or recovery links.</small>
+</section></main></body></html>

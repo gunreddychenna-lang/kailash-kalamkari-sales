@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Accountant Payment Entry · Kailash Kalamkari</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#33271e;background:#faf6ee}*{box-sizing:border-box}body{margin:0}header{background:#5c0612;color:#fff1d0;padding:22px}main{max-width:970px;margin:20px auto;padding:0 18px}section{background:white;border:1px solid #e5d5c6;border-radius:14px;padding:22px;margin:18px 0}h1{font-family:Georgia,serif;margin:0 0 5px}label{display:block;font-size:14px;font-weight:600}input,select,button{font:inherit;min-height:42px;padding:9px;border-radius:7px;border:1px solid #baa88f}input,select{display:block;width:100%;margin-top:5px}button{cursor:pointer;background:#5c0612;color:white;border-color:#5c0612}button:disabled{opacity:.5;cursor:default}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}.notice{padding:15px;border-radius:9px;background:#ffefc8;border:1px solid #e5cc8e}.numbers{display:flex;gap:40px;flex-wrap:wrap}.numbers strong{display:block;font-size:24px}#status{font-weight:600;white-space:pre-wrap}table{border-collapse:collapse;width:100%;font-size:14px}td,th{text-align:left;padding:9px;border-bottom:1px solid #e5d5c6}.scroll{overflow:auto}fieldset{border:0;padding:0;margin:0}[hidden]{display:none!important}header button{background:#fff;color:#5c0612;float:right}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/api/staff-config"></script>
+<script src="security-permissions.js"></script>
+<script src="security-auth.js"></script>
+<script defer src="accountant-payments.js"></script>
+</head><body><header><button type="button" id="logout">Sign Out</button><h1>Kailash Kalamkari</h1>Accountant · Payment Entry</header><main>
+<p class="notice"><strong>PENDING FOR VERIFICATION.</strong> Submissions here record payment details for Owner/Admin review. They do <strong>not</strong> mark invoices paid or update balances. Do not treat pending entries as reconciled receipts.</p>
+<p id="status" role="status" aria-live="polite">Verifying access…</p>
+<section><form id="lookup-form"><fieldset id="lookup-fields" disabled><div class="grid">
+<label>Branch<select id="branch" required></select></label>
+<label>Bill number<input id="bill" required maxlength="64" pattern="[A-Za-z0-9_-]+" autocomplete="off"></label></div>
+<button id="load-button">Load Invoice</button></fieldset></form></section>
+<section id="invoice-area" hidden><h2 id="invoice-heading"></h2><div class="numbers"><div>Verified Invoice Amount<strong id="invoice-amount"></strong></div><div>Pending Entry Total<strong id="pending-total"></strong></div></div>
+<p>Enter each payment separately. Reference is mandatory for UPI, bank transfer and card.</p>
+<form id="payment-form"><fieldset id="payment-fields"><div class="grid">
+<label>Received Date<input id="payment-date" type="date" required min="2026-09-01"></label>
+<label>Payment Method<select id="method" required><option value="cash">Cash</option><option value="upi">UPI</option><option value="bank_transfer">Bank Transfer</option><option value="card">Card</option></select></label>
+<label>Deposit / Bank Account<select id="account" required></select></label>
+<label>Amount Received (₹)<input id="amount" type="number" required min="0.01" step="0.01"></label>
+<label>Transaction / UTR Reference<input id="reference" maxlength="120" autocomplete="off"></label>
+</div><button id="submit-button">Submit Payment for Review</button></fieldset></form>
+<button id="retry-button" hidden type="button">Retry Same Submission</button>
+<h3>Pending Payment Entries</h3><div class="scroll"><table><thead><tr><th>Date</th><th>Mode</th><th>Account</th><th>Amount</th><th>Reference</th><th>Status</th></tr></thead><tbody id="history"></tbody></table></div>
+</section></main></body></html>
