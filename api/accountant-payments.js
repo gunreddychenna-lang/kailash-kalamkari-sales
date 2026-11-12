@@ -15,6 +15,7 @@ function cleanError(msg){
   return allowed.has(msg)?msg:'Payment request unavailable. Verify history before retrying.';
 }
 async function handler(req,res){
+  if(req.method==='POST' && new URL(req.url||'/', 'http://localhost').searchParams.get('action')==='add-account') return require('../lib/accountant-banks.js')(req,res);
   if(req.method==='GET' && new URL(req.url||'/', 'http://localhost').searchParams.get('view')==='register') return ledger(req,res);
   if(!['GET','POST'].includes(req.method))return respond(res,405,{error:'Method not allowed'});
   const base=process.env.SUPABASE_URL?.replace(/\/$/,'');

@@ -3,8 +3,8 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const {check}=require('../api/accountant-banks.js')._test;
-const handler=require('../api/accountant-banks.js');
+const {check}=require('../lib/accountant-banks.js')._test;
+const handler=require('../lib/accountant-banks.js');
 const uuid='127fe7de-6814-46e9-a804-afc14e419825';
 function response(){return{code:0,body:null,headers:{},setHeader(k,v){this.headers[k]=v;},status(n){this.code=n;return this;},json(v){this.body=v;return this;}};}
 async function request(body,{role='owner',active=true,existing=[],withJwt=true,env='production'}={}){
@@ -68,7 +68,7 @@ test('new grid preserves existing row Save Pending and uses resumable bulk queue
   assert.ok(js.includes('saveAllEditedPage'));
   assert.ok(js.includes('idempotency_key:crypto.randomUUID()'));
   assert.ok(js.includes('keepQueue();await finishQueue()'));
-  assert.ok(js.includes('request(\'POST\',\'/api/accountant-banks\''));
+  assert.ok(js.includes('request(\'POST\',\'/api/accountant-payments?action=add-account\''));
   assert.ok(js.includes("actions.append(button('Save Pending'"));
   assert.doesNotMatch(js,/\.from\(['"](?:sales|receivables|bank_accounts|kk_payment_accounts)['"]\)/);
   assert.doesNotMatch(js,/\/rest\/v1\/(?:sales|receivables|kk_payment_requests)/);

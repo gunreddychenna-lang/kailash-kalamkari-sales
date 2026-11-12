@@ -66,7 +66,7 @@
     el('bank-submit').disabled=true;
     el('bank-error').textContent='';
     try {
-      await request('POST','/api/accountant-banks',{account_name:name,account_type:type});
+      await request('POST','/api/accountant-payments?action=add-account',{account_name:name,account_type:type});
       el('bank-dialog').close();
       el('new-bank-name').value='';
       await fetchAccounts();renderAccountList();render();
