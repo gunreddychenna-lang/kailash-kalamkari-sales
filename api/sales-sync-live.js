@@ -3,6 +3,14 @@
 // No update/delete statements; no payment/receivable writes.
 const crypto = require('node:crypto');
 const poolByUrl = new Map();
+// Normal batches: 40. Exception: up to 500 lines from ONE invoice, atomically.
+const MAX_STANDARD_ROWS = 40;
+const MAX_SINGLE_INVOICE_ROWS = 500;
+const MAX_REQUEST_BYTES = 600000;
+function validBatchShape(rows) {
+  return rows.length <= MAX_STANDARD_ROWS ||
+    new Set(rows.map(r => r && r.bill_no)).size === 1;
+}
 const FIELDS = new Set(['store_name','bill_no','sl_no','item_name','bill_date','qty','rate','discount','amount','sm_name','agent_name','pay_mode','sale_type','bank_account']);
 function hash(s) { return crypto.createHash('sha256').update(s).digest('hex'); }
 function lineId(r) { return 'KKGS-' + hash(JSON.stringify([r.store_name,r.bill_no,r.sl_no])); }
@@ -98,15 +106,26 @@ async function reconcile(db, rows, dryRun) {
     const ids=new Set(rows.map(lineId));
     if(prior.some(x=>!/^KKGS-[0-9a-f]{64}$/.test(x.line_id))){await client.query('ROLLBACK');return {status:409,error:'Unexpected existing line identity'};}
     let newRows=0,skipped=0,total=0;
+    const fresh=[];
     for (const r of rows) {
       const key=lineId(r), old=existing.get(key);total+=Math.round(r.amount*100);
       if(old){if(!coreMatches(old,r)){await client.query('ROLLBACK');return {status:409,error:'Previously imported line changed',bill_no:r.bill_no,sl_no:r.sl_no};}skipped++;continue;}
-      // NULL payment fields intentionally: Sales Portal owns payment settlements.
+      fresh.push(r);
+      newRows++;
+    }
+    // Insert every new line in ONE SQL statement and ONE transaction.
+    // Avoid 500 individual database round trips. Payment fields remain NULL.
+    if (fresh.length) {
+      const values=[];
+      const tuples=fresh.map(r=>{
+        const start=values.length;
+        values.push(lineId(r),r.store_name,r.bill_no,r.sl_no,r.item_name,r.bill_date,
+          r.qty,r.rate,r.discount,r.amount,r.sm_name,r.agent_name,r.sale_type);
+        return '('+Array.from({length:13},(_,i)=>'$'+(start+i+1)).join(',')+',NULL,NULL,NULL)';
+      });
       await client.query(`INSERT INTO public.sales
         (line_id,store_name,bill_no,sl_no,item_name,bill_date,qty,rate,discount,amount,sm_name,agent_name,sale_type,pay_mode,bank_account,acc_name)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULL,NULL,NULL)`,
-        [key,r.store_name,r.bill_no,r.sl_no,r.item_name,r.bill_date,r.qty,r.rate,r.discount,r.amount,r.sm_name,r.agent_name,r.sale_type]);
-      newRows++;
+        VALUES ${tuples.join(',')}`, values);
     }
     if(dryRun) await client.query('ROLLBACK');else await client.query('COMMIT');
     return {status:200,mode:dryRun?'PRODUCTION_DRY_RUN':'PRODUCTION_IMPORT',submitted_rows:rows.length,inserted:dryRun?0:newRows,would_insert:dryRun?newRows:undefined,already_present:skipped,total_bill_amount:total/100,production_writes:!dryRun&&newRows>0,payments_written:0};
@@ -118,7 +137,10 @@ async function handler(req,res){
   if(process.env.VERCEL_ENV!=='production'||process.env.KK_SALES_LIVE_ENABLED!=='true')return resp(res,503,{error:'Live sync disabled'});
   if(!auth(req))return resp(res,401,{error:'Unauthorized'});
   const body=req.body||{};const rows=body.rows;
-  if(!Array.isArray(rows)||!rows.length||rows.length>40||JSON.stringify(body).length>100000||typeof body.dry_run!=='boolean')return resp(res,400,{error:'Invalid batch'});
+  if(!Array.isArray(rows)||!rows.length||rows.length>MAX_SINGLE_INVOICE_ROWS||
+    Buffer.byteLength(JSON.stringify(body),'utf8')>MAX_REQUEST_BYTES||
+    typeof body.dry_run!=='boolean')return resp(res,400,{error:'Invalid batch'});
+  if(!validBatchShape(rows))return resp(res,400,{error:'Large batches must contain one invoice'});
   const bad=[],identities=new Set();
   rows.forEach((r,i)=>{const err=validate(r);if(err)bad.push({row:i+1,error:err});else{const key=lineId(r);if(identities.has(key))bad.push({row:i+1,error:'Duplicate source line'});identities.add(key);}});
   if(bad.length)return resp(res,422,{errors:bad});
@@ -127,4 +149,4 @@ async function handler(req,res){
   catch(error){console.error('Sales sync live failed',error.code||error.name);return resp(res,502,{error:'Sales import failed safely; verify database before retry'});}
 }
 module.exports=handler;
-module.exports._test={validate,lineId,coreMatches,reconcile};
+module.exports._test={validate,lineId,coreMatches,reconcile,validBatchShape};
