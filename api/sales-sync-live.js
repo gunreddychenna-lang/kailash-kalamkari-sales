@@ -30,8 +30,14 @@ function validate(r) {
   if(typeof r.bill_no!=='string'||!/^[A-Za-z0-9_-]{1,64}$/.test(r.bill_no))return 'Invalid bill_no';
   if(!Number.isInteger(r.sl_no)||r.sl_no<1)return 'Invalid sl_no';
   if(!validDate(r.bill_date))return 'Invalid bill_date';
-  if(typeof r.qty!=='number'||!Number.isFinite(r.qty)||r.qty<=0)return 'Invalid qty';
-  if(!money(r.rate)||!money(r.discount)||!money(r.amount)||r.amount<=0)return 'Invalid financial amount';
+  // SRV-series returns are signed movements; ordinary sales remain positive.
+  if(typeof r.qty!=='number'||!Number.isFinite(r.qty)||r.qty===0)return 'Invalid qty';
+  const signedMoney = n => typeof n==='number' && Number.isFinite(n) &&
+    Math.abs(n*100-Math.round(n*100))<1e-7;
+  if(!signedMoney(r.rate)||!money(r.discount)||!signedMoney(r.amount))return 'Invalid financial amount';
+  const isReturn=/^SRV[0-9A-Z]+$/i.test(r.bill_no);
+  if(isReturn ? !(r.qty<0&&r.rate<0&&r.amount<0) :
+      !(r.qty>0&&r.rate>=0&&r.amount>0)) return 'Invalid financial amount';
   for(const k of ['item_name','sm_name','agent_name','sale_type'])if(typeof r[k]!=='string'||!r[k].trim()||r[k].length>200)return 'Invalid '+k;
   for(const k of ['pay_mode','bank_account'])if(r[k]!==undefined&&r[k]!==null&&(typeof r[k]!=='string'||r[k].length>200))return 'Invalid '+k;
   return null;

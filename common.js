@@ -88,6 +88,18 @@ window.KK = (() => {
     }
   }
   function amounts(items, masterTotal = null) {
+    // Sign-aware returns prevent negative quantity * negative rate becoming positive sales.
+    const isSignedReturn = r => /^SRV[0-9A-Z]+$/i.test(String(r.bill_no || '')) &&
+      number(r.qty ?? r.QTY) < 0 && number(r.amount ?? r.AMOUNT) < 0;
+    if (items.length && items.every(isSignedReturn)) {
+      const signed = items.map(r => number(r.amount ?? r.AMOUNT));
+      const cents = signed.reduce((sum, v) => sum + Math.round(v * 100), 0);
+      if (masterTotal !== null && masterTotal !== undefined &&
+          cents !== Math.round(number(masterTotal) * 100)) {
+        throw new Error('Return amount does not match invoice master; needs reconciliation.');
+      }
+      return signed;
+    }
     const lines = items.map(r => {
       const rate = r.rate ?? r.RATE ?? r.Rate;
       return rate != null && rate !== ''

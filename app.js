@@ -866,6 +866,9 @@ function processData() {
       agentsObj[agent] = {
         name: agent,
         revenue: 0,
+        grossRevenue: 0,
+        returnsAmount: 0,
+        returnedUnits: 0,
         onlineRevenue: 0,
         offlineRevenue: 0,
         tbhRevenue: 0,
@@ -874,6 +877,10 @@ function processData() {
       };
     }
     agentsObj[agent].revenue += amount;
+    if (amount < 0) {
+      agentsObj[agent].returnsAmount += -amount;
+      agentsObj[agent].returnedUnits += Math.abs(qty);
+    } else agentsObj[agent].grossRevenue += amount;
     agentsObj[agent].unitCount += qty;
     if (channel === 'Online') agentsObj[agent].onlineRevenue += amount;
     else if (channel === 'Wholesale') agentsObj[agent].tbhRevenue += amount;
@@ -1113,6 +1120,11 @@ function renderAgentsTable() {
             <span>Offline (Showroom): <strong class="text-orange-700 font-numeric">₹${Math.round(a.offlineRevenue || 0).toLocaleString('en-IN')} (${offPct}%)</strong></span> •
             <span>Online: <strong class="text-blue-700 font-numeric">₹${Math.round(a.onlineRevenue || 0).toLocaleString('en-IN')} (${onlPct}%)</strong></span> •
             <span>Wholesale: <strong class="text-purple-700 font-numeric">₹${Math.round(a.tbhRevenue || 0).toLocaleString('en-IN')} (${wsPct}%)</strong></span>
+          </div>
+          <div class="text-[10px] font-bold mt-1.5 font-numeric flex flex-wrap gap-x-3">
+            <span>Gross Sales: ₹${Math.round(a.grossRevenue).toLocaleString('en-IN')}</span>
+            <span class="text-red-700">Returns: −₹${Math.round(a.returnsAmount).toLocaleString('en-IN')}</span>
+            <span class="text-emerald-800">Net Sales: ₹${Math.round(a.revenue).toLocaleString('en-IN')}</span>
           </div>
         </td>
         <td class="p-3.5 text-right font-black text-[#5C0612] font-numeric">
@@ -1680,6 +1692,7 @@ function populateAgentAnalysisScreenDOM(agentName) {
   });
 
   let totalRevenue = 0, onlineSales = 0, offlineSales = 0, tbhSales = 0;
+  let grossRevenue = 0, returnedAmount = 0;
   const dailyGroup = {};
 
   agentRows.forEach(row => {
@@ -1689,6 +1702,8 @@ function populateAgentAnalysisScreenDOM(agentName) {
     const billNo = row['Bill No'];
 
     totalRevenue += amount;
+    if (amount < 0) returnedAmount += -amount;
+    else grossRevenue += amount;
     if (channel === 'Online') onlineSales += amount;
     else if (channel === 'Wholesale') tbhSales += amount;
     else offlineSales += amount;
@@ -1699,6 +1714,8 @@ function populateAgentAnalysisScreenDOM(agentName) {
     dailyGroup[date].bills[billNo] += amount;
   });
 
+  setText('agent-analysis-subtitle',
+    `Period: ${fromVal || 'All Time'} to ${toVal || 'Current'} | Gross ₹${Math.round(grossRevenue).toLocaleString('en-IN')} | Returns −₹${Math.round(returnedAmount).toLocaleString('en-IN')} | Net ₹${Math.round(totalRevenue).toLocaleString('en-IN')}`);
   setText('agent-analysis-total-revenue', `₹${Math.round(totalRevenue).toLocaleString('en-IN')}`);
   setText('agent-analysis-online-sales', `₹${Math.round(onlineSales).toLocaleString('en-IN')}`);
   setText('agent-analysis-offline-sales', `₹${Math.round(offlineSales).toLocaleString('en-IN')}`);
@@ -1716,8 +1733,8 @@ function populateAgentAnalysisScreenDOM(agentName) {
         <div class="p-3 divide-y divide-[#E5D5C6]/10">
           ${Object.entries(dailyGroup[dateStr].bills).map(([bNo, bAmt]) => `
             <div class="flex justify-between items-center py-1 text-xs">
-              <span>Invoice: <strong>${KK.escape(bNo)}</strong></span>
-              <strong class="text-[#5C0612] font-numeric">₹${Math.round(bAmt).toLocaleString('en-IN')}</strong>
+              <span>${bAmt < 0 ? 'Return' : 'Invoice'}: <strong>${KK.escape(bNo)}</strong></span>
+              <strong class="${bAmt < 0 ? 'text-red-700' : 'text-[#5C0612]'} font-numeric">₹${Math.round(bAmt).toLocaleString('en-IN')}</strong>
             </div>
           `).join('')}
         </div>
