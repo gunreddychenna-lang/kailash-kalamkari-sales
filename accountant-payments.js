@@ -48,7 +48,7 @@
      sessionStorage.removeItem(storageKey);pending=null;
      const message=result.replayed?'Existing request confirmed — no duplicate':'Payment request saved: PENDING for review';
      const branch=el('branch').value,bill=el('bill').value;
-     const data=await api('GET',{branch,bill});show(data);say(message+'. No invoice balance was changed.');
+     const data=await api('GET',{branch,bill});show(data);window.dispatchEvent(new Event('kk-accountant-request-saved'));say(message+'. No invoice balance was changed.');
    }catch(e){
      if([400,403,409,422].includes(e.status)){sessionStorage.removeItem(storageKey);pending=null;}
      say(e.message+(pending?' Use Retry Same Submission (do not create a new one).':' Review invoice and try again.'));
