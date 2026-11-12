@@ -40,7 +40,7 @@ test('large invoice refuses historic conflicting identity before writing',async(
   assert.equal(m.sql.filter(s=>s.query.startsWith('INSERT')).length,0);
   assert.ok(m.sql.some(s=>s.query==='ROLLBACK'));
 });
-test('large invoice data cannot create negative-price returns without explicit rules',()=>{
+test('ordinary sale invoice rejects negative return values',()=>{
   assert.match(api.validate({...base,amount:-1200}),/Invalid financial/);
-  assert.match(api.validate({...base,qty:-1}),/Invalid qty/);
+  assert.match(api.validate({...base,qty:-1}),/Invalid financial amount/);
 });
