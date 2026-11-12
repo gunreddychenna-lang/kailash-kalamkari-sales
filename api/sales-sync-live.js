@@ -36,10 +36,50 @@ function coreMatches(db,r) {
     amt(db.rate,r.rate)&&amt(db.discount,r.discount)&&amt(db.amount,r.amount);
 }
 function getPool() {
-  const url=process.env.KK_SALES_IMPORT_DATABASE_URL;
-  if(!url||!/^postgres(ql)?:\/\//.test(url)) throw new Error('Sales DB unavailable');
-  if(!poolByUrl.has(url))poolByUrl.set(url,new (require('pg').Pool)({connectionString:url,max:2,connectionTimeoutMillis:7000,idleTimeoutMillis:10000}));
-  return poolByUrl.get(url);
+  const raw = process.env.KK_SALES_IMPORT_DATABASE_URL;
+
+  if (!raw || !/^postgres(ql)?:\/\//.test(raw)) {
+    throw new Error('Sales DB unavailable');
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch (_) {
+    throw new Error('Invalid Sales DB URL');
+  }
+
+  // node-postgres SSL URL parameters override the ssl object.
+  // Remove them so our verified CA configuration is retained.
+  for (const key of [
+    'sslmode', 'sslrootcert', 'sslcert',
+    'sslkey', 'ssl', 'uselibpqcompat'
+  ]) {
+    parsed.searchParams.delete(key);
+  }
+
+  const fs = require('node:fs');
+  const path = require('node:path');
+
+  const ca = fs.readFileSync(
+    path.join(__dirname, '..', 'certs', 'prod-ca-2021.crt'),
+    'utf8'
+  );
+
+  if (!poolByUrl.has(raw)) {
+    poolByUrl.set(raw, new (require('pg').Pool)({
+      connectionString: parsed.toString(),
+      ssl: {
+        ca: ca,
+        rejectUnauthorized: true
+      },
+      max: 2,
+      connectionTimeoutMillis: 7000,
+      idleTimeoutMillis: 10000
+    }));
+  }
+
+  return poolByUrl.get(raw);
 }
 async function reconcile(db, rows, dryRun) {
   const client = await db.connect();
