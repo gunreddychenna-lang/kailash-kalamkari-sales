@@ -46,6 +46,34 @@
     if (!state.edits.has(k)) state.edits.set(k, {parts:[part()], show:false});
     return state.edits.get(k);
   }
+  function renderAccountList() {
+    const list=el('accounts-list');list.replaceChildren();
+    for (const a of state.accounts) {
+      const tag=element('span',a.account_name+' · '+a.account_type,'accounts-pill');
+      list.append(tag);
+    }
+    if(!state.accounts.length)list.append(element('span','No active payment accounts available.','muted'));
+  }
+  function hasDraft(edit) {
+    return !!edit && edit.parts.some(p =>
+      String(p.account||'').trim() || String(p.amount||'').trim() || String(p.reference||'').trim());
+  }
+  async function addBank(event) {
+    event.preventDefault();
+    if(!['owner','admin'].includes(state.profile?.role)) {el('bank-error').textContent='Owner/Admin only.';return;}
+    const name=el('new-bank-name').value.trim();
+    const type=el('new-bank-type').value;
+    el('bank-submit').disabled=true;
+    el('bank-error').textContent='';
+    try {
+      await request('POST','/api/accountant-banks',{account_name:name,account_type:type});
+      el('bank-dialog').close();
+      el('new-bank-name').value='';
+      await fetchAccounts();renderAccountList();render();
+      say('Payment account saved. Existing financial records are unchanged.');
+    }catch(e){el('bank-error').textContent=e.message||'Unable to save account. Verify list before retrying.';}
+    finally {el('bank-submit').disabled=false;}
+  }
   function accountOptions(method) {
     return [{label:'Select account',value:''}, ...state.accounts.filter(a =>
       method === 'cash' ? a.account_type === 'Cash' :
@@ -173,6 +201,9 @@
     if (state.queue) el('queue-status').textContent =
       `Unfinished submission for ${state.queue.bill_no}: ${state.queue.completed} saved, ${state.queue.parts.length} remaining. Retry with same keys to avoid duplicates.`;
     el('queue-retry').disabled = state.saving;
+    el('save-all-button').disabled = state.busy || state.saving || !!state.queue ||
+      !state.rows.some(row => hasDraft(state.edits.get(key(row))));
+    el('add-bank-button').disabled = state.busy || state.saving || !!state.queue;
   }
   async function request(method, url, body) {
     const {data,error}=await state.client.auth.getSession();
@@ -191,8 +222,10 @@
     const result=await request('GET','/api/accountant-payments?branch='+encodeURIComponent(accessible[0]));
     if(!Array.isArray(result.accounts)) throw new Error('Bank account list unavailable.');
     state.accounts=result.accounts;
+    renderAccountList();
     const picker=el('branch');picker.replaceChildren(new Option('All permitted branches','all'));
     for(const name of accessible) picker.add(new Option(name,name));
+    picker.value=state.branch;
     el('branch-note').textContent='Accessible branches: '+accessible.join(', ')+'. Other branches need Owner/Admin permission.';
   }
   async function load() {
@@ -219,7 +252,11 @@
   function getQueue() {
     try {const parsed=JSON.parse(sessionStorage.getItem(state.storageKey)||'null');
       if (!parsed) return null;
-      if (!parsed.bill_no || !Array.isArray(parsed.parts) || !Number.isSafeInteger(parsed.completed)) throw new Error();
+      if (!parsed.bill_no || !Array.isArray(parsed.parts) || !Number.isSafeInteger(parsed.completed) ||
+          parsed.completed<0 || parsed.parts.length>500 ||
+          parsed.parts.some(p=>!p||typeof p.idempotency_key!=='string'||
+            typeof p.bill_no!=='string'||!['Main Branch','KHPS'].includes(p.branch)) ||
+          (parsed.bulk && (!Array.isArray(parsed.invoices)||parsed.invoices.length<1||parsed.invoices.length>25))) throw new Error();
       return parsed;
     } catch { throw new Error('Saved payment retry data is unreadable. Do not create a new request. Contact Owner/Admin.'); }
   }
@@ -241,15 +278,37 @@
         state.queue.parts.shift();state.queue.completed++;keepQueue();
       }
       const completed=state.queue.completed,bill=state.queue.bill_no,branch=state.queue.branch;
-      state.queue=null;keepQueue();state.edits.delete(JSON.stringify([branch,bill]));
-      say(`${completed} payment split(s) recorded as PENDING for ${bill}. Not settled.`);
+      const keys=state.queue.bulk ? state.queue.invoices : [JSON.stringify([branch,bill])];
+      state.queue=null;keepQueue();for(const k of keys)state.edits.delete(k);
+      const message=`${completed} payment split(s) submitted as PENDING for ${keys.length} invoice(s). NOT settled.`;
+      say(message);
       state.saving=false;await load();
-      say(`${completed} payment split(s) recorded as PENDING for ${bill}. Not settled.`);
+      say(message);
       return;
     } catch(e) {
       say((e.message||'Save interrupted.')+' Retry the SAME submission. Some earlier splits may already have been saved.');
       keepQueue();
     } finally {state.saving=false;render();}
+  }
+  async function saveAllEditedPage() {
+    if(state.busy||state.saving||state.queue){say('Finish the earlier payment submission before bulk save.');return;}
+    const selected=state.rows.filter(row=>hasDraft(state.edits.get(key(row))));
+    if(!selected.length){say('Enter at least one payment on this page before Save All.');return;}
+    const requests=[];let totalCents=0;
+    for(const row of selected) {
+      let valid;
+      try{valid=Core.validate(row,editor(row).parts,state.accounts,today);}
+      catch(e){say(row.bill_no+': '+e.message+' Nothing has been submitted.');return;}
+      totalCents+=valid.totalCents;
+      for(const s of valid.splits)requests.push({...s,branch:row.branch,bill_no:row.bill_no,
+        idempotency_key:crypto.randomUUID()});
+    }
+    if(requests.length>50){say('Limit is 50 payment splits per Save All. Save some invoices individually.');return;}
+    const agree=window.confirm(`Submit ${requests.length} payment split(s) for ${selected.length} invoice(s) on the CURRENT PAGE, total ${fmt(totalCents/100)}?\n\nThese entries become PENDING for Owner/Admin review. No invoice is marked paid. If a request fails, earlier requests may have been saved; use the on-screen RETRY with the same keys.`);
+    if(!agree)return;
+    state.queue={bulk:true,branch:'Multiple',bill_no:selected.length+' invoices',completed:0,
+      invoices:selected.map(key),parts:requests};
+    keepQueue();await finishQueue();
   }
   async function saveRow(row) {
     if(state.saving || state.queue) {say('Finish the earlier split submission first.');return;}
@@ -274,6 +333,11 @@
     state.storageKey='kk-accountant-grid-queue:'+state.profile.authUserId;
     state.queue=getQueue();
     await fetchAccounts();
+    el('add-bank-button').hidden=!['owner','admin'].includes(state.profile.role);
+    el('add-bank-button').addEventListener('click',()=>{el('bank-error').textContent='';el('bank-dialog').showModal();});
+    el('bank-cancel').addEventListener('click',()=>el('bank-dialog').close());
+    el('bank-form').addEventListener('submit',addBank);
+    el('save-all-button').addEventListener('click',saveAllEditedPage);
     el('branch').addEventListener('change',()=>{state.branch=el('branch').value;state.page=1;load();});
     el('search-button').addEventListener('click',()=>{state.page=1;load();});
     el('search').addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();state.page=1;load();}});
