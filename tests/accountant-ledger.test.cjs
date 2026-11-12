@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const ledger = require('../api/accountant-ledger');
+const ledger = require('../lib/accountant-ledger');
 const uuid = '11111111-1111-4111-8111-111111111111';
 const openingKey = '["Main Branch", "A100"]';
 function mockRows() {
@@ -39,7 +39,7 @@ async function run(opts={}) {
   };
   const res={setHeader(){},status(s){this.code=s;return this;},json(data){this.data=data;return this;}};
   const req={method:opts.method||'GET',headers:opts.noToken?{}:{authorization:'Bearer TEST_JWT'},url:opts.query||'/api/accountant-ledger?branch=all'};
-  try{await ledger(req,res);return {code:res.code,data:res.data,calls};}
+  try{await (opts.throughPayments ? require('../api/accountant-payments.js') : ledger)(req,res);return {code:res.code,data:res.data,calls};}
   finally{global.fetch=oldFetch;for(const [k,v] of Object.entries(oldEnv)){if(v===undefined)delete process.env[k];else process.env[k]=v;}}
 }
 test('only approved opening/posted receipts count as settled; bank in sales is unverified',async()=>{
@@ -83,4 +83,13 @@ test('invalid filter page and status denied before database reads',async()=>{
  for(const query of ['/api/accountant-ledger?status=paid','/api/accountant-ledger?page=0','/api/accountant-ledger?page_size=999']){
  const r=await run({query});assert.equal(r.code,400);assert.equal(r.calls.length,0);
  }
+});
+
+test('invoice register runs through existing payments API', async () => {
+  const r = await run({
+    throughPayments: true,
+    query: '/api/accountant-payments?view=register&branch=Main%20Branch'
+  });
+  assert.equal(r.code, 200);
+  assert.equal(r.data.counts.all, 4);
 });

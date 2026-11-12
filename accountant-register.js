@@ -92,7 +92,7 @@
       const { data, error } = await client.auth.getSession();
       if (error || !data?.session?.access_token) throw new Error('Session expired. Sign in again.');
       const params = new URLSearchParams({ branch, status: tab, q: el('register-search').value.trim(), page: String(page), page_size: '25' });
-      const response = await fetch('/api/accountant-ledger?' + params, {
+      const response = await fetch('/api/accountant-payments?view=register&' + params, {
         cache: 'no-store', headers: { Authorization: 'Bearer ' + data.session.access_token } });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Unable to load invoice register.');

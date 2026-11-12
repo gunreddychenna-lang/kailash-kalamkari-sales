@@ -1,6 +1,7 @@
 'use strict';
 // Production-only, authenticated, pending payment requests.
 // Does NOT post receipts, change sales, or change paid balances.
+const ledger = require('../lib/accountant-ledger.js');
 const PROJECT_URL='https://dqvqqrbvklpiibzqivbp.supabase.co';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const BILL=/^[A-Za-z0-9_-]{1,64}$/;
@@ -14,6 +15,7 @@ function cleanError(msg){
   return allowed.has(msg)?msg:'Payment request unavailable. Verify history before retrying.';
 }
 async function handler(req,res){
+  if(req.method==='GET' && new URL(req.url||'/', 'http://localhost').searchParams.get('view')==='register') return ledger(req,res);
   if(!['GET','POST'].includes(req.method))return respond(res,405,{error:'Method not allowed'});
   const base=process.env.SUPABASE_URL?.replace(/\/$/,'');
   const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
