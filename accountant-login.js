@@ -5,7 +5,7 @@
    if(!window.supabase?.createClient||!window.KK_STAFF_CONFIG||!window.KKSecureAuth)throw new Error('Login configuration unavailable');
    const client=window.supabase.createClient(KK_STAFF_CONFIG.url,KK_STAFF_CONFIG.anonKey);
    const allowed=p=>p&&p.active===true&&(p.role==='owner'||p.role==='admin'||(p.role==='employee'&&p.features.includes('payments')&&p.stores.length>0));
-   const open=async()=>{const p=await KKSecureAuth.getStaff(client);if(allowed(p))location.replace('accountant-payments.html');};
+   const open=async()=>{const p=await KKSecureAuth.getStaff(client);if(allowed(p))location.replace('accountant-grid.html');};
    client.auth.onAuthStateChange(event=>{
      if(event==='PASSWORD_RECOVERY'){
        el('login').hidden=true;el('recovery').hidden=false;el('forgot').hidden=true;say('Set your new password to finish recovery.');
@@ -15,7 +15,7 @@
      e.preventDefault();el('sign-in').disabled=true;say('Verifying staff access…');
      try{const p=await KKSecureAuth.login(client,el('email').value,el('password').value);
        if(!allowed(p)){await KKSecureAuth.signOut(client);throw new Error('Account does not have payment entry permission');}
-       location.replace('accountant-payments.html');
+       location.replace('accountant-grid.html');
      }catch(err){say(err.message||'Sign in failed');}finally{el('sign-in').disabled=false;}
    });
    el('forgot').addEventListener('click',async()=>{
