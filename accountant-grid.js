@@ -322,6 +322,32 @@
       parts:valid.splits.map(s=>({...s,branch:row.branch,bill_no:row.bill_no,idempotency_key:crypto.randomUUID()}))};
     keepQueue();await finishQueue();
   }
+  // Keep Sign Out available even if authentication or permission fails.
+  el('logout').addEventListener('click', async () => {
+    const button = el('logout');
+    button.disabled = true;
+    try {
+      const client = state.client || (
+        window.supabase?.createClient && window.KK_STAFF_CONFIG
+          ? window.supabase.createClient(
+              KK_STAFF_CONFIG.url,
+              KK_STAFF_CONFIG.anonKey
+            )
+          : null
+      );
+      if (!client) throw new Error('Authentication unavailable');
+
+      const { error } = await client.auth.signOut();
+      if (error) throw error;
+
+      location.replace('accountant-login.html');
+    } catch (error) {
+      button.disabled = false;
+      el('fatal').textContent =
+        'Sign out failed. Clear this website site data in Chrome settings.';
+    }
+  });
+
   try {
     if(!Core || !window.supabase?.createClient || !window.KK_STAFF_CONFIG || !window.KKSecureAuth)
       throw new Error('Secure Accountant configuration is missing.');
@@ -348,7 +374,7 @@
       state.status=tab.dataset.status;state.page=1;load();
     });
     el('queue-retry').addEventListener('click',finishQueue);
-    el('logout').addEventListener('click',async()=>{await KKSecureAuth.signOut(state.client);location.replace('accountant-login.html');});
+
     await load();
     if(state.queue)say('An earlier split submission needs confirmation. Click Retry same submission.');
   } catch(e) {el('fatal').textContent=e.message||'Accountant grid unavailable.';say('Please sign in again or contact Owner/Admin.');}
