@@ -32,13 +32,13 @@
   function input(kind, value, onChange, className = '') {
     const n = document.createElement('input'); n.type = kind;
     n.value = value || ''; n.className = className;
-    n.addEventListener('input', () => onChange(n.value)); return n;
+    n.addEventListener('input', () => { onChange(n.value); updateSaveAllButton(); }); return n;
   }
   function select(options, value, onChange, className = '') {
     const n = document.createElement('select'); n.className = className;
     for (const item of options) n.add(new Option(item.label, item.value));
     n.value = value;
-    n.addEventListener('change', () => onChange(n.value)); return n;
+    n.addEventListener('change', () => { onChange(n.value); updateSaveAllButton(); }); return n;
   }
   function part() { return {method:'upi', account:'', reference:'', amount:'', date:today}; }
   function editor(row) {
@@ -57,6 +57,12 @@
   function hasDraft(edit) {
     return !!edit && edit.parts.some(p =>
       String(p.account||'').trim() || String(p.amount||'').trim() || String(p.reference||'').trim());
+  }
+  function updateSaveAllButton() {
+    const saveAll = el('save-all-button');
+    if (!saveAll) return;
+    saveAll.disabled = state.busy || state.saving || !!state.queue ||
+      !state.rows.some(row => hasDraft(state.edits.get(key(row))));
   }
   async function addBank(event) {
     event.preventDefault();
@@ -201,8 +207,7 @@
     if (state.queue) el('queue-status').textContent =
       `Unfinished submission for ${state.queue.bill_no}: ${state.queue.completed} saved, ${state.queue.parts.length} remaining. Retry with same keys to avoid duplicates.`;
     el('queue-retry').disabled = state.saving;
-    el('save-all-button').disabled = state.busy || state.saving || !!state.queue ||
-      !state.rows.some(row => hasDraft(state.edits.get(key(row))));
+    updateSaveAllButton();
     el('add-bank-button').disabled = state.busy || state.saving || !!state.queue;
   }
   async function request(method, url, body) {
