@@ -9,7 +9,7 @@
   }).format(new Date());
   const fmt = value => value === null || value === undefined ? '—' :
     Number(value).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
-  const statusLabel = {settled: 'Settled · verified', pending: 'Pending review / balance',
+  const statusLabel = {settled: 'Settled · recorded in portal', pending: 'Outstanding / partially paid',
     unverified: 'Unverified', review: 'Needs reconciliation'};
   const state = {client: null, profile: null, accounts: [], rows: [], edits: new Map(),
     branch: 'all', status: 'all', page: 1, totalPages: 1, busy: false, saving: false,
@@ -163,7 +163,7 @@
     td(tr,row.sales_channel || '—');
     td(tr,row.bill_no,'bill');
     const amount = td(tr,fmt(row.invoice_amount),'money no-wrap');
-    amount.append(element('div','Verified paid: '+fmt(row.verified_paid),'tiny'));
+    amount.append(element('div','Recorded paid: '+fmt(row.verified_paid),'tiny'));
     amount.append(element('div','Existing pending: '+fmt(row.pending_amount),'tiny'));
     const bank = td(tr);
     const mode = modeControl(p), account = accountControl(p);
@@ -180,7 +180,7 @@
     actions.append(button('+ Add Split',() => {
       edit.parts.push(part());edit.show=true;render();
     },'secondary', locked || edit.parts.length>=20));
-    actions.append(button('Save Pending',() => saveRow(row), '',locked));
+    actions.append(button('Save Receipt',() => saveRow(row), '',locked));
     actions.append(button(edit.show ? 'Hide details' : 'Details / History', () => {
       edit.show=!edit.show;render();
     },'secondary'));
@@ -270,9 +270,9 @@
     try {
       while (state.queue.parts.length) {
         const payload=state.queue.parts[0];
-        say('Saving split '+(state.queue.completed+1)+' as pending. Do not close this page…');
+        say('Posting payment split '+(state.queue.completed+1)+' as a receipt. Do not close this page…');
         const result=await request('POST','/api/accountant-payments',payload);
-        if (!result.id || result.status !== 'pending' || result.posted !== false) {
+        if (!result.id || result.status !== 'approved' || result.posted !== true) {
           throw new Error('Unexpected save response. Retry the SAME submission after checking history.');
         }
         state.queue.parts.shift();state.queue.completed++;keepQueue();
@@ -280,7 +280,7 @@
       const completed=state.queue.completed,bill=state.queue.bill_no,branch=state.queue.branch;
       const keys=state.queue.bulk ? state.queue.invoices : [JSON.stringify([branch,bill])];
       state.queue=null;keepQueue();for(const k of keys)state.edits.delete(k);
-      const message=`${completed} payment split(s) submitted as PENDING for ${keys.length} invoice(s). NOT settled.`;
+      const message=`${completed} receipt split(s) posted for ${keys.length} invoice(s). Fully paid invoices become Settled; partial payments retain a balance. Bank reconciliation is separate.`;
       say(message);
       state.saving=false;await load();
       say(message);
@@ -304,7 +304,7 @@
         idempotency_key:crypto.randomUUID()});
     }
     if(requests.length>50){say('Limit is 50 payment splits per Save All. Save some invoices individually.');return;}
-    const agree=window.confirm(`Submit ${requests.length} payment split(s) for ${selected.length} invoice(s) on the CURRENT PAGE, total ${fmt(totalCents/100)}?\n\nThese entries become PENDING for Owner/Admin review. No invoice is marked paid. If a request fails, earlier requests may have been saved; use the on-screen RETRY with the same keys.`);
+    const agree=window.confirm(`Submit ${requests.length} payment split(s) for ${selected.length} invoice(s) on the CURRENT PAGE, total ${fmt(totalCents/100)}?\n\nThese receipts are posted immediately. Fully paid invoices become Settled; partials remain outstanding. Check original bank records before recording. If a request fails, earlier requests may have been saved; use the on-screen RETRY with the same keys.`);
     if(!agree)return;
     state.queue={bulk:true,branch:'Multiple',bill_no:selected.length+' invoices',completed:0,
       invoices:selected.map(key),parts:requests};
@@ -316,7 +316,7 @@
     try{valid=Core.validate(row,editor(row).parts,state.accounts,today);}catch(e){say(e.message);return;}
     const total=fmt(valid.totalCents/100);
     const caution = row.status === 'unverified' ? '\nWARNING: Earlier payments have not been fully reconciled. Confirm this is a NEW receipt, not an old payment.' : '';
-    const approved=window.confirm(`Submit ${valid.splits.length} payment row(s), total ${total}, for ${row.branch} / ${row.bill_no}?\n\nStatus: PENDING FOR REVIEW. This will NOT mark the bill paid.${caution}`);
+    const approved=window.confirm(`Submit ${valid.splits.length} payment row(s), total ${total}, for ${row.branch} / ${row.bill_no}?\n\nReceipt posts immediately. Full payment becomes Settled; partial payment leaves a balance.${caution}`);
     if(!approved)return;
     state.queue={branch:row.branch,bill_no:row.bill_no,completed:0,
       parts:valid.splits.map(s=>({...s,branch:row.branch,bill_no:row.bill_no,idempotency_key:crypto.randomUUID()}))};

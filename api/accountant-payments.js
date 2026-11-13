@@ -11,7 +11,7 @@ function respond(res,code,body){res.setHeader('Cache-Control','no-store');res.se
 function money(s){if(!['number','string'].includes(typeof s)||!/^(0|[1-9]\d{0,9})(\.\d{1,2})?$/.test(String(s)))return null;const n=Number(s);return Number.isFinite(n)&&n>0?n:null;}
 function validDate(s){if(typeof s!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;const t=new Date(s+'T00:00:00Z');return !isNaN(t.getTime())&&t.toISOString().slice(0,10)===s;}
 function cleanError(msg){
-  const allowed=new Set(['Not authorized','Invalid payment details','Choose an active matching account','Invoice missing or ambiguous','Invalid amount for verified invoice','Pending payments exceed original bill','Submission key conflict']);
+  const allowed=new Set(['Not authorized','Invalid payment details','Choose an active matching account','Invoice missing or ambiguous','Invalid amount for verified invoice','Pending payments exceed original bill','Submission key conflict','Existing pending submission requires review before another save','Existing legacy receipts require reconciliation','Opening balance needs reconciliation','Receipt history needs reconciliation','Payment exceeds remaining verified invoice balance','Identical receipt already exists; check history before retrying']);
   return allowed.has(msg)?msg:'Payment request unavailable. Verify history before retrying.';
 }
 async function handler(req,res){
@@ -59,20 +59,20 @@ async function handler(req,res){
         if(!history.ok||!Array.isArray(history.body))return respond(res,503,{error:'Pending history unavailable'});
         requests=history.body;
       }
-      return respond(res,200,{branch,invoice,accounts:accounts.body,requests,notice:'Pending entries do not count as paid receipts.'});
+      return respond(res,200,{branch,invoice,accounts:accounts.body,requests,notice:'New saved payments are recorded as receipts in the portal. Bank reconciliation remains separate.'});
     }
     const fields=new Set(['branch','bill_no','amount','payment_method','account_name','payment_reference','payment_date','idempotency_key']);
     if(Object.keys(body).some(k=>!fields.has(k))||!BILL.test(body.bill_no||'')||!METHODS.has(body.payment_method)||
       !UUID.test(body.idempotency_key||'')||money(body.amount)===null||!validDate(body.payment_date)||
       typeof body.account_name!=='string'||!body.account_name.trim()||body.account_name.length>120||
       typeof body.payment_reference!=='string'||body.payment_reference.length>120)return respond(res,400,{error:'Invalid payment details'});
-    const result=await upstream('/rest/v1/rpc/kk_submit_payment_request',{method:'POST',prefer:'return=representation',body:{
+    const result=await upstream('/rest/v1/rpc/kk_post_payment_on_save',{method:'POST',prefer:'return=representation',body:{
       p_actor:actor,p_id:body.idempotency_key,p_branch:branch,p_bill:body.bill_no,p_amount:String(body.amount),
       p_method:body.payment_method,p_account:body.account_name.trim(),p_reference:body.payment_reference.trim(),p_date:body.payment_date
     }});
     if(!result.ok){const error=cleanError(result.body?.message);return respond(res,result.status===409||result.body?.code==='23505'?409:result.body?.code==='42501'?403:result.body?.code==='22023'?422:503,{error});}
-    if(!result.body?.id||!['pending','approved','rejected'].includes(result.body.status))return respond(res,503,{error:'Unexpected save response. Check history before retrying.'});
-    return respond(res,200,{id:result.body.id,status:result.body.status,replayed:result.body.replayed===true,posted:false});
+    if(!result.body?.id||result.body.status!=='approved'||result.body.posted!==true)return respond(res,503,{error:'Unexpected save response. Check history before retrying.'});
+    return respond(res,200,{id:result.body.id,status:result.body.status,replayed:result.body.replayed===true,posted:true,remaining_balance:result.body.remaining_balance??null,settled:result.body.settled===true});
   }catch(error){console.error('Accountant payment API error',error?.name||'Failure');return respond(res,503,{error:'Payment backend unavailable. Check history before retrying.'});}
 }
 module.exports=handler;

@@ -64,12 +64,24 @@ test('new grid preserves existing row Save Pending and uses resumable bulk queue
   const js=fs.readFileSync(path.join(__dirname,'../accountant-grid.js'),'utf8');
   const html=fs.readFileSync(path.join(__dirname,'../accountant-grid.html'),'utf8');
   assert.ok(html.includes('Saved Payment Accounts'));
-  assert.ok(html.includes('Save All Entered Invoices (Current Page) as Pending'));
+  assert.ok(html.includes('Save All Entered Invoices (Current Page)'));
   assert.ok(js.includes('saveAllEditedPage'));
   assert.ok(js.includes('idempotency_key:crypto.randomUUID()'));
   assert.ok(js.includes('keepQueue();await finishQueue()'));
   assert.ok(js.includes('request(\'POST\',\'/api/accountant-payments?action=add-account\''));
-  assert.ok(js.includes("actions.append(button('Save Pending'"));
+  assert.ok(js.includes("actions.append(button('Save Receipt'"));
   assert.doesNotMatch(js,/\.from\(['"](?:sales|receivables|bank_accounts|kk_payment_accounts)['"]\)/);
   assert.doesNotMatch(js,/\/rest\/v1\/(?:sales|receivables|kk_payment_requests)/);
+});
+
+const settleTest = require('node:test');
+const settleAssert = require('node:assert/strict');
+settleTest('Payment Reports opens the authorized invoice register, not a fragment',()=>{
+  const index = require('node:fs').readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
+  settleAssert.ok(index.includes('href="accountant-payments.html#register-section"'));
+});
+settleTest('Auto-post endpoint expects a single atomic posted response',()=>{
+  const api=require('node:fs').readFileSync(require('node:path').join(__dirname,'../api/accountant-payments.js'),'utf8');
+  settleAssert.ok(api.includes("'/rest/v1/rpc/kk_post_payment_on_save'"));
+  settleAssert.ok(api.includes("result.body.posted!==true"));
 });

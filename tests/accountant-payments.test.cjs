@@ -16,7 +16,7 @@ async function run(opts={}){
    else if(path==='/rest/v1/kk_payment_accounts')data=[{account_name:'KK Bank',account_type:'Bank'}];
    else if(path==='/rest/v1/bills_master')data=[{bill_amount:'25000',bill_date:'2026-11-01'}];
    else if(path==='/rest/v1/kk_payment_requests')data=[];
-   else if(path==='/rest/v1/rpc/kk_submit_payment_request')data={id:reqid,status:'pending',replayed:opts.replayed??false};
+   else if(path==='/rest/v1/rpc/kk_post_payment_on_save')data={id:reqid,status:'approved',posted:true,replayed:opts.replayed??false};
    else throw new Error('Unexpected path: '+path);
    return {ok:code<400,status:code,text:async()=>JSON.stringify(data)};
  };
@@ -32,13 +32,13 @@ test('ordinary employee without payments access denied',async()=>{const r=await 
 test('employee denied outside assigned branch',async()=>{const r=await run({stores:['KHPS']});assert.equal(r.status,403);});
 test('inactive employee denied',async()=>{const r=await run({active:false});assert.equal(r.status,403);});
 test('approved accountant can submit pending request',async()=>{
- const r=await run();assert.equal(r.status,200);assert.equal(r.data.status,'pending');assert.equal(r.data.posted,false);
- const call=r.calls.find(x=>x.path==='/rest/v1/rpc/kk_submit_payment_request');assert.ok(call);
+ const r=await run();assert.equal(r.status,200);assert.equal(r.data.status,'approved');assert.equal(r.data.posted,true);
+ const call=r.calls.find(x=>x.path==='/rest/v1/rpc/kk_post_payment_on_save');assert.ok(call);
  const p=JSON.parse(call.init.body);assert.equal(p.p_actor,actor);assert.equal(p.p_branch,'Main Branch');assert.equal(p.p_id,reqid);assert.equal(p.p_reference,'UTR12345');
  assert.equal(r.calls.some(x=>x.path==='/rest/v1/sales'),false);
 });
 test('forged actor and approval fields rejected before writes',async()=>{for(const body of [{p_actor:actor},{status:'approved'},{posted:true}]){const r=await run({body});assert.equal(r.status,400);assert.equal(r.calls.some(x=>x.path.includes('/rpc/')),false);}});
-test('blank noncash reference accepted',async()=>{const r=await run({body:{payment_reference:''}});assert.equal(r.status,200);const call=r.calls.find(x=>x.path==='/rest/v1/rpc/kk_submit_payment_request');assert.equal(JSON.parse(call.init.body).p_reference,'');});
+test('blank noncash reference accepted',async()=>{const r=await run({body:{payment_reference:''}});assert.equal(r.status,200);const call=r.calls.find(x=>x.path==='/rest/v1/rpc/kk_post_payment_on_save');assert.equal(JSON.parse(call.init.body).p_reference,'');});
 test('invalid amount rejected',async()=>{for(const amount of ['-2','0','20.123','99999999999']){const r=await run({body:{amount}});assert.equal(r.status,400);}});
 test('Owner/Admin can view authorized branch pending entries',async()=>{for(const role of ['owner','admin']){const r=await run({method:'GET',role});assert.equal(r.status,200);assert.ok(Array.isArray(r.data.accounts));assert.ok(r.data.invoice);}});
 test('accountant GET pending history filters to own actor',async()=>{const r=await run({method:'GET'});assert.equal(r.status,200);const x=r.calls.find(x=>x.path==='/rest/v1/kk_payment_requests');assert.match(x.init.method||'GET',/GET/);});

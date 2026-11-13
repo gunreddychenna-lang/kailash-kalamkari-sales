@@ -44,11 +44,11 @@
  }
  async function save(){
    if(!pending||busy)return;busy=true;lock();say('Saving payment request securely…');
-   try{const result=await api('POST',pending);
+   try{const result=await api('POST',pending);if(result.status!=='approved'||result.posted!==true)throw new Error('Receipt is not posted. Check history before retrying the same submission.');
      sessionStorage.removeItem(storageKey);pending=null;
-     const message=result.replayed?'Existing request confirmed — no duplicate':'Payment request saved: PENDING for review';
+     const message=result.replayed?'Existing request confirmed — no duplicate':'Receipt saved: recorded against invoice';
      const branch=el('branch').value,bill=el('bill').value;
-     const data=await api('GET',{branch,bill});show(data);window.dispatchEvent(new Event('kk-accountant-request-saved'));say(message+'. No invoice balance was changed.');
+     const data=await api('GET',{branch,bill});show(data);window.dispatchEvent(new Event('kk-accountant-request-saved'));say(message+'. Invoice settlement status was recalculated; external bank verification remains separate.');
    }catch(e){
      if([400,403,409,422].includes(e.status)){sessionStorage.removeItem(storageKey);pending=null;}
      say(e.message+(pending?' Use Retry Same Submission (do not create a new one).':' Review invoice and try again.'));
@@ -74,7 +74,7 @@
      if(!/^(0|[1-9]\d{0,9})(\.\d{1,2})?$/.test(amount)||Number(amount)<=0||Number(amount)>Number(invoice.bill_amount)){say('Enter a valid received amount within the invoice total.');return;}
      const candidate={branch:invoice.branch,bill_no:invoice.bill_no,amount,payment_method:method,account_name:el('account').value,payment_reference:reference,payment_date:el('payment-date').value,idempotency_key:crypto.randomUUID()};
      if(!candidate.account_name){say('Select a valid payment account.');return;}
-     if(!confirm('Submit '+money(amount)+' for '+invoice.bill_no+' as PENDING for Owner/Admin review? This will NOT mark the invoice paid.'))return;
+     if(!confirm('Submit '+money(amount)+' for '+invoice.bill_no+' as a recorded receipt? It will settle the invoice if the full balance is covered.'))return;
      pending=candidate;sessionStorage.setItem(storageKey,JSON.stringify(pending));await save();
    });
    el('retry-button').addEventListener('click',save);

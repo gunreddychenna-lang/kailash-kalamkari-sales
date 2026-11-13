@@ -11,10 +11,10 @@
 <script defer src="accountant-payments.js"></script>
 <script defer src="accountant-register.js"></script>
 </head><body><header><button type="button" id="logout">Sign Out</button><h1>Kailash Kalamkari</h1>Accountant · Payment Entry</header><main>
-<p class="notice"><strong>PENDING FOR VERIFICATION.</strong> Submissions here record payment details for Owner/Admin review. They do <strong>not</strong> mark invoices paid or update balances. Do not treat pending entries as reconciled receipts.</p>
+<p class="notice"><strong>RECORDED RECEIPTS.</strong> Authorized payment entries now post immediately to the portal ledger. Fully paid invoices become Settled. Bank/deposit reconciliation is a separate verification and is NOT implied by this status.</p>
 <p id="status" role="status" aria-live="polite">Verifying access…</p>
 <section id="register-section"><h2>Branch-wise Invoice Register</h2>
-<p class="notice"><strong>Status accuracy:</strong> Settled means approved opening balance or posted receipts cover the invoice. Pending means submitted payment awaiting review or a verified partial balance. All other historical invoices are Unverified until reconciled. Sale bank names are not proof of payment.</p>
+<p class="notice"><strong>Status accuracy:</strong> Settled means approved opening balance or posted receipts cover the invoice. Pending means an earlier request awaiting review or a partially paid invoice with a balance. All other historical invoices are Unverified until reconciled. Sale bank names are not proof of payment.</p>
 <form id="register-form"><div class="register-search-row"><label>View Branch<select id="register-branch" required><option value="all">All authorized branches</option></select></label>
 <label>Search Bill Number<input id="register-search" maxlength="64" autocomplete="off" placeholder="Search any invoice"></label><button type="submit">Search Invoices</button></div></form>
 <p id="register-branch-note" class="register-footnote"></p>
