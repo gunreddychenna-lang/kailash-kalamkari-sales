@@ -32,13 +32,13 @@
 <label>Bill number<input id="bill" required maxlength="64" pattern="[A-Za-z0-9_-]+" autocomplete="off"></label></div>
 <button id="load-button">Load Invoice</button></fieldset></form></section>
 <section id="invoice-area" hidden><h2 id="invoice-heading"></h2><div class="numbers"><div>Verified Invoice Amount<strong id="invoice-amount"></strong></div><div>Pending Entry Total<strong id="pending-total"></strong></div></div>
-<p>Enter each payment separately. Reference is mandatory for UPI, bank transfer and card.</p>
+<p>Enter each payment separately. UTR / transaction reference is optional for every payment method.</p>
 <form id="payment-form"><fieldset id="payment-fields"><div class="grid">
 <label>Received Date<input id="payment-date" type="date" required min="2026-09-01"></label>
 <label>Payment Method<select id="method" required><option value="cash">Cash</option><option value="upi">UPI</option><option value="bank_transfer">Bank Transfer</option><option value="card">Card</option></select></label>
 <label>Deposit / Bank Account<select id="account" required></select></label>
 <label>Amount Received (₹)<input id="amount" type="number" required min="0.01" step="0.01"></label>
-<label>Transaction / UTR Reference<input id="reference" maxlength="120" autocomplete="off"></label>
+<label>Transaction / UTR Reference (Optional)<input id="reference" maxlength="120" autocomplete="off"></label>
 </div><button id="submit-button">Submit Payment for Review</button></fieldset></form>
 <button id="retry-button" hidden type="button">Retry Same Submission</button>
 <h3>Pending Payment Entries</h3><div class="scroll"><table><thead><tr><th>Date</th><th>Mode</th><th>Account</th><th>Amount</th><th>Reference</th><th>Status</th></tr></thead><tbody id="history"></tbody></table></div>

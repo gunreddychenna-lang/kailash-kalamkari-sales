@@ -41,9 +41,9 @@ test('existing verified and pending allocations reduce permitted amount',()=>{
 test('settled and reconciliation-required invoices cannot be edited',()=>{
  for(const status of ['settled','review'])matchError(()=>core.validate({...row,status},[cash],accounts,today),'cannot accept');
 });
-test('no silent bank inference and noncash UTR mandatory',()=>{
+test('account required while UTR is optional for UPI',()=>{
  matchError(()=>core.validate(row,[{...upi,account:''}],accounts,today),'valid active');
- matchError(()=>core.validate(row,[{...upi,reference:''}],accounts,today),'reference is required');
+ assert.equal(core.validate(row,[{...upi,reference:''}],accounts,today).splits[0].payment_reference,'');
  matchError(()=>core.validate(row,[{...upi,account:'Cash Counter'}],accounts,today),'valid active');
 });
 test('exact same account and UTR in two split rows is rejected',()=>{
@@ -61,4 +61,14 @@ test('accountant view files include approved route and no direct financial table
  assert.match(js,/\/api\/accountant-payments/);
  assert.doesNotMatch(js,/\/rest\/v1\/sales\b|\/rest\/v1\/kk_payment_requests\b|service_role|SUPABASE_SERVICE_ROLE_KEY/);
  assert.match(js,/idempotency_key:crypto\.randomUUID\(\)/);
+});
+
+test('blank UTR allows multiple splits to same bank',()=>{
+  const parts=[
+    {...upi,reference:'',amount:'3000.00'},
+    {...upi,reference:'',amount:'1000.00'}
+  ];
+  const result=core.validate(row,parts,accounts,today);
+  assert.equal(result.splits.length,2);
+  assert.equal(result.totalCents,400000);
 });

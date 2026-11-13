@@ -52,13 +52,13 @@
       const hasAccount = kind === 'Cash' ? allowed.has(`Cash\u0000${account}`) :
         ['Bank', 'Bank Account', 'Payment Service'].some(t => allowed.has(`${t}\u0000${account}`));
       if (!hasAccount) throw new Error(`Split ${i + 1}: choose a valid active bank/cash account.`);
-      if (reference.length > 120 || (p.method !== 'cash' && !reference)) {
-        throw new Error(`Split ${i + 1}: UTR / transaction reference is required for non-cash.`);
+      if (reference.length > 120) {
+        throw new Error(`Split ${i + 1}: UTR / reference exceeds 120 characters.`);
       }
       if (!isDate(p.date) || p.date < EARLIEST_DATE || p.date > today) {
         throw new Error(`Split ${i + 1}: choose a valid received date.`);
       }
-      if (p.method !== 'cash') {
+      if (p.method !== 'cash' && reference) {
         const token = account.toLowerCase() + '\u0000' + reference.toLowerCase();
         if (seenReferences.has(token)) throw new Error('The same bank/reference was entered in multiple splits.');
         seenReferences.add(token);

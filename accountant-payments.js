@@ -23,7 +23,7 @@
    const eligible=accounts.filter(a=>method==='cash'?a.account_type==='Cash':
      ['Bank','Bank Account','Payment Service'].includes(a.account_type));
    el('account').replaceChildren();for(const a of eligible)el('account').append(new Option(a.account_name,a.account_name));
-   const ref=el('reference');ref.required=method!=='cash';ref.placeholder=method==='cash'?'Optional cash receipt note':'Required UTR / transaction reference';
+   const ref=el('reference');ref.required=false;ref.placeholder=method==='cash'?'Optional cash receipt note':'UTR / transaction reference (optional)';
  }
  function show(data){
    invoice=data.invoice;history=data.requests||[];accounts=data.accounts||[];
@@ -69,7 +69,7 @@
      e.preventDefault();if(!invoice||busy||pending)return;
      const method=el('method').value;
      const reference=el('reference').value.trim();
-     if(method!=='cash'&&!reference){say('Transaction reference is mandatory for digital payments.');return;}
+
      const amount=el('amount').value;
      if(!/^(0|[1-9]\d{0,9})(\.\d{1,2})?$/.test(amount)||Number(amount)<=0||Number(amount)>Number(invoice.bill_amount)){say('Enter a valid received amount within the invoice total.');return;}
      const candidate={branch:invoice.branch,bill_no:invoice.bill_no,amount,payment_method:method,account_name:el('account').value,payment_reference:reference,payment_date:el('payment-date').value,idempotency_key:crypto.randomUUID()};

@@ -65,8 +65,7 @@ async function handler(req,res){
     if(Object.keys(body).some(k=>!fields.has(k))||!BILL.test(body.bill_no||'')||!METHODS.has(body.payment_method)||
       !UUID.test(body.idempotency_key||'')||money(body.amount)===null||!validDate(body.payment_date)||
       typeof body.account_name!=='string'||!body.account_name.trim()||body.account_name.length>120||
-      typeof body.payment_reference!=='string'||body.payment_reference.length>120||
-      (body.payment_method!=='cash'&&!body.payment_reference.trim()))return respond(res,400,{error:'Invalid payment details'});
+      typeof body.payment_reference!=='string'||body.payment_reference.length>120)return respond(res,400,{error:'Invalid payment details'});
     const result=await upstream('/rest/v1/rpc/kk_submit_payment_request',{method:'POST',prefer:'return=representation',body:{
       p_actor:actor,p_id:body.idempotency_key,p_branch:branch,p_bill:body.bill_no,p_amount:String(body.amount),
       p_method:body.payment_method,p_account:body.account_name.trim(),p_reference:body.payment_reference.trim(),p_date:body.payment_date

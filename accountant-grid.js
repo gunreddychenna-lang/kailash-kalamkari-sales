@@ -99,7 +99,7 @@
   }
   function referenceControl(p) {
     const n = input('text', p.reference, value => {p.reference = value;}, 'ref');
-    n.maxLength = 120; n.placeholder = p.method === 'cash' ? 'Cash note (optional)' : 'UTR / transaction ID';
+    n.maxLength = 120; n.placeholder = p.method === 'cash' ? 'Cash note (optional)' : 'UTR / transaction ID (optional)';
     return n;
   }
   function isLocked(row) {
