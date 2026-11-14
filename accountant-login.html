@@ -12,8 +12,8 @@
 </head><body><header><h1>Kailash Kalamkari</h1><span>Secure Accountant Sign In</span></header>
 <main><section><h2>Accountant Access</h2>
 <p id="status" role="status">Checking secure connection…</p>
-<form id="login"><label for="email">Account Email</label><input type="email" autocomplete="username" id="email" required>
-<label for="password">Password</label><input type="password" autocomplete="current-password" id="password" required minlength="12">
+<form id="login"><label for="email">Login ID or Email</label><input type="text" autocomplete="username" id="email" required maxlength="254">
+<label for="password">Password</label><input type="password" autocomplete="current-password" id="password" required>
 <button id="sign-in">Sign In</button></form>
 <form id="recovery" hidden><label for="new-password">Set a new password (12+ characters)</label><input id="new-password" type="password" autocomplete="new-password" minlength="12" required><button>Set Password</button></form>
 <button type="button" class="secondary" id="forgot">Forgot Password? Email Recovery Link</button>
