@@ -86,7 +86,7 @@
     el('register-page').textContent = `Page ${data.page} / ${data.pages} · ${data.total} invoices`;
     el('register-prev').disabled = data.page <= 1;
     el('register-next').disabled = data.page >= data.pages;
-    say('Loaded ' + data.rows.length + ' invoices. Settled includes eligible small-balance invoices marked for now; due amounts remain outstanding until collected.');
+    say('Loaded ' + data.rows.length + ' invoices. Settled includes invoices with posted partial payments regardless of remaining balance; due amounts remain outstanding until collected.');
   }
   async function load() {
     if (loading) { reloadQueued = true; return; }
