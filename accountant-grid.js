@@ -4,9 +4,13 @@
   const el = id => document.getElementById(id);
   const Core = window.KKAccountantGridCore;
   const branchesList = ['Main Branch', 'KHPS'];
-  const today = new Intl.DateTimeFormat('en-CA', {
+  // Date inputs and server-side validation require YYYY-MM-DD, regardless of
+  // browser locale formatting (en-CA can render as MM/DD/YYYY).
+  const istParts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
-  }).format(new Date());
+  }).formatToParts(new Date());
+  const istDate = Object.fromEntries(istParts.map(p => [p.type, p.value]));
+  const today = istDate.year + '-' + istDate.month + '-' + istDate.day;
   const fmt = value => value === null || value === undefined ? '—' :
     Number(value).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
   const statusLabel = {settled: 'Settled · recorded in portal', pending: 'Outstanding / partially paid',
@@ -332,7 +336,10 @@
       state.queue=null;keepQueue();for(const k of keys)state.edits.delete(k);
       const message=`${completed} receipt split(s) posted for ${keys.length} invoice(s). Fully paid invoices become Settled; partial payments retain a balance. Bank reconciliation is separate.`;
       say(message);
-      state.saving=false;await load();
+      state.saving=false;
+      // A successful receipt is permanent even if the subsequent register refresh
+      // fails (e.g. upstream timeout). Do not ask staff to save it again.
+      await load();
       say(message);
       return;
     } catch(e) {
@@ -409,7 +416,11 @@
     state.storageKey='kk-accountant-grid-queue:'+state.profile.authUserId;
     state.queue=getQueue();
     await fetchAccounts();
-    el('add-bank-button').hidden=!['owner','admin'].includes(state.profile.role);
+    // Only authenticated Owner/Admin may see or use Add Bank; never tie it to a
+    // branch or staff feature, and do not remove it during grid re-renders.
+    const canAddBank = ['owner','admin'].includes(state.profile.role);
+    el('add-bank-button').hidden = !canAddBank;
+    el('add-bank-button').setAttribute('aria-hidden', String(!canAddBank));
     el('add-bank-button').addEventListener('click',()=>{el('bank-error').textContent='';el('bank-dialog').showModal();});
     el('bank-cancel').addEventListener('click',()=>el('bank-dialog').close());
     el('bank-form').addEventListener('submit',addBank);
