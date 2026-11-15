@@ -195,7 +195,7 @@ test('date filters never expose unpermitted branch totals',async()=>{
 test('payment method and account filters use only matching posted receipt splits',async()=>{
  const configureRows=db=>{
    db.batches.push({
-     invoice_key: JSON.stringify(['Main Branch','C300']),amount:1000,
+     invoice_key: JSON.stringify(['Main Branch','C300']),amount:1000,invoice_allocated:1000,excess_amount:0,
      payments:[
        {amount:400,account:'TBH',method:'cash',reference:'CASH-TEST',payment_date:'2026-11-12'},
        {amount:600,account:'42441-TJ',method:'upi',reference:'UPI-TEST',payment_date:'2026-11-12'}
@@ -227,7 +227,7 @@ test('payment ledger does not count pending requests, historical bank names, or 
 });
 test('payment filters cannot reveal other branch ledger receipt amounts to accountant',async()=>{
  const configureRows=db=>db.batches.push({
-   invoice_key:JSON.stringify(['KHPS','KHPS1']),amount:100,
+   invoice_key:JSON.stringify(['KHPS','KHPS1']),amount:100,invoice_allocated:100,excess_amount:0,
    payments:[{amount:100,account:'TBH',method:'cash',reference:'KHPS-CASH'}]
  });
  const r=await run({role:'employee',stores:['Main Branch'],configureRows,query:'/api/accountant-ledger?branch=all&method=cash&account=TBH'});
@@ -241,4 +241,55 @@ test('invalid payment methods and excessively long account names fail before db 
   assert.equal(r.code,400);
   assert.equal(r.calls.length,0);
  }
+});
+
+test('₹99 invoice accepts ₹100 actual recorded, allocates ₹99 and keeps ₹1 excess separately',async()=>{
+ const configureRows=db=>{
+   db.bills.push({branch:'Main Branch',bill_no:'EXCESS99',bill_date:'2026-11-13',bill_amount:99});
+   db.batches.push({invoice_key:JSON.stringify(['Main Branch','EXCESS99']),amount:100,
+     invoice_allocated:99,excess_amount:1,
+     payments:[{amount:100,account:'Cash Counter',method:'cash',reference:'EXCESS-TEST',payment_date:'2026-11-13'}]});
+ };
+ const r=await run({role:'owner',configureRows,query:'/api/accountant-ledger?branch=Main%20Branch&q=EXCESS99'});
+ assert.equal(r.code,200);assert.equal(r.data.total,1);
+ const invoice=r.data.rows[0];
+ assert.equal(invoice.status,'settled');
+ assert.equal(invoice.display_status,'settled');
+ assert.equal(invoice.verified_paid,99);
+ assert.equal(invoice.actual_received,100);
+ assert.equal(invoice.excess_received,1);
+ assert.equal(invoice.balance_due,0);
+ assert.equal(r.data.branch_totals[0].recorded_paid,99);
+ assert.equal(r.data.branch_totals[0].actual_received,100);
+ assert.equal(r.data.branch_totals[0].excess_received,1);
+ assert.equal(r.data.receipt_ledger[0].recorded_amount,100);
+});
+test('₹7650 invoice with ₹7600 actual receipt keeps ₹50 due and no excess',async()=>{
+ const configureRows=db=>{
+   db.bills.push({branch:'KHPS',bill_no:'SHORT7650',bill_date:'2026-11-13',bill_amount:7650});
+   db.batches.push({invoice_key:JSON.stringify(['KHPS','SHORT7650']),amount:7600,
+     invoice_allocated:7600,excess_amount:0,
+     payments:[{amount:7600,account:'TBH',method:'upi',reference:'SHORT-TEST',payment_date:'2026-11-13'}]});
+ };
+ const r=await run({role:'owner',configureRows,query:'/api/accountant-ledger?branch=KHPS&q=SHORT7650'});
+ assert.equal(r.code,200);
+ const invoice=r.data.rows[0];
+ assert.equal(invoice.status,'pending');
+ assert.equal(invoice.display_status,'settled');
+ assert.equal(invoice.actual_received,7600);
+ assert.equal(invoice.verified_paid,7600);
+ assert.equal(invoice.excess_received,0);
+ assert.equal(invoice.balance_due,50);
+});
+test('invalid receipt allocation is flagged for review instead of silently counting',async()=>{
+ const configureRows=db=>{
+   db.bills.push({branch:'Main Branch',bill_no:'BADALLOCATION',bill_date:'2026-11-13',bill_amount:99});
+   db.batches.push({invoice_key:JSON.stringify(['Main Branch','BADALLOCATION']),amount:100,
+     invoice_allocated:100,excess_amount:0,
+     payments:[{amount:100,account:'TBH',method:'cash'}]});
+ };
+ const r=await run({role:'owner',configureRows,query:'/api/accountant-ledger?branch=Main%20Branch&q=BADALLOCATION'});
+ assert.equal(r.code,200);
+ assert.equal(r.data.rows[0].status,'review');
+ assert.equal(r.data.branch_totals[0].excluded_review,1);
 });
