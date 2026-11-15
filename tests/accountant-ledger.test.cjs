@@ -94,19 +94,20 @@ test('invoice register runs through existing payments API', async () => {
   assert.equal(r.data.counts.all, 4);
 });
 
-test('small actual outstanding balances display in Settled without changing financial status', () => {
+test('verified partial payments display Settled for now regardless of outstanding balance', () => {
   const {summarize} = ledger._test;
   const bills = [
     {branch:'Main Branch',bill_no:'ONE',bill_amount:6746,bill_date:'2026-11-15'},
     {branch:'Main Branch',bill_no:'FIFTY',bill_amount:7650,bill_date:'2026-11-15'},
     {branch:'Main Branch',bill_no:'OVER',bill_amount:17300,bill_date:'2026-11-15'},
+    {branch:'Main Branch',bill_no:'LARGE',bill_amount:50000,bill_date:'2026-11-15'},
     {branch:'Main Branch',bill_no:'UNPAID',bill_amount:50,bill_date:'2026-11-15'}
   ];
   const payment = (bill,paid) => ({
     invoice_key: JSON.stringify(['Main Branch',bill]),amount:paid,
     payments:[{amount:paid,account:'Bank',reference:'TEST',payment_date:'2026-11-15'}]
   });
-  const rows=summarize(bills,[],[],[payment('ONE',6745),payment('FIFTY',7600)]);
+  const rows=summarize(bills,[],[],[payment('ONE',6745),payment('FIFTY',7600),payment('LARGE',1000)]);
   const byBill=Object.fromEntries(rows.map(r=>[r.bill_no,r]));
   assert.equal(byBill.ONE.status,'pending');
   assert.equal(byBill.ONE.display_status,'settled');
@@ -115,6 +116,9 @@ test('small actual outstanding balances display in Settled without changing fina
   assert.equal(byBill.ONE.verified_paid,6745);
   assert.equal(byBill.FIFTY.display_status,'settled');
   assert.equal(byBill.FIFTY.balance_due,50);
+  assert.equal(byBill.LARGE.display_status,'settled');
+  assert.equal(byBill.LARGE.balance_due,49000);
+  assert.equal(byBill.LARGE.status,'pending');
   assert.equal(byBill.OVER.display_status,'unverified');
   assert.equal(byBill.UNPAID.display_status,'unverified');
 });
