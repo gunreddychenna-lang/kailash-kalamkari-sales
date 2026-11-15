@@ -82,9 +82,19 @@
     // Record the customer's actual payment. The server allocates only the
     // remaining invoice balance; any surplus is a separate excess collection.
     // Do not silently change, discount, or clamp the amount received.
-    return { totalCents, availableCents: available,
-      excessCents: Math.max(0, totalCents - available),
-      splits: clean };
+    const excessCents = Math.max(0, totalCents - available);
+    if (excessCents && clean.length > 1) {
+      // The existing API posts each split atomically, one by one. The crossing
+      // split must be LAST; otherwise a fully paid invoice rejects later splits.
+      const last = clean.findIndex(p => cents(p.amount) > excessCents);
+      if (last < 0) throw new Error(
+        'For this excess payment, combine the received amount into one payment entry. ' +
+        'Multiple splits would finish the invoice before all receipts could be posted.'
+      );
+      const [crossing] = clean.splice(last, 1);
+      clean.push(crossing);
+    }
+    return { totalCents, availableCents: available, excessCents, splits: clean };
   }
   const api = Object.freeze({ cents, isDate, todayIST, availableCents, validate });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
