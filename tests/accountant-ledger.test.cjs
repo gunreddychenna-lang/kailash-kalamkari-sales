@@ -242,3 +242,39 @@ test('invalid payment methods and excessively long account names fail before db 
   assert.equal(r.calls.length,0);
  }
 });
+
+test('raw collected ₹100 on ₹99 bill allocates ₹99 and keeps ₹1 excess, not review',async()=>{
+ const setup=db=>{
+   db.bills.push({branch:'Main Branch',bill_no:'TINY99',bill_date:'2026-11-15',bill_amount:99});
+   db.batches.push({invoice_key:JSON.stringify(['Main Branch','TINY99']),amount:100,invoice_allocated:99,excess_amount:1,
+     payments:[{amount:100,method:'cash',account:'Cash Counter',payment_date:'2026-11-15',reference:'EX-99'}]});
+ };
+ const r=await run({role:'owner',configureRows:setup,query:'/api/accountant-ledger?branch=Main%20Branch&q=TINY99'});
+ assert.equal(r.code,200);
+ assert.equal(r.data.total,1);
+ const invoice=r.data.rows[0];
+ assert.equal(invoice.status,'settled');
+ assert.equal(invoice.verified_paid,99);
+ assert.equal(invoice.excess_received,1);
+ assert.equal(invoice.actual_received,100);
+ assert.equal(invoice.balance_due,0);
+ assert.equal(invoice.history[0].amount,100);
+ assert.equal(r.data.branch_totals[0].recorded_paid,99);
+ assert.equal(r.data.branch_totals[0].excess_collected,1);
+ assert.equal(r.data.branch_totals[0].excluded_review,0);
+ const cash=await run({role:'owner',configureRows:setup,query:'/api/accountant-ledger?branch=Main%20Branch&method=cash&account=Cash%20Counter'});
+ assert.equal(cash.code,200);
+ assert.equal(cash.data.receipt_ledger[0].recorded_amount,100);
+});
+test('₹7650 bill with ₹7600 received keeps ₹50 due and zero excess',async()=>{
+ const setup=db=>{
+   db.bills.push({branch:'KHPS',bill_no:'SHORT50',bill_date:'2026-11-15',bill_amount:7650});
+   db.batches.push({invoice_key:JSON.stringify(['KHPS','SHORT50']),amount:7600,invoice_allocated:7600,excess_amount:0,
+     payments:[{amount:7600,method:'upi',account:'TBH',payment_date:'2026-11-15',reference:'SHORT-50'}]});
+ };
+ const r=await run({role:'owner',configureRows:setup,query:'/api/accountant-ledger?branch=KHPS&q=SHORT50'});
+ assert.equal(r.code,200);
+ assert.equal(r.data.rows[0].verified_paid,7600);
+ assert.equal(r.data.rows[0].balance_due,50);
+ assert.equal(r.data.rows[0].excess_received,0);
+});
