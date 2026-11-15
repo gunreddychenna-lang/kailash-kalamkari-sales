@@ -261,8 +261,11 @@
     say('Loading invoice rows…');
     el('refresh').disabled=true;
     try {
+      const from = el('date-from').value;
+      const to = el('date-to').value;
+      if (from && to && from > to) throw new Error('From date cannot be after To date.');
       const query=new URLSearchParams({view:'register',branch:state.branch,status:state.status,
-        q:el('search').value.trim(),page:String(state.page),page_size:'25'});
+        from, to, q:el('search').value.trim(),page:String(state.page),page_size:'25'});
       const result=await request('GET','/api/accountant-payments?'+query);
       if(!Array.isArray(result.rows)) throw new Error('Invoice response is invalid.');
       state.rows=result.rows;state.totalPages=Math.max(1,Number(result.pages)||1);
@@ -393,6 +396,9 @@
     el('bank-form').addEventListener('submit',addBank);
     el('save-all-button').addEventListener('click',saveAllEditedPage);
     el('branch').addEventListener('change',()=>{state.branch=el('branch').value;state.page=1;load();});
+    for (const id of ['date-from','date-to']) el(id).addEventListener('change',()=>{state.page=1;load();});
+    el('today-filter').addEventListener('click',()=>{el('date-from').value=today;el('date-to').value=today;state.page=1;load();});
+    el('clear-dates').addEventListener('click',()=>{el('date-from').value='';el('date-to').value='';state.page=1;load();});
     el('search-button').addEventListener('click',()=>{state.page=1;load();});
     el('search').addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();state.page=1;load();}});
     el('refresh').addEventListener('click',load);
