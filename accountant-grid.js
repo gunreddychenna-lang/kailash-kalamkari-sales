@@ -167,7 +167,11 @@
     td(tr,row.sales_channel || '—');
     td(tr,row.bill_no,'bill');
     const amount = td(tr,fmt(row.invoice_amount),'money no-wrap');
-    amount.append(element('div','Recorded paid: '+fmt(row.verified_paid),'tiny'));
+    amount.append(element('div','Invoice allocated: '+fmt(row.verified_paid),'tiny'));
+    if (Number(row.excess_received) > 0)
+      amount.append(element('div','Excess held: '+fmt(row.excess_received),'tiny'));
+    if (Number(row.actual_received) > 0)
+      amount.append(element('div','Actual received: '+fmt(row.actual_received),'tiny'));
     amount.append(element('div','Existing pending: '+fmt(row.pending_amount),'tiny'));
     const bank = td(tr);
     const mode = modeControl(p), account = accountControl(p);
@@ -204,7 +208,7 @@
     for (const t of totals) {
       const card = element('article',undefined,'branch-amount');
       card.append(element('strong',t.branch));
-      for (const [label,value] of [['Invoiced',t.billed],['Recorded Paid',t.recorded_paid],['Balance Due',t.due]]) {
+      for (const [label,value] of [['Invoiced',t.billed],['Invoice Allocated',t.recorded_paid],['Actual Receipts',t.actual_received],['Excess Held',t.excess_received],['Balance Due',t.due]]) {
         const line = element('div');
         line.append(element('span',label+': '));
         line.append(element('span',fmt(value),'money'));
@@ -363,7 +367,12 @@
         idempotency_key:crypto.randomUUID()});
     }
     if(requests.length>50){say('Limit is 50 payment splits per Save All. Save some invoices individually.');return;}
-    const agree=window.confirm(`Submit ${requests.length} payment split(s) for ${selected.length} invoice(s) on the CURRENT PAGE, total ${fmt(totalCents/100)}?\n\nThese receipts are posted immediately. Fully paid invoices become Settled; partials remain outstanding. Check original bank records before recording. If a request fails, earlier requests may have been saved; use the on-screen RETRY with the same keys.`);
+    const excess = selected.reduce((sum, row) => {
+      const valid = Core.validate(row, editor(row).parts, state.accounts, today);
+      return sum + valid.excessCents;
+    }, 0);
+    // Excess is assessed per invoice by the server; never across the whole page.
+    const agree=window.confirm(`Submit ${requests.length} payment split(s) for ${selected.length} invoice(s) on the CURRENT PAGE, total ${fmt(totalCents/100)}?\n\nThese receipts are posted immediately. Fully paid invoices become Settled; partials remain outstanding. Excess received beyond invoice balances: ${fmt(excess/100)} (not invoice revenue). Check original bank records before recording. If a request fails, earlier requests may have been saved; use the on-screen RETRY with the same keys.`);
     if(!agree)return;
     state.queue={bulk:true,branch:'Multiple',bill_no:selected.length+' invoices',completed:0,
       invoices:selected.map(key),parts:requests};
@@ -374,8 +383,11 @@
     let valid;
     try{valid=Core.validate(row,editor(row).parts,state.accounts,today);}catch(e){say(e.message);return;}
     const total=fmt(valid.totalCents/100);
+    const excessNote = valid.excessCents > 0
+      ? `\nEXCESS: ${fmt(valid.excessCents/100)} will be held separately and not treated as invoice revenue.`
+      : '';
     const caution = row.status === 'unverified' ? '\nWARNING: Earlier payments have not been fully reconciled. Confirm this is a NEW receipt, not an old payment.' : '';
-    const approved=window.confirm(`Submit ${valid.splits.length} payment row(s), total ${total}, for ${row.branch} / ${row.bill_no}?\n\nReceipt posts immediately. Full payment becomes Settled; partial payment leaves a balance.${caution}`);
+    const approved=window.confirm(`Submit ${valid.splits.length} payment row(s), total ${total}, for ${row.branch} / ${row.bill_no}?\n\nReceipt posts immediately. Full payment becomes Settled; partial payment leaves a balance.${excessNote}${caution}`);
     if(!approved)return;
     state.queue={branch:row.branch,bill_no:row.bill_no,completed:0,
       parts:valid.splits.map(s=>({...s,branch:row.branch,bill_no:row.bill_no,idempotency_key:crypto.randomUUID()}))};
