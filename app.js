@@ -523,7 +523,7 @@ async function fetchData(user, pass) {
     bankAccountsList = ['Cash', '42441-TJ', 'KC'];
     updateHeaderRoleBadges();
     routeUserToRolePrimaryDashboard();
-    window.KKOwnerMobileSales?.show(session.secureRole, rawData);
+    window.KKOwnerMobileSales?.show(session.secureRole, rawData, accessToken);
 
   } catch (err) {
     rawData = [];
