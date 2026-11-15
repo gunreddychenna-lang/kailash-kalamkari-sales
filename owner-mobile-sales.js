@@ -56,7 +56,7 @@
       (state.branch === "all" || r.branch === state.branch) &&
       (state.girl === "all" || r.girl === state.girl) &&
       (state.sale === "all" || r.sale === state.sale) &&
-      (state.status === "all" || r.status === state.status)
+      (state.status === "all" || !ledgerLoaded || r.status === state.status)
     );
     list = list.slice().sort((a, b) => {
       switch (state.sort) {
@@ -111,28 +111,16 @@
     if (ledgerLoaded || ledgerBusy || !authenticatedToken) return;
     ledgerBusy = true; updateStatusLine("Loading verified payment statuses…");
     try {
-      // The existing read-only register restricts page_size to 50. Fetch all pages; never guess from receipt-bank names.
-      async function getPage(n) {
-        const response = await fetch("/api/accountant-payments?view=register&branch=all&status=all&page_size=50&page=" + n, {
-          method: "GET", cache: "no-store", headers: { Authorization: "Bearer " + authenticatedToken, Accept: "application/json" }
-        });
-        if (!response.ok) throw new Error("Register unavailable (" + response.status + ")");
-        const data = await response.json();
-        if (!Array.isArray(data.rows) || !Number.isSafeInteger(data.pages) || data.pages < 1 || data.pages > 160)
-          throw new Error("Unexpected register response");
-        return data;
-      }
-      const first = await getPage(1);
+      const response = await fetch("/api/accountant-payments?view=register&branch=all&status_only=1", {
+        method: "GET", cache: "no-store",
+        headers: { Authorization: "Bearer " + authenticatedToken, Accept: "application/json" }
+      });
+      if (!response.ok) throw new Error("Payment status register unavailable");
+      const data = await response.json();
       if (sequence !== requestSequence) return;
-      const pages = first.pages, items = first.rows.slice();
-      // Sequential batches reduce load on the production financial database.
-      for (let n = 2; n <= pages; n++) {
-        const data = await getPage(n);
-        if (sequence !== requestSequence) return;
-        if (data.pages !== pages) throw new Error("Register changed during pagination; retry");
-        items.push(...data.rows);
-      }
-      if (first.total !== items.length) throw new Error("Register count changed; retry");
+      if (data.read_only !== true || !Array.isArray(data.rows) || data.rows.length !== data.total ||
+          data.rows.length > 8000) throw new Error("Incomplete read-only payment status result");
+      const items = data.rows;
       statuses.clear();
       for (const r of items) {
         if (!["settled","pending","unverified","review"].includes(r.status)) continue;
