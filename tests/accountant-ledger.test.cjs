@@ -155,3 +155,38 @@ test('branch amount summaries respect staff branch permissions',async()=>{
  assert.equal(r.code,200);
  assert.deepEqual(r.data.branch_totals.map(x=>x.branch),['Main Branch']);
 });
+
+test('inclusive invoice date range filters rows, tabs and branch totals consistently',async()=>{
+  const r=await run({role:'owner',query:'/api/accountant-ledger?branch=all&from=2026-11-11&to=2026-11-12'});
+  assert.equal(r.code,200);
+  assert.equal(r.data.from,'2026-11-11');
+  assert.equal(r.data.to,'2026-11-12');
+  assert.equal(r.data.counts.all,4);
+  assert.ok(r.data.rows.every(x=>x.bill_date>='2026-11-11' && x.bill_date<='2026-11-12'));
+  const main=r.data.branch_totals.find(x=>x.branch==='Main Branch');
+  assert.equal(main.invoices,3);
+  assert.equal(main.excluded_review,1);
+  assert.equal(main.billed,1200+1500);
+  assert.equal(main.recorded_paid,0);
+  assert.equal(main.due,1200+1500);
+  const khps=r.data.branch_totals.find(x=>x.branch==='KHPS');
+  assert.equal(khps.invoices,1);
+  assert.equal(khps.billed,2100);
+});
+test('invalid dates or reversed ranges rejected before database reads',async()=>{
+  for(const query of [
+    '/api/accountant-ledger?from=2026-02-30',
+    '/api/accountant-ledger?from=2026-11-13&to=2026-11-12',
+    '/api/accountant-ledger?to=tomorrow',
+    '/api/accountant-ledger?from=2026-11-12x'
+  ]) {
+    const r=await run({role:'owner',query});
+    assert.equal(r.code,400);
+    assert.equal(r.calls.length,0);
+  }
+});
+test('date filters never expose unpermitted branch totals',async()=>{
+  const r=await run({role:'employee',stores:['Main Branch'],query:'/api/accountant-ledger?branch=all&from=2026-11-12&to=2026-11-12'});
+  assert.equal(r.code,200);
+  assert.deepEqual(r.data.branch_totals.map(x=>x.branch),['Main Branch']);
+});
