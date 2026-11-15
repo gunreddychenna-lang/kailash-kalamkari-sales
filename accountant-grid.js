@@ -254,6 +254,13 @@
     for(const name of accessible) picker.add(new Option(name,name));
     picker.value=state.branch;
     el('branch-note').textContent='Accessible branches: '+accessible.join(', ')+'. Other branches need Owner/Admin permission.';
+    const accountPicker = el('ledger-account');
+    const prior = accountPicker.value;
+    accountPicker.replaceChildren(new Option('All Accounts','all'));
+    for (const name of [...new Set(state.accounts.map(a=>a.account_name))].sort((a,b)=>a.localeCompare(b))) {
+      accountPicker.add(new Option(name,name));
+    }
+    accountPicker.value = [...accountPicker.options].some(x=>x.value===prior)?prior:'all';
   }
   async function load() {
     if(state.busy || state.saving)return;
@@ -265,7 +272,8 @@
       const to = el('date-to').value;
       if (from && to && from > to) throw new Error('From date cannot be after To date.');
       const query=new URLSearchParams({view:'register',branch:state.branch,status:state.status,
-        from, to, q:el('search').value.trim(),page:String(state.page),page_size:'25'});
+        from, to, method:el('payment-method').value,account:el('ledger-account').value,
+        q:el('search').value.trim(),page:String(state.page),page_size:'25'});
       const result=await request('GET','/api/accountant-payments?'+query);
       if(!Array.isArray(result.rows)) throw new Error('Invoice response is invalid.');
       state.rows=result.rows;state.totalPages=Math.max(1,Number(result.pages)||1);
@@ -275,6 +283,17 @@
         tab.setAttribute('aria-pressed',String(state.status===name));
       }
       renderBranchTotals(result.branch_totals);
+      const ledger = el('receipt-ledger');
+      ledger.replaceChildren();
+      if (el('payment-method').value !== 'all' || el('ledger-account').value !== 'all') {
+        if (!Array.isArray(result.receipt_ledger)) throw new Error('Payment ledger data unavailable.');
+        for (const item of result.receipt_ledger) {
+          const card = element('article',undefined,'branch-amount');
+          card.append(element('strong',item.branch+' · Matching Recorded Receipts'));
+          card.append(element('div',fmt(item.recorded_amount),'money'));
+          ledger.append(card);
+        }
+      }
       el('count').textContent=(result.total??0)+' matching invoices';
       say('Invoice rows ready. Tab between cells to enter payments. Save creates PENDING entries only.');
     } catch(e) {say(e.message||'Unable to load invoices.');}
@@ -397,6 +416,8 @@
     el('save-all-button').addEventListener('click',saveAllEditedPage);
     el('branch').addEventListener('change',()=>{state.branch=el('branch').value;state.page=1;load();});
     for (const id of ['date-from','date-to']) el(id).addEventListener('change',()=>{state.page=1;load();});
+    for (const id of ['payment-method','ledger-account'])
+      el(id).addEventListener('change',()=>{state.page=1;load();});
     el('today-filter').addEventListener('click',()=>{el('date-from').value=today;el('date-to').value=today;state.page=1;load();});
     el('clear-dates').addEventListener('click',()=>{el('date-from').value='';el('date-to').value='';state.page=1;load();});
     el('search-button').addEventListener('click',()=>{state.page=1;load();});

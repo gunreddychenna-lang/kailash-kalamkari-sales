@@ -24,6 +24,7 @@ async function run(opts={}) {
   const oldFetch=global.fetch; const oldEnv={VERCEL_ENV:process.env.VERCEL_ENV,SUPABASE_URL:process.env.SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY:process.env.SUPABASE_SERVICE_ROLE_KEY};
   process.env.VERCEL_ENV=opts.env||'production';process.env.SUPABASE_URL=opts.url||'https://dqvqqrbvklpiibzqivbp.supabase.co';process.env.SUPABASE_SERVICE_ROLE_KEY='MOCK_SECRET';
   const calls=[];const db=mockRows();
+  if(typeof opts.configureRows==='function')opts.configureRows(db);
   global.fetch=async (url, init) => {
     assert.equal(init.method,'GET');
     const u = new URL(url); const path=u.pathname;calls.push({path,u,init});let data;
@@ -189,4 +190,55 @@ test('date filters never expose unpermitted branch totals',async()=>{
   const r=await run({role:'employee',stores:['Main Branch'],query:'/api/accountant-ledger?branch=all&from=2026-11-12&to=2026-11-12'});
   assert.equal(r.code,200);
   assert.deepEqual(r.data.branch_totals.map(x=>x.branch),['Main Branch']);
+});
+
+test('payment method and account filters use only matching posted receipt splits',async()=>{
+ const configureRows=db=>{
+   db.batches.push({
+     invoice_key: JSON.stringify(['Main Branch','C300']),amount:1000,
+     payments:[
+       {amount:400,account:'TBH',method:'cash',reference:'CASH-TEST',payment_date:'2026-11-12'},
+       {amount:600,account:'42441-TJ',method:'upi',reference:'UPI-TEST',payment_date:'2026-11-12'}
+     ]
+   });
+ };
+ const cash=await run({role:'owner',configureRows,query:'/api/accountant-ledger?branch=all&method=cash&account=TBH'});
+ assert.equal(cash.code,200);
+ assert.equal(cash.data.total,1);
+ assert.equal(cash.data.rows[0].bill_no,'C300');
+ assert.equal(cash.data.receipt_ledger.find(x=>x.branch==='Main Branch').recorded_amount,400);
+ assert.equal(cash.data.rows[0].verified_paid,1000);
+ const upi=await run({role:'owner',configureRows,query:'/api/accountant-ledger?branch=all&method=upi&account=42441-TJ'});
+ assert.equal(upi.code,200);
+ assert.equal(upi.data.receipt_ledger.find(x=>x.branch==='Main Branch').recorded_amount,600);
+ assert.equal(upi.data.total,1);
+ const wrongAccount=await run({role:'owner',configureRows,query:'/api/accountant-ledger?branch=all&method=cash&account=42441-TJ'});
+ assert.equal(wrongAccount.code,200);
+ assert.equal(wrongAccount.data.total,0);
+ assert.equal(wrongAccount.data.receipt_count,0);
+});
+test('payment ledger does not count pending requests, historical bank names, or invoice full amount',async()=>{
+ const r=await run({role:'owner',query:'/api/accountant-ledger?method=upi&account=Kalamkari%20Bank'});
+ assert.equal(r.code,200);
+ assert.equal(r.data.total,0);
+ assert.equal(r.data.receipt_ledger.find(x=>x.branch==='Main Branch').recorded_amount,0);
+ const oldBank=await run({role:'owner',query:'/api/accountant-ledger?method=upi&account=Sales%20Registered%20Bank'});
+ assert.equal(oldBank.data.total,0);
+});
+test('payment filters cannot reveal other branch ledger receipt amounts to accountant',async()=>{
+ const configureRows=db=>db.batches.push({
+   invoice_key:JSON.stringify(['KHPS','KHPS1']),amount:100,
+   payments:[{amount:100,account:'TBH',method:'cash',reference:'KHPS-CASH'}]
+ });
+ const r=await run({role:'employee',stores:['Main Branch'],configureRows,query:'/api/accountant-ledger?branch=all&method=cash&account=TBH'});
+ assert.equal(r.code,200);
+ assert.deepEqual(r.data.receipt_ledger.map(x=>x.branch),['Main Branch']);
+ assert.equal(r.data.total,0);
+});
+test('invalid payment methods and excessively long account names fail before db reads',async()=>{
+ for(const query of ['/api/accountant-ledger?method=bitcoin','/api/accountant-ledger?method=CASH','/api/accountant-ledger?account='+('x'.repeat(121))]){
+  const r=await run({role:'owner',query});
+  assert.equal(r.code,400);
+  assert.equal(r.calls.length,0);
+ }
 });

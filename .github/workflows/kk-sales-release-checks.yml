@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - engineering/kk-ceo-006-checkpoint
+      - feature/accountant-payment-method-account-filters-20261115
       - feature/accountant-date-filter-20261115
       - feature/simplify-payment-tabs-branch-totals-20261115
       - feature/kk-provisional-settled-small-balances-20261115
