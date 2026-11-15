@@ -278,3 +278,29 @@ test('₹7650 bill with ₹7600 received keeps ₹50 due and zero excess',async(
  assert.equal(r.data.rows[0].balance_due,50);
  assert.equal(r.data.rows[0].excess_received,0);
 });
+
+test('Sales Channel filters actual invoice channel, not payment method or bank account',async()=>{
+ const configureRows=db=>{
+  db.bills.find(b=>b.bill_no==='A100').channel='Offline';
+  db.bills.find(b=>b.bill_no==='B200').channel='Online';
+  db.bills.find(b=>b.bill_no==='C300').channel='Wholesale';
+ };
+ const r=await run({role:'owner',configureRows,query:'/api/accountant-ledger?channel=Online'});
+ assert.equal(r.code,200);
+ assert.deepEqual(r.data.rows.map(x=>x.bill_no),['B200']);
+ assert.equal(r.data.rows[0].sales_channel,'Online');
+ assert.deepEqual(r.data.sales_channels,['Offline','Online','Wholesale']);
+ assert.equal(r.data.counts.all,1);
+ const unknown=await run({role:'owner',configureRows,query:'/api/accountant-ledger?channel=Retail'});
+ assert.equal(unknown.code,400);
+});
+test('Sales Channel is branch-scoped for employee, and legacy payment-method filter still works',async()=>{
+ const configureRows=db=>{
+  db.bills.find(b=>b.bill_no==='A100').channel='Offline';
+  db.bills.find(b=>b.bill_no==='KHPS1').channel='Wholesale';
+ };
+ const r=await run({role:'employee',stores:['Main Branch'],configureRows,query:'/api/accountant-ledger?branch=all&channel=Offline'});
+ assert.equal(r.code,200);
+ assert.deepEqual(r.data.sales_channels,['Offline']);
+ assert.ok(r.data.rows.every(x=>x.branch==='Main Branch'));
+});
