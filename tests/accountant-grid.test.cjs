@@ -34,7 +34,7 @@ test('overpayment preserves exact customer amount and calculates excess, without
  assert.equal(v.totalCents,1100000);
  assert.equal(v.availableCents,1000000);
  assert.equal(v.excessCents,100000);
- assert.equal(v.splits[1].amount,'4500.00');
+ assert.deepEqual(v.splits.map(p=>p.amount),['4500.00','6500.00']);
 });
 test('₹99 invoice accepts ₹100 cash, and ₹7650 invoice accepts ₹7600 with ₹50 due',()=>{
  const over=core.validate({...row,bill_no:'OVER99',invoice_amount:99},[{...cash,amount:'100'}],accounts,today);
@@ -101,4 +101,15 @@ test('Owner Add Bank remains role-limited and reachable through approved server 
   assert.match(grid,/addEventListener\('click',\(\)=>\{el\('bank-error'\)/);
   assert.match(grid,/\/api\/accountant-payments\?action=add-account/);
   assert.match(grid,/Core\.todayIST\(\)/);
+});
+
+test('multi-split overpayment places final threshold-crossing receipt last',()=>{
+ const invoice={...row,bill_no:'TEST99',invoice_amount:99};
+ const valid=core.validate(invoice,[{...cash,amount:'99'},{...upi,amount:'1'}],accounts,today);
+ assert.deepEqual(valid.splits.map(s=>s.amount),['1.00','99.00']);
+ assert.equal(valid.excessCents,100);
+});
+test('impossible multi-split excess does not risk saving only first split',()=>{
+ const invoice={...row,bill_no:'TEST1',invoice_amount:1};
+ matchError(()=>core.validate(invoice,[{...cash,amount:'100'},{...upi,amount:'100'}],accounts,today),'combine');
 });
