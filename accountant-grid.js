@@ -4,13 +4,7 @@
   const el = id => document.getElementById(id);
   const Core = window.KKAccountantGridCore;
   const branchesList = ['Main Branch', 'KHPS'];
-  // Date inputs and server-side validation require YYYY-MM-DD, regardless of
-  // browser locale formatting (en-CA can render as MM/DD/YYYY).
-  const istParts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
-  }).formatToParts(new Date());
-  const istDate = Object.fromEntries(istParts.map(p => [p.type, p.value]));
-  const today = istDate.year + '-' + istDate.month + '-' + istDate.day;
+  const today = Core.todayIST();
   const fmt = value => value === null || value === undefined ? '—' :
     Number(value).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
   const statusLabel = {settled: 'Settled · recorded in portal', pending: 'Outstanding / partially paid',
