@@ -78,7 +78,7 @@ const settleTest = require('node:test');
 const settleAssert = require('node:assert/strict');
 settleTest('Payment Reports opens the authorized invoice register, not a fragment',()=>{
   const index = require('node:fs').readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
-  settleAssert.ok(index.includes('href="accountant-payments.html#register-section"'));
+  settleAssert.ok(index.includes('href="accountant-grid.html"'));
 });
 settleTest('Auto-post endpoint expects a single atomic posted response',()=>{
   const api=require('node:fs').readFileSync(require('node:path').join(__dirname,'../api/accountant-payments.js'),'utf8');
