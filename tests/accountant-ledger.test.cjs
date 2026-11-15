@@ -93,3 +93,43 @@ test('invoice register runs through existing payments API', async () => {
   assert.equal(r.code, 200);
   assert.equal(r.data.counts.all, 4);
 });
+
+test('verified partial payments display Settled for now regardless of outstanding balance', () => {
+  const {summarize} = ledger._test;
+  const bills = [
+    {branch:'Main Branch',bill_no:'ONE',bill_amount:6746,bill_date:'2026-11-15'},
+    {branch:'Main Branch',bill_no:'FIFTY',bill_amount:7650,bill_date:'2026-11-15'},
+    {branch:'Main Branch',bill_no:'OVER',bill_amount:17300,bill_date:'2026-11-15'},
+    {branch:'Main Branch',bill_no:'LARGE',bill_amount:50000,bill_date:'2026-11-15'},
+    {branch:'Main Branch',bill_no:'UNPAID',bill_amount:50,bill_date:'2026-11-15'}
+  ];
+  const payment = (bill,paid) => ({
+    invoice_key: JSON.stringify(['Main Branch',bill]),amount:paid,
+    payments:[{amount:paid,account:'Bank',reference:'TEST',payment_date:'2026-11-15'}]
+  });
+  const rows=summarize(bills,[],[],[payment('ONE',6745),payment('FIFTY',7600),payment('LARGE',1000)]);
+  const byBill=Object.fromEntries(rows.map(r=>[r.bill_no,r]));
+  assert.equal(byBill.ONE.status,'pending');
+  assert.equal(byBill.ONE.display_status,'settled');
+  assert.equal(byBill.ONE.collection_settled_for_now,true);
+  assert.equal(byBill.ONE.balance_due,1);
+  assert.equal(byBill.ONE.verified_paid,6745);
+  assert.equal(byBill.FIFTY.display_status,'settled');
+  assert.equal(byBill.FIFTY.balance_due,50);
+  assert.equal(byBill.LARGE.display_status,'settled');
+  assert.equal(byBill.LARGE.balance_due,49000);
+  assert.equal(byBill.LARGE.status,'pending');
+  assert.equal(byBill.OVER.display_status,'unverified');
+  assert.equal(byBill.UNPAID.display_status,'unverified');
+});
+test('one paise difference is not written off in accounting', () => {
+  const {summarize} = ledger._test;
+  const bills=[{branch:'Main Branch',bill_no:'ONEPAISE',bill_amount:33000.01,bill_date:'2026-11-15'}];
+  const receipts=[{invoice_key:JSON.stringify(['Main Branch','ONEPAISE']),amount:33000,
+    payments:[{amount:33000,account:'Bank',reference:'R'}]}];
+  const [r]=summarize(bills,[],[],receipts);
+  assert.equal(r.status,'pending');
+  assert.equal(r.display_status,'settled');
+  assert.equal(r.balance_due,0.01);
+  assert.equal(r.verified_paid,33000);
+});
