@@ -271,10 +271,15 @@
       const to = el('date-to').value;
       if (from && to && from > to) throw new Error('From date cannot be after To date.');
       const query=new URLSearchParams({view:'register',branch:state.branch,status:state.status,
-        from, to, method:el('payment-method').value,account:el('ledger-account').value,
+        from, to, channel:el('sales-channel').value,account:el('ledger-account').value,
         q:el('search').value.trim(),page:String(state.page),page_size:'25'});
       const result=await request('GET','/api/accountant-payments?'+query);
       if(!Array.isArray(result.rows)) throw new Error('Invoice response is invalid.');
+      const channelPicker = el('sales-channel');
+      const chosen = channelPicker.value;
+      channelPicker.replaceChildren(new Option('All Sales Channels','all'));
+      for (const name of (result.sales_channels || [])) channelPicker.add(new Option(name,name));
+      channelPicker.value = [...channelPicker.options].some(o=>o.value===chosen) ? chosen : 'all';
       state.rows=result.rows;state.totalPages=Math.max(1,Number(result.pages)||1);
       for(const tab of document.querySelectorAll('[data-status]')){
         const name=tab.dataset.status;
@@ -284,7 +289,7 @@
       renderBranchTotals(result.branch_totals);
       const ledger = el('receipt-ledger');
       ledger.replaceChildren();
-      if (el('payment-method').value !== 'all' || el('ledger-account').value !== 'all') {
+      if (el('sales-channel').value !== 'all' || el('ledger-account').value !== 'all') {
         if (!Array.isArray(result.receipt_ledger)) throw new Error('Payment ledger data unavailable.');
         for (const item of result.receipt_ledger) {
           const card = element('article',undefined,'branch-amount');
@@ -432,7 +437,7 @@
     el('save-all-button').addEventListener('click',saveAllEditedPage);
     el('branch').addEventListener('change',()=>{state.branch=el('branch').value;state.page=1;load();});
     for (const id of ['date-from','date-to']) el(id).addEventListener('change',()=>{state.page=1;load();});
-    for (const id of ['payment-method','ledger-account'])
+    for (const id of ['sales-channel','ledger-account'])
       el(id).addEventListener('change',()=>{state.page=1;load();});
     el('today-filter').addEventListener('click',()=>{el('date-from').value=today;el('date-to').value=today;state.page=1;load();});
     el('clear-dates').addEventListener('click',()=>{el('date-from').value='';el('date-to').value='';state.page=1;load();});
