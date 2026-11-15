@@ -110,3 +110,18 @@ test('₹7650 invoice accepts ₹7600 actually received and preserves ₹50 bala
  assert.equal(saved.availableCents-saved.totalCents,5000);
  assert.equal(saved.estimatedExcessCents,0);
 });
+
+test('Owner payments link and legacy register both lead to unified date/channel grid',()=>{
+ const owner=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+ const legacy=fs.readFileSync(path.join(__dirname,'../accountant-payments.html'),'utf8');
+ const html=fs.readFileSync(path.join(__dirname,'../accountant-grid.html'),'utf8');
+ const js=fs.readFileSync(path.join(__dirname,'../accountant-grid.js'),'utf8');
+ assert.match(owner,/href="accountant-grid\.html"/);
+ assert.doesNotMatch(owner,/href="accountant-payments\.html#register-section"/);
+ assert.match(legacy,/location\.replace\('accountant-grid\.html'\)/);
+ for(const id of ['date-from','date-to','sales-channel','ledger-account'])
+  assert.match(html,new RegExp('id="'+id+'"'));
+ assert.doesNotMatch(html,/id="payment-method"/);
+ assert.match(js,/channel:el\('sales-channel'\)\.value/);
+ assert.match(js,/result\.sales_channels/);
+});
