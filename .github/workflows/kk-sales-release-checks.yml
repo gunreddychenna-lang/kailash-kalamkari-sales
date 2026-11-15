@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - engineering/kk-ceo-006-checkpoint
+      - feature/accountant-actual-received-excess-20261115
       - fix/owner-add-bank-accountant-save-20261115
       - feature/accountant-payment-method-account-filters-20261115
       - feature/accountant-date-filter-20261115
