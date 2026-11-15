@@ -190,9 +190,31 @@
     actions.append(button(edit.show ? 'Hide details' : 'Details / History', () => {
       edit.show=!edit.show;render();
     },'secondary'));
-    const status = td(tr);status.append(element('span',statusLabel[row.status]||row.status,'tag '+row.status));
+    const settled = (row.display_status || row.status) === 'settled';
+    const displayLabel = settled ? (row.collection_settled_for_now
+      ? 'Settled for now · '+fmt(row.balance_due)+' due' : 'Settled') : 'Not Settled';
+    const status = td(tr);status.append(element('span',displayLabel,'tag '+(settled?'settled':'pending')));
+    if (row.status === 'review') status.append(element('div','Requires reconciliation before payment entry','tiny'));
     const detail = edit.show ? rowDetails(row,edit) : null;
     return detail ? [tr,detail] : [tr];
+  }
+  function renderBranchTotals(totals) {
+    const container = el('branch-totals');
+    if (!container) return;
+    container.replaceChildren();
+    if (!Array.isArray(totals)) { container.append(element('span','Branch amounts unavailable','muted')); return; }
+    for (const t of totals) {
+      const card = element('article',undefined,'branch-amount');
+      card.append(element('strong',t.branch));
+      for (const [label,value] of [['Invoiced',t.billed],['Recorded Paid',t.recorded_paid],['Balance Due',t.due]]) {
+        const line = element('div');
+        line.append(element('span',label+': '));
+        line.append(element('span',fmt(value),'money'));
+        card.append(line);
+      }
+      card.append(element('div','Invoices: '+t.invoices+(t.excluded_review?' · Excluded for review: '+t.excluded_review:''),'tiny'));
+      container.append(card);
+    }
   }
   function render() {
     const body = el('sheet-body'); body.replaceChildren();
@@ -246,9 +268,10 @@
       state.rows=result.rows;state.totalPages=Math.max(1,Number(result.pages)||1);
       for(const tab of document.querySelectorAll('[data-status]')){
         const name=tab.dataset.status;
-        tab.textContent=({all:'All',settled:'Settled',pending:'Pending',unverified:'Unverified',review:'Review'}[name])+ ' · '+(result.counts?.[name]??0);
+        tab.textContent=({all:'All',settled:'Settled',not_settled:'Not Settled'}[name])+ ' · '+(result.counts?.[name]??0);
         tab.setAttribute('aria-pressed',String(state.status===name));
       }
+      renderBranchTotals(result.branch_totals);
       el('count').textContent=(result.total??0)+' matching invoices';
       say('Invoice rows ready. Tab between cells to enter payments. Save creates PENDING entries only.');
     } catch(e) {say(e.message||'Unable to load invoices.');}

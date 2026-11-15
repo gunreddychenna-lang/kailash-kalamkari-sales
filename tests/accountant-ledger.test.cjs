@@ -44,7 +44,7 @@ async function run(opts={}) {
 }
 test('only approved opening/posted receipts count as settled; bank in sales is unverified',async()=>{
   const r=await run();assert.equal(r.code,200);
-  assert.deepEqual(r.data.counts,{all:4,settled:1,pending:1,unverified:1,review:1});
+  assert.deepEqual(r.data.counts,{all:4,settled:1,not_settled:3,pending:1,unverified:1,review:1});
   const rows=Object.fromEntries(r.data.rows.map(x=>[x.bill_no,x]));
   assert.equal(rows.A100.status,'settled');assert.equal(rows.A100.verified_paid,1000);assert.equal(rows.A100.reference,'VERIFIED-OPENING');
   assert.equal(rows.B200.status,'pending');assert.equal(rows.B200.pending_amount,300);assert.equal(rows.B200.reference,'UTR-987');
@@ -132,4 +132,26 @@ test('one paise difference is not written off in accounting', () => {
   assert.equal(r.display_status,'settled');
   assert.equal(r.balance_due,0.01);
   assert.equal(r.verified_paid,33000);
+});
+
+test('simple Settled / Not Settled grouping keeps actual dues and excludes reviews from branch totals',async()=>{
+ const {data,code}=await run({role:'owner',query:'/api/accountant-ledger?status=not_settled&branch=all'});
+ assert.equal(code,200);
+ assert.equal(data.total,data.counts.not_settled);
+ assert.ok(data.rows.every(row=>row.display_status!=='settled'));
+ const main=data.branch_totals.find(x=>x.branch==='Main Branch');
+ assert.ok(main);
+ assert.equal(main.invoices,4);
+ assert.equal(main.excluded_review,1);
+ assert.equal(main.billed,1000+1200+1500);
+ assert.equal(main.recorded_paid,1000);
+ assert.equal(main.due,1200+1500);
+ const khps=data.branch_totals.find(x=>x.branch==='KHPS');
+ assert.equal(khps.invoices,1);
+ assert.equal(khps.due,2100);
+});
+test('branch amount summaries respect staff branch permissions',async()=>{
+ const r=await run({role:'employee',stores:['Main Branch']});
+ assert.equal(r.code,200);
+ assert.deepEqual(r.data.branch_totals.map(x=>x.branch),['Main Branch']);
 });
