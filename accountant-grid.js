@@ -168,6 +168,7 @@
     td(tr,row.bill_no,'bill');
     const amount = td(tr,fmt(row.invoice_amount),'money no-wrap');
     amount.append(element('div','Recorded paid: '+fmt(row.verified_paid),'tiny'));
+    if (row.excess_received>0) amount.append(element('div','Excess collected: '+fmt(row.excess_received),'tiny'));
     amount.append(element('div','Existing pending: '+fmt(row.pending_amount),'tiny'));
     const bank = td(tr);
     const mode = modeControl(p), account = accountControl(p);
@@ -204,7 +205,7 @@
     for (const t of totals) {
       const card = element('article',undefined,'branch-amount');
       card.append(element('strong',t.branch));
-      for (const [label,value] of [['Invoiced',t.billed],['Recorded Paid',t.recorded_paid],['Balance Due',t.due]]) {
+      for (const [label,value] of [['Invoiced',t.billed],['Recorded Paid (allocated)',t.recorded_paid],['Balance Due',t.due],['Excess Collected',t.excess_collected || 0]]) {
         const line = element('div');
         line.append(element('span',label+': '));
         line.append(element('span',fmt(value),'money'));
@@ -358,12 +359,13 @@
       let valid;
       try{valid=Core.validate(row,editor(row).parts,state.accounts,today);}
       catch(e){say(row.bill_no+': '+e.message+' Nothing has been submitted.');return;}
+      if(valid.estimatedExcessCents>0 && valid.splits.length>1){say(row.bill_no+': Excess payment across multiple splits needs separate review; enter it as one payment to avoid partial posting.');return;}
       totalCents+=valid.totalCents;
       for(const s of valid.splits)requests.push({...s,branch:row.branch,bill_no:row.bill_no,
         idempotency_key:crypto.randomUUID()});
     }
     if(requests.length>50){say('Limit is 50 payment splits per Save All. Save some invoices individually.');return;}
-    const agree=window.confirm(`Submit ${requests.length} payment split(s) for ${selected.length} invoice(s) on the CURRENT PAGE, total ${fmt(totalCents/100)}?\n\nThese receipts are posted immediately. Fully paid invoices become Settled; partials remain outstanding. Check original bank records before recording. If a request fails, earlier requests may have been saved; use the on-screen RETRY with the same keys.`);
+    const agree=window.confirm(`Submit ${requests.length} payment split(s) for ${selected.length} invoice(s) on the CURRENT PAGE, total ${fmt(totalCents/100)}?\n\nThese receipts are posted immediately. Extra money is recorded separately as excess, not sales. Fully paid invoices become Settled; partials remain outstanding. Check original bank records before recording. If a request fails, earlier requests may have been saved; use the on-screen RETRY with the same keys.`);
     if(!agree)return;
     state.queue={bulk:true,branch:'Multiple',bill_no:selected.length+' invoices',completed:0,
       invoices:selected.map(key),parts:requests};
@@ -373,9 +375,10 @@
     if(state.saving || state.queue) {say('Finish the earlier split submission first.');return;}
     let valid;
     try{valid=Core.validate(row,editor(row).parts,state.accounts,today);}catch(e){say(e.message);return;}
+    if(valid.estimatedExcessCents>0 && valid.splits.length>1){say('For an excess collection use one payment entry; multi-bank excess splits cannot safely post individually.');return;}
     const total=fmt(valid.totalCents/100);
     const caution = row.status === 'unverified' ? '\nWARNING: Earlier payments have not been fully reconciled. Confirm this is a NEW receipt, not an old payment.' : '';
-    const approved=window.confirm(`Submit ${valid.splits.length} payment row(s), total ${total}, for ${row.branch} / ${row.bill_no}?\n\nReceipt posts immediately. Full payment becomes Settled; partial payment leaves a balance.${caution}`);
+    const approved=window.confirm(`Submit ${valid.splits.length} payment row(s), total ${total}, for ${row.branch} / ${row.bill_no}?\n\nReceipt posts immediately. Invoice allocation is limited to the remaining bill amount. Excess ${fmt(valid.estimatedExcessCents/100)} is tracked separately, not added to sales. Partial payment leaves an actual due balance.${caution}`);
     if(!approved)return;
     state.queue={branch:row.branch,bill_no:row.bill_no,completed:0,
       parts:valid.splits.map(s=>({...s,branch:row.branch,bill_no:row.bill_no,idempotency_key:crypto.randomUUID()}))};
