@@ -72,3 +72,20 @@ test('blank UTR allows multiple splits to same bank',()=>{
   assert.equal(result.splits.length,2);
   assert.equal(result.totalCents,400000);
 });
+
+test('IST payment date is ISO even at UTC midnight boundary, compatible with server validation', () => {
+  assert.equal(core.todayIST(new Date('2026-11-14T20:00:00Z')), '2026-11-15');
+  assert.equal(core.todayIST(new Date('2026-11-15T01:00:00Z')), '2026-11-15');
+  assert.equal(core.todayIST(new Date('2026-11-15T18:29:00Z')), '2026-11-15');
+  assert.equal(core.todayIST(new Date('2026-11-15T18:31:00Z')), '2026-11-16');
+  assert.equal(core.isDate(core.todayIST(new Date('2026-11-15T08:00:00Z'))), true);
+});
+test('Owner Add Bank remains role-limited and reachable through approved server action', () => {
+  const grid = fs.readFileSync(path.join(__dirname,'../accountant-grid.js'),'utf8');
+  const html = fs.readFileSync(path.join(__dirname,'../accountant-grid.html'),'utf8');
+  assert.match(html,/id="add-bank-button"/);
+  assert.match(grid,/\['owner','admin'\]\.includes\(state\.profile\.role\)/);
+  assert.match(grid,/addEventListener\('click',\(\)=>\{el\('bank-error'\)/);
+  assert.match(grid,/\/api\/accountant-payments\?action=add-account/);
+  assert.match(grid,/Core\.todayIST\(\)/);
+});
