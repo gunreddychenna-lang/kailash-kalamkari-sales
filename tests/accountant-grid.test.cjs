@@ -29,13 +29,17 @@ test('cash + bank split exactly matches invoice without inferring it was paid',(
  assert.equal(x.totalCents,1000000);
  assert.equal(x.splits[1].payment_reference,'');
 });
-test('overpayment prevents starting the split batch',()=>{
- matchError(()=>core.validate(row,[upi,{...cash,amount:'4500'}],accounts,today),'exceed');
+test('overpayment retains actual collected sum and calculates separate excess',()=>{
+ const v=core.validate(row,[upi,{...cash,amount:'4500'}],accounts,today);
+ assert.equal(v.totalCents,1100000);
+ assert.equal(v.availableCents,1000000);
+ assert.equal(v.estimatedExcessCents,100000);
+ assert.equal(v.splits[0].amount,'6500.00');
 });
 test('existing verified and pending allocations reduce permitted amount',()=>{
  const r={...row,verified_paid:2000,pending_amount:1000,status:'pending'};
  assert.equal(core.availableCents(r),700000);
- matchError(()=>core.validate(r,[{...upi,amount:'7000.01'}],accounts,today),'exceed');
+ assert.equal(core.validate(r,[{...upi,amount:'7000.01'}],accounts,today).estimatedExcessCents,1);
  assert.equal(core.validate(r,[{...upi,amount:'7000'}],accounts,today).totalCents,700000);
 });
 test('settled and reconciliation-required invoices cannot be edited',()=>{
@@ -88,4 +92,21 @@ test('Owner Add Bank remains role-limited and reachable through approved server 
   assert.match(grid,/addEventListener\('click',\(\)=>\{el\('bank-error'\)/);
   assert.match(grid,/\/api\/accountant-payments\?action=add-account/);
   assert.match(grid,/Core\.todayIST\(\)/);
+});
+
+test('₹99 invoice accepts ₹100 actually received with ₹1 excess',()=>{
+ const low={...row,invoice_amount:99};
+ const receipt={...cash,amount:'100.00'};
+ const saved=core.validate(low,[receipt],accounts,today);
+ assert.equal(saved.totalCents,10000);
+ assert.equal(saved.estimatedExcessCents,100);
+ assert.equal(saved.splits[0].amount,'100.00');
+});
+test('₹7650 invoice accepts ₹7600 actually received and preserves ₹50 balance',()=>{
+ const bill={...row,invoice_amount:7650};
+ const received={...cash,amount:'7600.00'};
+ const saved=core.validate(bill,[received],accounts,today);
+ assert.equal(saved.totalCents,760000);
+ assert.equal(saved.availableCents-saved.totalCents,5000);
+ assert.equal(saved.estimatedExcessCents,0);
 });
