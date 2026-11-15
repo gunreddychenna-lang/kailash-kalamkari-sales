@@ -93,3 +93,21 @@ test('invoice register runs through existing payments API', async () => {
   assert.equal(r.code, 200);
   assert.equal(r.data.counts.all, 4);
 });
+
+test('owner mobile summary returns statuses only with no bank/payment history',async()=>{
+ const r=await run({role:'owner',query:'/api/accountant-payments?view=register&branch=all&status_only=1',throughPayments:true});
+ assert.equal(r.code,200);
+ assert.equal(r.data.read_only,true);
+ assert.equal(r.data.rows.length,r.data.total);
+ const row=r.data.rows.find(x=>x.bill_no==='A100');
+ assert.deepEqual(Object.keys(row).sort(),['bill_no','branch','status']);
+ assert.equal(row.status,'settled');
+ assert.equal(r.calls.some(x=>x.path==='/rest/v1/sales'),false);
+ assert.ok(r.calls.every(c=>c.init.method==='GET'));
+});
+test('employees and admins cannot call owner-only payment status summary',async()=>{
+ for(const role of ['employee','admin']){
+  const r=await run({role,query:'/api/accountant-ledger?branch=all&status_only=1'});
+  assert.equal(r.code,403);
+ }
+});

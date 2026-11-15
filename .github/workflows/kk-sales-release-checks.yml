@@ -5,6 +5,7 @@ on:
     branches:
       - engineering/kk-ceo-006-checkpoint
       - feature/owner-mobile-sales-table-20261115
+      - feature/owner-mobile-filters-sort-20261115
   workflow_dispatch:
 
 permissions:
