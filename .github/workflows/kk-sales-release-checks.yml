@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - engineering/kk-ceo-006-checkpoint
+      - feature/simplify-payment-tabs-branch-totals-20261115
       - feature/kk-provisional-settled-small-balances-20261115
       - feature/owner-mobile-sales-table-20261115
   workflow_dispatch:
