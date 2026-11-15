@@ -79,8 +79,12 @@
     }
     const available = availableCents(invoice);
     if (available <= 0) throw new Error('No unallocated invoice balance is available for another request.');
-    if (totalCents > available) throw new Error('Received amounts exceed the invoice balance after verified and pending entries.');
-    return { totalCents, availableCents: available, splits: clean };
+    // Record the customer's actual payment. The server allocates only the
+    // remaining invoice balance; any surplus is a separate excess collection.
+    // Do not silently change, discount, or clamp the amount received.
+    return { totalCents, availableCents: available,
+      excessCents: Math.max(0, totalCents - available),
+      splits: clean };
   }
   const api = Object.freeze({ cents, isDate, todayIST, availableCents, validate });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
