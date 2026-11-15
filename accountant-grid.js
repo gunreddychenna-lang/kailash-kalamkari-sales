@@ -435,7 +435,7 @@
     el('bank-cancel').addEventListener('click',()=>el('bank-dialog').close());
     el('bank-form').addEventListener('submit',addBank);
     el('save-all-button').addEventListener('click',saveAllEditedPage);
-    el('branch').addEventListener('change',()=>{state.branch=el('branch').value;state.page=1;load();});
+    el('branch').addEventListener('change',()=>{state.branch=el('branch').value;el('sales-channel').value='all';state.page=1;load();});
     for (const id of ['date-from','date-to']) el(id).addEventListener('change',()=>{state.page=1;load();});
     for (const id of ['sales-channel','ledger-account'])
       el(id).addEventListener('change',()=>{state.page=1;load();});
