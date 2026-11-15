@@ -52,8 +52,12 @@
       const bank = r.account || r.sale_bank || '—';
       cell(tr, bank, r.history.length ? '' : 'register-unverified');
       cell(tr, r.reference || '—');
-      const status = cell(tr, statusText[r.status] || r.status);
-      status.className = 'ledger-status ledger-status-' + r.status;
+      const displayStatus = r.display_status || r.status;
+      const statusLabel = r.collection_settled_for_now
+        ? 'Settled for now · ₹' + Number(r.balance_due).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' still due'
+        : (statusText[r.status] || r.status);
+      const status = cell(tr, statusLabel);
+      status.className = 'ledger-status ledger-status-' + displayStatus;
       const actionRow = paymentDetails(r);
       const billCell = tr.children[2];
       const enter = node('button', 'Enter', 'register-enter');
@@ -82,7 +86,7 @@
     el('register-page').textContent = `Page ${data.page} / ${data.pages} · ${data.total} invoices`;
     el('register-prev').disabled = data.page <= 1;
     el('register-next').disabled = data.page >= data.pages;
-    say('Loaded ' + data.rows.length + ' invoices. Settled amounts require approved or posted receipt evidence.');
+    say('Loaded ' + data.rows.length + ' invoices. Settled includes eligible small-balance invoices marked for now; due amounts remain outstanding until collected.');
   }
   async function load() {
     if (loading) { reloadQueued = true; return; }
