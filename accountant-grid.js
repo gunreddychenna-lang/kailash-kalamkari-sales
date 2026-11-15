@@ -294,7 +294,15 @@
       }
       el('count').textContent=(result.total??0)+' matching invoices';
       say('Invoice rows ready. Tab between cells to enter payments. Save creates PENDING entries only.');
-    } catch(e) {say(e.message||'Unable to load invoices.');}
+    } catch(e) {
+      // Never allow saving against stale invoice balances if the live ledger
+      // cannot be refreshed. Keep unsaved edits in memory for the next Refresh.
+      state.rows = [];
+      state.totalPages = 1;
+      renderBranchTotals(null);
+      el('receipt-ledger')?.replaceChildren();
+      say((e.message||'Unable to load invoices.')+' Click Refresh to retry. Unsaved edits are preserved.');
+    }
     finally {state.busy=false;el('refresh').disabled=false;render();}
   }
   function getQueue() {
