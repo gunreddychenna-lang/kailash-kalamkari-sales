@@ -1,0 +1,30 @@
+/* Scoped: Owner account on narrow screens only. Desktop remains unchanged. */
+#kk-owner-mobile-sales { display: none; }
+@media (max-width: 767px) {
+  body.kk-owner-mobile-active #standard-main > :not(#kk-owner-mobile-sales) {
+    display: none !important;
+  }
+  body.kk-owner-mobile-active #kk-owner-mobile-sales { display: block !important; }
+  body.kk-owner-mobile-active #standard-main {
+    padding: 0 10px;
+    margin-top: 12px;
+  }
+  #kk-owner-mobile-sales {
+    background: #fffdf9;
+    border: 1px solid #e5d5c6;
+    border-radius: 14px;
+    overflow: hidden;
+    font-family: system-ui, sans-serif;
+  }
+  #kk-owner-mobile-sales .kk-owner-title { padding: 14px 12px 7px; color: #5c0612; font-size: 16px; font-weight: 750; }
+  #kk-owner-mobile-sales .kk-owner-note { font-size: 11px; line-height: 1.45; color: #625b51; padding: 0 12px 12px; }
+  #kk-owner-mobile-sales .kk-owner-scroll { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+  #kk-owner-mobile-sales table { border-collapse: collapse; min-width: 785px; width: 100%; text-align: left; font-size: 12px; }
+  #kk-owner-mobile-sales th, #kk-owner-mobile-sales td { border-bottom: 1px solid #ebdfd1; padding: 11px 9px; white-space: nowrap; }
+  #kk-owner-mobile-sales th { position: sticky; top: 0; background: #f3efe9; color: #5c0612; font-weight: 700; }
+  #kk-owner-mobile-sales tbody tr:nth-child(even) { background: #faf7f2; }
+  #kk-owner-mobile-sales .kk-owner-money { text-align: right; font-variant-numeric: tabular-nums; }
+  #kk-owner-mobile-sales .kk-owner-pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px; font-size: 11px; }
+  #kk-owner-mobile-sales button { border: 1px solid #d5c2aa; border-radius: 8px; padding: 8px 12px; background: #fffdf9; color: #5c0612; }
+  #kk-owner-mobile-sales button:disabled { opacity: .4; }
+}
