@@ -29,13 +29,26 @@ test('cash + bank split exactly matches invoice without inferring it was paid',(
  assert.equal(x.totalCents,1000000);
  assert.equal(x.splits[1].payment_reference,'');
 });
-test('overpayment prevents starting the split batch',()=>{
- matchError(()=>core.validate(row,[upi,{...cash,amount:'4500'}],accounts,today),'exceed');
+test('overpayment preserves exact customer amount and calculates excess, without a write-off',()=>{
+ const v=core.validate(row,[upi,{...cash,amount:'4500'}],accounts,today);
+ assert.equal(v.totalCents,1100000);
+ assert.equal(v.availableCents,1000000);
+ assert.equal(v.excessCents,100000);
+ assert.equal(v.splits[1].amount,'4500.00');
+});
+test('₹99 invoice accepts ₹100 cash, and ₹7650 invoice accepts ₹7600 with ₹50 due',()=>{
+ const over=core.validate({...row,bill_no:'OVER99',invoice_amount:99},[{...cash,amount:'100'}],accounts,today);
+ assert.equal(over.totalCents,10000);
+ assert.equal(over.excessCents,100);
+ const short=core.validate({...row,bill_no:'SHORT7650',invoice_amount:7650},[{...upi,amount:'7600'}],accounts,today);
+ assert.equal(short.totalCents,760000);
+ assert.equal(short.excessCents,0);
+ assert.equal(short.availableCents-short.totalCents,5000);
 });
 test('existing verified and pending allocations reduce permitted amount',()=>{
  const r={...row,verified_paid:2000,pending_amount:1000,status:'pending'};
  assert.equal(core.availableCents(r),700000);
- matchError(()=>core.validate(r,[{...upi,amount:'7000.01'}],accounts,today),'exceed');
+ assert.equal(core.validate(r,[{...upi,amount:'7000.01'}],accounts,today).excessCents,1);
  assert.equal(core.validate(r,[{...upi,amount:'7000'}],accounts,today).totalCents,700000);
 });
 test('settled and reconciliation-required invoices cannot be edited',()=>{
