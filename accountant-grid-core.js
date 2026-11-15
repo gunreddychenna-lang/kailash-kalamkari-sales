@@ -19,6 +19,15 @@
     const date = new Date(value + 'T00:00:00Z');
     return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
   }
+  function todayIST(date = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(date);
+    const fields = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    const iso = fields.year + '-' + fields.month + '-' + fields.day;
+    if (!isDate(iso)) throw new Error('Unable to determine IST payment date.');
+    return iso;
+  }
   function availableCents(invoice) {
     const bill = cents(invoice?.invoice_amount);
     const verified = cents(invoice?.verified_paid ?? 0);
@@ -73,7 +82,7 @@
     if (totalCents > available) throw new Error('Received amounts exceed the invoice balance after verified and pending entries.');
     return { totalCents, availableCents: available, splits: clean };
   }
-  const api = Object.freeze({ cents, isDate, availableCents, validate });
+  const api = Object.freeze({ cents, isDate, todayIST, availableCents, validate });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.KKAccountantGridCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
