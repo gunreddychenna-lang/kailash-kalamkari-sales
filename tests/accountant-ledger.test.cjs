@@ -106,6 +106,7 @@ test('verified partial payments display Settled for now regardless of outstandin
   ];
   const payment = (bill,paid) => ({
     invoice_key: JSON.stringify(['Main Branch',bill]),amount:paid,
+    invoice_allocated:paid,excess_amount:0,
     payments:[{amount:paid,account:'Bank',reference:'TEST',payment_date:'2026-11-15'}]
   });
   const rows=summarize(bills,[],[],[payment('ONE',6745),payment('FIFTY',7600),payment('LARGE',1000)]);
@@ -126,7 +127,7 @@ test('verified partial payments display Settled for now regardless of outstandin
 test('one paise difference is not written off in accounting', () => {
   const {summarize} = ledger._test;
   const bills=[{branch:'Main Branch',bill_no:'ONEPAISE',bill_amount:33000.01,bill_date:'2026-11-15'}];
-  const receipts=[{invoice_key:JSON.stringify(['Main Branch','ONEPAISE']),amount:33000,
+  const receipts=[{invoice_key:JSON.stringify(['Main Branch','ONEPAISE']),amount:33000,invoice_allocated:33000,excess_amount:0,
     payments:[{amount:33000,account:'Bank',reference:'R'}]}];
   const [r]=summarize(bills,[],[],receipts);
   assert.equal(r.status,'pending');
