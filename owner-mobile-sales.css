@@ -1,10 +1,9 @@
 /* Scoped: Owner account on narrow screens only. Desktop remains unchanged. */
 #kk-owner-mobile-sales { display: none; }
 @media (max-width: 767px) {
-  body.kk-owner-mobile-active #standard-main > :not(#kk-owner-mobile-sales) {
-    display: none !important;
-  }
-  body.kk-owner-mobile-active #kk-owner-mobile-sales { display: block !important; }
+  /* Keep the existing Owner Dashboard visible on phones.
+     The optional seven-column report must not replace the dashboard. */
+  body.kk-owner-mobile-active #kk-owner-mobile-sales { display: none !important; }
   body.kk-owner-mobile-active #standard-main {
     padding: 0 10px;
     margin-top: 12px;
