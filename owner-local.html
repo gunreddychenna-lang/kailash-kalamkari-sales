@@ -1,0 +1,280 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kailash Kalamkari | Owner Sales</title>
+<style>
+:root{font-family:Arial,sans-serif;color:#362b2d;background:#faf6ee}
+*{box-sizing:border-box}
+body{margin:0}
+header{background:#5c0612;color:#efe5c9;padding:20px 5%;border-bottom:3px solid #daa520}
+header h1{margin:0;font-family:Georgia,serif;font-size:27px}
+header small{letter-spacing:1.5px;text-transform:uppercase}
+main{max-width:1250px;margin:28px auto;padding:0 18px}
+.panel,.metric,.branch{background:#fffdf9;border:1px solid #e5d5c6;border-radius:17px;box-shadow:0 3px 12px #5c06120b}
+.panel{padding:23px;margin-bottom:20px}
+.login{max-width:420px;margin:10vh auto}
+h2{color:#5c0612;margin:0 0 20px}
+label{font-size:12px;font-weight:bold;color:#65545a;display:block;margin-bottom:7px}
+input,select{width:100%;padding:12px;border:1px solid #dacabd;border-radius:10px;background:#fff;font:inherit}
+button{cursor:pointer;border:0;border-radius:10px;padding:12px 18px;font-weight:bold}
+.primary{background:#5c0612;color:#fff4d4}
+.secondary{background:#efe5c9;color:#5c0612}
+button:disabled{opacity:.55;cursor:wait}
+.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:20px}
+.metric,.branch{padding:20px}
+.metric span,.branch span{font-size:12px;color:#786a6e}
+.metric strong,.branch strong{display:block;font-size:24px;color:#5c0612;margin-top:12px;overflow-wrap:anywhere}
+.branches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.actions{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.actions button{margin-left:8px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:13px 10px;text-align:left;border-bottom:1px solid #ede2d8}
+th{color:#5c0612;background:#faf2e8}
+td:last-child,th:last-child{text-align:right}
+.table-wrap{overflow:auto}
+.error{color:#a02035;margin-top:14px}
+.muted{color:#77686d;font-size:13px}
+.hidden{display:none!important}
+@media(max-width:750px){.grid,.branches,.fields{grid-template-columns:1fr}header h1{font-size:23px}.metric strong{font-size:22px}.panel{padding:16px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="actions">
+    <div>
+      <h1>Kailash Kalamkari</h1>
+      <small>Executive Sales Analytics</small>
+    </div>
+    <div id="account" class="hidden">
+      <span id="profile-name"></span>
+      <button class="secondary" id="logout">Logout</button>
+    </div>
+  </div>
+</header>
+<main>
+  <section id="login-panel" class="panel login">
+    <h2>Owner Login</h2>
+    <form id="login-form">
+      <label for="login-id">User ID</label>
+      <input id="login-id" autocomplete="username" required minlength="3" maxlength="32">
+      <label for="password" style="margin-top:16px">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button id="login-button" class="primary" type="submit" style="width:100%;margin-top:20px">Authenticate Portal</button>
+    </form>
+    <p id="login-error" class="error" role="alert"></p>
+  </section>
+
+  <section id="dashboard" class="hidden">
+    <div class="panel">
+      <div class="actions">
+        <h2>Sales Overview</h2>
+        <span class="muted">Read-only · Local database</span>
+      </div>
+      <form id="filters" class="fields">
+        <div><label for="from">From date</label><input id="from" type="date"></div>
+        <div><label for="to">To date</label><input id="to" type="date"></div>
+        <div style="display:flex;align-items:end;gap:8px">
+          <button class="primary" type="submit">Apply</button>
+          <button class="secondary" type="button" id="reset">All dates</button>
+        </div>
+      </form>
+      <p id="report-error" class="error" role="alert"></p>
+    </div>
+
+    <div class="grid">
+      <article class="metric"><span>Net Sales</span><strong id="net-sales">—</strong></article>
+      <article class="metric"><span>Positive Sales</span><strong id="positive-sales">—</strong></article>
+      <article class="metric"><span>Negative Adjustments</span><strong id="negative-sales">—</strong></article>
+      <article class="metric"><span>Invoice References</span><strong id="invoices">—</strong></article>
+      <article class="metric"><span>Sales Lines</span><strong id="lines">—</strong></article>
+      <article class="metric"><span>Negative Lines</span><strong id="negative-lines">—</strong></article>
+    </div>
+
+    <div class="panel">
+      <h2>Branch-wise Sales</h2>
+      <div class="branches" id="branches"></div>
+    </div>
+
+    <div class="panel">
+      <div class="actions">
+        <h2>Staff-wise Sales</h2>
+        <div>
+          <label for="branch-filter">Branch</label>
+          <select id="branch-filter"><option value="">All branches</option></select>
+        </div>
+      </div>
+      <p class="muted" id="staff-count"></p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Branch</th><th>Staff</th><th>Sale Lines</th><th>Net Sales</th></tr>
+          </thead>
+          <tbody id="staff-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+let reportData=null;
+
+function money(value){
+  return new Intl.NumberFormat("en-IN",{
+    style:"currency",currency:"INR",
+    minimumFractionDigits:2,maximumFractionDigits:2
+  }).format(Number(value));
+}
+function set(id,value){$(id).textContent=String(value);}
+function showDashboard(profile){
+  $("login-panel").classList.add("hidden");
+  $("dashboard").classList.remove("hidden");
+  $("account").classList.remove("hidden");
+  set("profile-name",profile.displayName||profile.user||"Owner");
+}
+function showLogin(){
+  $("dashboard").classList.add("hidden");
+  $("account").classList.add("hidden");
+  $("login-panel").classList.remove("hidden");
+}
+async function request(path,options={}){
+  const response=await fetch(path,{
+    cache:"no-store",
+    credentials:"same-origin",
+    ...options
+  });
+  let body;
+  try{body=await response.json()}catch{throw Error("Invalid server response")}
+  if(!response.ok)throw Error(body.error||"Request failed");
+  return body;
+}
+function cell(row,value){
+  const td=document.createElement("td");
+  td.textContent=String(value);
+  row.appendChild(td);
+}
+function renderStaff(){
+  const selected=$("branch-filter").value;
+  const rows=reportData.staff.filter(x=>!selected||x.branch===selected);
+  const tbody=$("staff-rows");
+  tbody.replaceChildren();
+
+  for(const entry of rows){
+    const tr=document.createElement("tr");
+    cell(tr,entry.branch);
+    cell(tr,entry.staff_name);
+    cell(tr,entry.sale_lines);
+    cell(tr,money(entry.net_sales));
+    tbody.appendChild(tr);
+  }
+  set("staff-count",`${rows.length} branch/staff groups`);
+}
+function render(data){
+  reportData=data;
+  set("net-sales",money(data.summary.net_sales));
+  set("positive-sales",money(data.summary.positive_sales));
+  set("negative-sales",money(data.summary.negative_sales));
+  set("invoices",data.summary.invoice_count);
+  set("lines",data.summary.sale_lines);
+  set("negative-lines",data.summary.negative_lines);
+
+  const branches=$("branches");
+  branches.replaceChildren();
+  const select=$("branch-filter");
+  select.replaceChildren(new Option("All branches",""));
+
+  for(const item of data.branches){
+    const box=document.createElement("article");
+    box.className="branch";
+    const label=document.createElement("span");
+    label.textContent=item.branch;
+    const total=document.createElement("strong");
+    total.textContent=money(item.net_sales);
+    const info=document.createElement("p");
+    info.className="muted";
+    info.textContent=`${item.invoice_count} invoice references · ${item.sale_lines} lines`;
+    box.append(label,total,info);
+    branches.appendChild(box);
+    select.add(new Option(item.branch,item.branch));
+  }
+  renderStaff();
+}
+async function loadReport(){
+  set("report-error","");
+  const from=$("from").value;
+  const to=$("to").value;
+  if(from&&to&&from>to)throw Error("From date must be before To date");
+  const params=new URLSearchParams();
+  if(from)params.set("from",from);
+  if(to)params.set("to",to);
+  const suffix=params.size?"?"+params.toString():"";
+  const data=await request("/api/owner-sales-report"+suffix);
+  if(data.read_only!==true||!Array.isArray(data.branches)||
+     !Array.isArray(data.staff)||!data.summary){
+    throw Error("Incomplete sales report");
+  }
+  render(data);
+}
+$("login-form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  set("login-error","");
+  $("login-button").disabled=true;
+  try{
+    const result=await request("/api/local-auth/login",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-kk-local-request":"1"},
+      body:JSON.stringify({
+        loginId:$("login-id").value.trim(),
+        password:$("password").value
+      })
+    });
+    $("password").value="";
+    showDashboard(result.profile);
+    await loadReport();
+  }catch(error){
+    if($("dashboard").classList.contains("hidden")){
+      set("login-error",error.message);
+    }else{
+      set("report-error",error.message);
+    }
+  }finally{$("login-button").disabled=false}
+});
+$("filters").addEventListener("submit",async e=>{
+  e.preventDefault();
+  try{await loadReport()}catch(error){set("report-error",error.message)}
+});
+$("reset").addEventListener("click",async()=>{
+  $("from").value="";
+  $("to").value="";
+  try{await loadReport()}catch(error){set("report-error",error.message)}
+});
+$("branch-filter").addEventListener("change",renderStaff);
+$("logout").addEventListener("click",async()=>{
+  try{
+    await request("/api/local-auth/logout",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-kk-local-request":"1"},
+      body:"{}"
+    });
+    reportData=null;
+    showLogin();
+  }catch(error){set("report-error",error.message)}
+});
+(async()=>{
+  try{
+    const result=await request("/api/local-auth/session");
+    showDashboard(result.profile);
+    await loadReport();
+  }catch(error){
+    if($("dashboard").classList.contains("hidden"))showLogin();
+    else set("report-error",error.message);
+  }
+})();
+</script>
+</body>
+</html>
