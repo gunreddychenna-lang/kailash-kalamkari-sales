@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -39,6 +39,42 @@ td:last-child,th:last-child{text-align:right}
 .muted{color:#77686d;font-size:13px}
 .hidden{display:none!important}
 @media(max-width:750px){.grid,.branches,.fields{grid-template-columns:1fr}header h1{font-size:23px}.metric strong{font-size:22px}.panel{padding:16px}}
+/* KK_OWNER_UI_V2 */
+:root{--wine:#5c0612;--gold:#daa520;--paper:#fffdf9}
+html{-webkit-text-size-adjust:100%}
+body{overflow-x:hidden}
+.panel,.metric,.branch{min-width:0;box-shadow:0 5px 18px #5c06120b}
+.metric{border-top:3px solid var(--gold)}
+.branch{border-left:4px solid var(--gold)}
+.metric strong,.branch strong{font-variant-numeric:tabular-nums}
+input,select,button{min-height:44px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{min-width:560px;font-variant-numeric:tabular-nums}
+tbody tr:nth-child(even){background:#fdf8f2}
+.staff-search{margin:14px 0}
+.report-note{padding:12px;margin:0 0 18px;border-left:3px solid var(--gold);background:#fff8e8;color:#65545a;font-size:12px}
+@media(max-width:750px){
+header{padding:16px}
+header h1{font-size:21px}
+main{padding:0 12px;margin:16px auto}
+.panel{padding:16px}
+.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.metric{padding:13px 11px}
+.metric strong{font-size:clamp(15px,4.3vw,21px);overflow-wrap:anywhere}
+.metric span{font-size:11px}
+.branches{grid-template-columns:1fr}
+.fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fields>div:last-child{grid-column:1/-1}
+.fields>div:last-child button{flex:1}
+#account{display:flex;align-items:center;gap:8px}
+#profile-name{font-size:11px;max-width:115px;overflow-wrap:anywhere}
+#logout{padding:9px}
+}
+@media(max-width:380px){
+.metric strong{font-size:15px}
+header h1{font-size:18px}
+}
 </style>
 </head>
 <body>
@@ -84,6 +120,10 @@ td:last-child,th:last-child{text-align:right}
       <p id="report-error" class="error" role="alert"></p>
     </div>
 
+    <p class="report-note">
+      Read-only sales report. Negative adjustments included.
+      Branch and staff totals must reconcile with Net Sales.
+    </p>
     <div class="grid">
       <article class="metric"><span>Net Sales</span><strong id="net-sales">—</strong></article>
       <article class="metric"><span>Positive Sales</span><strong id="positive-sales">—</strong></article>
@@ -106,7 +146,11 @@ td:last-child,th:last-child{text-align:right}
           <select id="branch-filter"><option value="">All branches</option></select>
         </div>
       </div>
-      <p class="muted" id="staff-count"></p>
+      <div class="staff-search">
+<label for="staff-search">Search staff</label>
+<input id="staff-search" type="search" placeholder="Search by name">
+</div>
+<p class="muted" id="staff-count"></p>
       <div class="table-wrap">
         <table>
           <thead>
@@ -160,7 +204,12 @@ function cell(row,value){
 }
 function renderStaff(){
   const selected=$("branch-filter").value;
-  const rows=reportData.staff.filter(x=>!selected||x.branch===selected);
+  if(!reportData)return;
+  const search=$("staff-search").value.trim().toLowerCase();
+  const rows=reportData.staff.filter(x=>
+    (!selected||x.branch===selected)&&
+    (!search||x.staff_name.toLowerCase().includes(search))
+  );
   const tbody=$("staff-rows");
   tbody.replaceChildren();
 
@@ -174,7 +223,33 @@ function renderStaff(){
   }
   set("staff-count",`${rows.length} branch/staff groups`);
 }
+function toPaise(value){
+  const s=String(value);
+  if(!/^-?\d+(\.\d{1,2})?$/.test(s))throw Error("Invalid amount");
+  const neg=s.startsWith("-");
+  const p=(neg?s.slice(1):s).split(".");
+  const n=BigInt(p[0])*100n+BigInt((p[1]||"").padEnd(2,"0"));
+  return neg?-n:n;
+}
+function validateReport(data){
+  if(!data||data.read_only!==true||!data.summary||
+     !Array.isArray(data.branches)||!Array.isArray(data.staff))
+    throw Error("Incomplete report");
+  const sum=rows=>rows.reduce((a,r)=>a+toPaise(r.net_sales),0n);
+  const lines=rows=>rows.reduce((a,r)=>a+Number(r.sale_lines),0);
+  const s=data.summary;
+  const net=toPaise(s.net_sales);
+  if(toPaise(s.positive_sales)+toPaise(s.negative_sales)!==net||
+     sum(data.branches)!==net||sum(data.staff)!==net||
+     lines(data.branches)!==Number(s.sale_lines)||
+     lines(data.staff)!==Number(s.sale_lines))
+    throw Error("Sales reconciliation mismatch. Report blocked.");
+  const invoices=data.branches.reduce((a,r)=>a+Number(r.invoice_count),0);
+  if(invoices!==Number(s.invoice_count))
+    throw Error("Invoice count mismatch. Report blocked.");
+}
 function render(data){
+  validateReport(data);
   reportData=data;
   set("net-sales",money(data.summary.net_sales));
   set("positive-sales",money(data.summary.positive_sales));
@@ -254,6 +329,7 @@ $("reset").addEventListener("click",async()=>{
   try{await loadReport()}catch(error){set("report-error",error.message)}
 });
 $("branch-filter").addEventListener("change",renderStaff);
+$("staff-search").addEventListener("input",renderStaff);
 $("logout").addEventListener("click",async()=>{
   try{
     await request("/api/local-auth/logout",{
