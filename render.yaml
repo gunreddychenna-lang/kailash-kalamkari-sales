@@ -1,0 +1,20 @@
+# Render Blueprint — ₹0 Managed Hosting (Staging / Production)
+# Connects to external Neon PostgreSQL Free (never use Render Free Postgres, which expires in 30 days).
+services:
+  - type: web
+    name: kailash-kalamkari-portal
+    runtime: docker
+    plan: free
+    region: singapore
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: APP_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false

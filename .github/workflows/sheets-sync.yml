@@ -1,0 +1,31 @@
+name: Scheduled Google Sheets Sync
+
+on:
+  schedule:
+    # Every 30 minutes during IST business hours (04:00–16:30 UTC = 09:30–22:00 IST)
+    # Uses ~390 min/month of GitHub Actions 2,000 free min/month quota on private repos.
+    - cron: "*/30 4-16 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: kailash-sheets-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run incremental Google Sheets sync
+        env:
+          APP_ENV: production
+          APP_SECRET_KEY: ${{ secrets.APP_SECRET_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: python3 scripts/run_sync.py all

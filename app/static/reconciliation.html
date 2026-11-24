@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kailash Kalamkari - Accountant Sync, Receivables &amp; Reconciliation Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="bg-[#FAF6EE] text-stone-800 pb-16 min-h-screen">
+  <header class="bg-[#5C0612] text-white shadow-md sticky top-0 z-50 border-b-2 border-[#DAA520]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row justify-between items-center gap-3">
+      <div class="flex items-center gap-3">
+        <a href="/dashboard" class="w-10 h-10 rounded-xl bg-[#EFE5C9] text-[#5C0612] flex items-center justify-center font-bold text-xl font-traditional border border-[#DAA520]">KK</a>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-wide font-traditional text-[#EFE5C9]">Sync, Receivables &amp; Reconciliation Hub</h1>
+          <p class="text-[9px] text-stone-300 font-medium tracking-wider uppercase">Google Sheets Sync • Discount Discrepancies • Receivables Ageing (0–90+ Days)</p>
+        </div>
+      </div>
+      <div class="flex items-center flex-wrap gap-2">
+        <a href="/dashboard" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20">Dashboard</a>
+        <a href="/entry.html" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20">Bank Portal</a>
+        <a href="/inventory.html" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20">Inventory</a>
+        <button onclick="triggerSync()" class="bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3.5 py-2 rounded-xl font-traditional border border-[#B38F4D]">↻ Sync Google Sheets</button>
+      </div>
+    </div>
+    <div class="zari-line"></div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-5">
+    <div id="sync-banner" class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#DAA520] warm-shadow text-xs font-semibold text-[#5C0612]">Loading sync status...</div>
+
+    <!-- Receivables Ageing Buckets -->
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center font-numeric">
+      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-[#5C0612] warm-shadow"><span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Total Outstanding</span><strong id="rec-total" class="text-lg font-black text-[#5C0612]">₹0</strong></div>
+      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-[#E5D5C6] warm-shadow"><span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">0–30 Days</span><strong id="rec-0-30" class="text-lg font-black text-stone-800">₹0</strong></div>
+      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-amber-200 warm-shadow"><span class="block text-[8px] font-bold text-amber-800 uppercase font-traditional">31–60 Days</span><strong id="rec-31-60" class="text-lg font-black text-amber-800">₹0</strong></div>
+      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-orange-200 warm-shadow"><span class="block text-[8px] font-bold text-orange-800 uppercase font-traditional">61–90 Days</span><strong id="rec-61-90" class="text-lg font-black text-orange-800">₹0</strong></div>
+      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-rose-300 warm-shadow"><span class="block text-[8px] font-bold text-rose-800 uppercase font-traditional">90+ Days Overdue</span><strong id="rec-90" class="text-lg font-black text-rose-800">₹0</strong></div>
+    </div>
+
+    <!-- Open Exceptions Table -->
+    <div class="bg-[#FFFDF9] p-5 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-3">
+      <div class="flex flex-wrap justify-between items-center gap-2">
+        <h2 class="text-sm font-bold font-traditional text-[#5C0612] uppercase">Open Google Sheets &amp; Discount Exceptions</h2>
+        <div class="flex gap-2">
+          <a href="/api/exports/receivables.xlsx" class="bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl">Export Receivables (.xlsx)</a>
+          <a href="/api/exports/exceptions.xlsx" class="bg-[#5C0612] text-[#EFE5C9] text-xs font-bold px-3 py-1.5 rounded-xl border border-[#DAA520]">Export Exceptions (.xlsx)</a>
+        </div>
+      </div>
+      <div class="overflow-x-auto rounded-2xl border border-[#E5D5C6]">
+        <table class="w-full text-left border-collapse text-xs font-numeric">
+          <thead>
+            <tr class="bg-[#F3EFE9] text-stone-700 uppercase text-[9px] font-extrabold border-b border-[#E5D5C6]">
+              <th class="p-3 font-traditional">ID</th>
+              <th class="p-3 font-traditional">Branch</th>
+              <th class="p-3 font-traditional">Invoice #</th>
+              <th class="p-3 font-traditional">Exception Type</th>
+              <th class="p-3 text-right font-traditional">Variance (₹)</th>
+              <th class="p-3 text-center font-traditional">Action</th>
+            </tr>
+          </thead>
+          <tbody id="exc-tbody" class="divide-y divide-[#E5D5C6]/40"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let csrfToken = '';
+    async function apiFetch(url, opts = {}) {
+      const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+      if (opts.method && opts.method !== 'GET' && csrfToken) headers['X-CSRF-Token'] = csrfToken;
+      const r = await fetch(url, { credentials: 'same-origin', ...opts, headers });
+      if (r.status === 401) { window.location.href = '/login'; throw new Error('Auth required'); }
+      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.detail || `HTTP ${r.status}`); }
+      return r.json();
+    }
+    window.addEventListener('DOMContentLoaded', async () => {
+      const me = await apiFetch('/api/auth/me');
+      csrfToken = me.csrf_token;
+      await loadAll();
+    });
+    async function loadAll() {
+      const [st, rec, ex] = await Promise.all([
+        apiFetch('/api/sync/status'),
+        apiFetch('/api/receivables'),
+        apiFetch('/api/sync/exceptions?status_filter=open')
+      ]);
+      const ok = st.last_successful_sync;
+      document.getElementById('sync-banner').textContent = ok
+        ? `Last successful Google Sheets sync: ${ok.finished_at} (inserted ${ok.rows_inserted} new lines)`
+        : 'No completed Google Sheets sync recorded yet. Configure GOOGLE_SERVICE_ACCOUNT_JSON and click Sync.';
+      document.getElementById('rec-total').textContent = rec.total_outstanding_formatted;
+      document.getElementById('rec-0-30').textContent = rec.ageing_buckets['0_30'].formatted;
+      document.getElementById('rec-31-60').textContent = rec.ageing_buckets['31_60'].formatted;
+      document.getElementById('rec-61-90').textContent = rec.ageing_buckets['61_90'].formatted;
+      document.getElementById('rec-90').textContent = rec.ageing_buckets['90_plus'].formatted;
+      document.getElementById('exc-tbody').innerHTML = (ex.exceptions || []).map(e => `
+        <tr>
+          <td class="p-3 font-bold">#${e.id}</td>
+          <td class="p-3">${e.branch_name}</td>
+          <td class="p-3 font-bold">${e.invoice_no}</td>
+          <td class="p-3"><span class="px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-bold text-[10px]">${e.exception_type}</span></td>
+          <td class="p-3 text-right font-bold text-[#5C0612]">₹${e.variance_amount}</td>
+          <td class="p-3 text-center space-x-1">
+            <button onclick="resolveExc(${e.id}, 'kept_existing')" class="px-2 py-1 bg-[#5C0612] text-[#EFE5C9] rounded text-[10px] font-bold">Keep DB</button>
+            <button onclick="resolveExc(${e.id}, 'dismissed')" class="px-2 py-1 bg-stone-200 text-stone-700 rounded text-[10px] font-bold">Dismiss</button>
+          </td>
+        </tr>
+      `).join('') || '<tr><td colspan="6" class="p-6 text-center text-stone-400">Zero open reconciliation exceptions.</td></tr>';
+    }
+    async function triggerSync() {
+      try {
+        const res = await apiFetch('/api/sync/trigger', { method: 'POST', body: JSON.stringify({ source_key: 'all' }) });
+        alert(`Sync #${res.run_id} finished: inserted ${res.rows_inserted}, edits ${res.edits_detected}, discount diffs ${res.discount_diffs}`);
+        await loadAll();
+      } catch (err) { alert('Sync failed: ' + err.message); }
+    }
+    async function resolveExc(id, decision) {
+      const notes = prompt('Enter resolution audit note:') || decision;
+      await apiFetch(`/api/sync/exceptions/${id}/resolve`, { method: 'POST', body: JSON.stringify({ resolution_status: decision, resolution_notes: notes }) });
+      await loadAll();
+    }
+  </script>
+</body>
+</html>

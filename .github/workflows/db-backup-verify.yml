@@ -1,0 +1,40 @@
+name: Nightly DB Backup & Restore Verification
+
+on:
+  schedule:
+    # Daily at 21:30 UTC (03:00 AM IST)
+    - cron: "30 21 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup-and-verify:
+    runs-on: ubuntu-latest
+    services:
+      verify_postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: restore_verify
+          POSTGRES_USER: verifier
+          POSTGRES_PASSWORD: verifier_local_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL 16 client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Dump production DB & test isolated restore
+        env:
+          SOURCE_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          VERIFY_DATABASE_URL: postgresql://verifier:verifier_local_only@localhost:5432/restore_verify
+        run: bash db/scripts/backup_and_restore_test.sh
+      - name: Upload verified backup artifact (14-day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: kailash-pg-backup-${{ github.run_id }}
+          path: backups/*.sql.gz
+          retention-days: 14

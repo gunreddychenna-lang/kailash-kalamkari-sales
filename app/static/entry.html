@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kailash Kalamkari - Enterprise Bank Settlement & Reconciliation Hub</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    let csrfToken = '';
+    let isAdmin = false;
+    let billsList = [];
+    let accountsMaster = ['Cash', '42441-TJ', 'KC'];
+    let settlementRowsState = {};
+    let currentSortCol = 'date';
+    let currentSortAsc = false;
+    let selectedChannelFilter = 'All';
+
+    async function apiFetch(url, options = {}) {
+      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+      if (options.method && options.method !== 'GET' && csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+      }
+      const resp = await fetch(url, { credentials: 'same-origin', ...options, headers });
+      if (resp.status === 401) { window.location.href = '/login'; throw new Error('Session expired'); }
+      if (!resp.ok) {
+        let msg = `HTTP ${resp.status}`;
+        try { const d = await resp.json(); if (d.detail) msg = d.detail; } catch (_) {}
+        throw new Error(msg);
+      }
+      return resp.json();
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const me = await apiFetch('/api/auth/me');
+        csrfToken = me.csrf_token;
+        isAdmin = ['owner', 'admin', 'accountant'].includes(me.role_code);
+        if (!isAdmin) {
+          document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+        }
+        await fetchSupabaseData();
+      } catch (e) {
+        window.location.href = '/login';
+      }
+    });
+
+    function syncDatalistAndPills() {
+      const dl = document.getElementById('accounts-master-datalist');
+      if (dl) dl.innerHTML = accountsMaster.map(acc => `<option value="${acc}">${acc}</option>`).join('');
+      const pillContainer = document.getElementById('active-banks-pill-container');
+      if (pillContainer) {
+        pillContainer.innerHTML = accountsMaster.map(acc => `<span class="text-[9px] font-bold px-2 py-0.5 rounded-md bg-[#FAF6EE] text-[#5C0612] border border-[#E5D5C6] font-numeric">${acc}</span>`).join('');
+      }
+    }
+
+    function formatToYYYYMMDD(d) {
+      if (!d) return '';
+      if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.trim())) return d.trim();
+      const dateObj = (d instanceof Date) ? d : new Date(d);
+      if (isNaN(dateObj.getTime())) return '';
+      return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+    }
+
+    async function fetchSupabaseData() {
+      const icon = document.getElementById('refresh-icon');
+      if (icon) icon.classList.add('animate-spin');
+      try {
+        const data = await apiFetch('/api/portal/bills-master');
+        (data.bank_accounts || []).forEach(b => {
+          if (b.account_name && !accountsMaster.includes(b.account_name)) accountsMaster.push(b.account_name);
+        });
+        syncDatalistAndPills();
+
+        const storeSet = new Set();
+        const allDates = [];
+        billsList = (data.bills || []).map(b => {
+          const dateISO = String(b.bill_date || '').slice(0, 10) || '2026-09-01';
+          storeSet.add(b.branch || 'Main Branch');
+          allDates.push(dateISO);
+          (b.settlements || []).forEach(s => { if (s.account && !accountsMaster.includes(s.account)) accountsMaster.push(s.account); });
+          return {
+            invoiceId: b.invoice_id,
+            invoiceUid: b.invoice_uid,
+            billNo: b.bill_no,
+            dateDisplay: dateISO,
+            dateISO: dateISO,
+            store: b.branch || 'Main Branch',
+            agent: b.sm_name || 'No Agent',
+            channel: b.channel || 'Offline',
+            totalAmount: parseFloat(b.bill_amount) || 0,
+            settlements: b.settlements || []
+          };
+        });
+        syncDatalistAndPills();
+
+        if (allDates.length > 0) {
+          allDates.sort();
+          const fromInput = document.getElementById('filter-from-date');
+          const toInput = document.getElementById('filter-to-date');
+          if (fromInput && !fromInput.value) fromInput.value = allDates[0];
+          if (toInput && !toInput.value) toInput.value = allDates[allDates.length - 1];
+        }
+        const storeSelect = document.getElementById('filter-store');
+        if (storeSelect) {
+          storeSelect.innerHTML = `<option value="all">All Branches</option>` + Array.from(storeSet).map(s => `<option value="${s}">${s}</option>`).join('');
+        }
+        settlementRowsState = {};
+        billsList.forEach(b => {
+          settlementRowsState[b.invoiceUid] = (b.settlements && b.settlements.length > 0)
+            ? JSON.parse(JSON.stringify(b.settlements))
+            : [{ account: '', amount: Math.round(b.totalAmount) }];
+        });
+        renderBillsTable();
+      } catch (err) {
+        document.getElementById('bills-table-body').innerHTML = `<tr><td colspan="7" class="p-6 text-center text-rose-700 font-bold">Failed to load bills: ${err.message}</td></tr>`;
+      } finally {
+        if (icon) icon.classList.remove('animate-spin');
+      }
+    }
+
+    function setChannelFilter(channel) {
+      selectedChannelFilter = channel;
+      const buttons = { 'All': 'btn-channel-all', 'Online': 'btn-channel-online', 'Offline': 'btn-channel-offline', 'Take by Hand': 'btn-channel-wholesale' };
+      Object.entries(buttons).forEach(([key, id]) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.className = key === channel
+          ? "channel-btn px-3 py-1 text-xs font-bold rounded-xl bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] transition-all flex items-center gap-1 shadow-xs"
+          : "channel-btn px-3 py-1 text-xs font-bold rounded-xl border border-stone-300 text-stone-700 bg-[#FAF6EE] hover:opacity-80 transition-all flex items-center gap-1";
+      });
+      renderBillsTable();
+    }
+
+    function toggleSort(col) {
+      if (currentSortCol === col) currentSortAsc = !currentSortAsc;
+      else { currentSortCol = col; currentSortAsc = !(col === 'amount' || col === 'date'); }
+      renderBillsTable();
+    }
+
+    function updateTopStatsSummary() {
+      let totalBillsCount = 0, totalBillsValue = 0, settledTotalVal = 0;
+      let onlineAmount = 0, onlineBills = 0, offlineAmount = 0, offlineBills = 0, tbhAmount = 0, tbhBills = 0;
+      const fromDate = document.getElementById('filter-from-date')?.value || '';
+      const toDate = document.getElementById('filter-to-date')?.value || '';
+      const storeFilter = document.getElementById('filter-store')?.value || 'all';
+
+      billsList.forEach(b => {
+        if (fromDate && b.dateISO < fromDate) return;
+        if (toDate && b.dateISO > toDate) return;
+        if (storeFilter !== 'all' && b.store !== storeFilter) return;
+        totalBillsCount++; totalBillsValue += b.totalAmount;
+        if (b.channel === 'Online') { onlineAmount += b.totalAmount; onlineBills++; }
+        else if (b.channel === 'Take by Hand' || b.channel === 'Wholesale') { tbhAmount += b.totalAmount; tbhBills++; }
+        else { offlineAmount += b.totalAmount; offlineBills++; }
+        (settlementRowsState[b.invoiceUid] || b.settlements || []).forEach(s => {
+          if (s.account && s.account.trim() !== '' && parseFloat(s.amount) > 0) settledTotalVal += (parseFloat(s.amount) || 0);
+        });
+      });
+      document.getElementById('pill-count-all').textContent = totalBillsCount;
+      document.getElementById('pill-count-online').textContent = onlineBills;
+      document.getElementById('pill-count-offline').textContent = offlineBills;
+      document.getElementById('pill-count-wholesale').textContent = tbhBills;
+      document.getElementById('stat-online-amount').textContent = `₹${Math.round(onlineAmount).toLocaleString('en-IN')}`;
+      document.getElementById('stat-online-bills').textContent = `${onlineBills} Invoices`;
+      document.getElementById('stat-offline-amount').textContent = `₹${Math.round(offlineAmount).toLocaleString('en-IN')}`;
+      document.getElementById('stat-offline-bills').textContent = `${offlineBills} Invoices`;
+      document.getElementById('stat-tbh-amount').textContent = `₹${Math.round(tbhAmount).toLocaleString('en-IN')}`;
+      document.getElementById('stat-tbh-bills').textContent = `${tbhBills} Invoices`;
+      document.getElementById('stat-total-bills').textContent = `${totalBillsCount} Bills`;
+      document.getElementById('stat-total-amount').textContent = `Total: ₹${Math.round(totalBillsValue).toLocaleString('en-IN')}`;
+      const pendingVal = Math.max(0, totalBillsValue - settledTotalVal);
+      const settledPct = totalBillsValue > 0 ? Math.round((settledTotalVal / totalBillsValue) * 100) : 0;
+      document.getElementById('stat-settled-amount').textContent = `₹${Math.round(settledTotalVal).toLocaleString('en-IN')}`;
+      document.getElementById('stat-settled-subtext').textContent = `${settledPct}% Credited`;
+      document.getElementById('stat-pending-amount').textContent = `₹${Math.round(pendingVal).toLocaleString('en-IN')}`;
+      document.getElementById('stat-pending-subtext').textContent = pendingVal > 0 ? "Needs Bank Split" : "All Allocated ✅";
+    }
+
+    function updateSplitBadgeInline(uid) {
+      const bill = billsList.find(b => b.invoiceUid === uid);
+      if (!bill) return;
+      let allocatedSum = 0;
+      (settlementRowsState[uid] || []).forEach(r => allocatedSum += (parseFloat(r.amount) || 0));
+      const rem = Math.round((bill.totalAmount - allocatedSum) * 100) / 100;
+      const safeId = uid.replace(/[^a-zA-Z0-9]/g, '_');
+      const badge = document.getElementById(`rem-badge-${safeId}`);
+      if (badge) {
+        badge.className = Math.abs(rem) < 0.01 ? "font-numeric font-bold text-emerald-700" : (rem > 0 ? "font-numeric font-bold text-amber-800" : "font-numeric font-bold text-rose-700");
+        badge.textContent = Math.abs(rem) < 0.01 ? "Balanced (100%) ✅" : (rem > 0 ? `Remaining: ₹${Math.round(rem).toLocaleString('en-IN')}` : `Excess: +₹${Math.round(-rem).toLocaleString('en-IN')}`);
+      }
+      updateTopStatsSummary();
+    }
+
+    function renderBillsTable() {
+      const searchVal = (document.getElementById('table-search').value || '').toLowerCase().trim();
+      const fromDate = document.getElementById('filter-from-date')?.value || '';
+      const toDate = document.getElementById('filter-to-date')?.value || '';
+      const statusFilter = document.getElementById('filter-status').value;
+      const storeFilter = document.getElementById('filter-store').value;
+      const tbody = document.getElementById('bills-table-body');
+      updateTopStatsSummary();
+
+      let filtered = billsList.filter(b => {
+        if (fromDate && b.dateISO < fromDate) return false;
+        if (toDate && b.dateISO > toDate) return false;
+        if (storeFilter !== 'all' && b.store !== storeFilter) return false;
+        if (selectedChannelFilter !== 'All') {
+          if (selectedChannelFilter === 'Take by Hand' && b.channel !== 'Take by Hand' && b.channel !== 'Wholesale') return false;
+          else if (selectedChannelFilter !== 'Take by Hand' && b.channel !== selectedChannelFilter) return false;
+        }
+        const currentRows = settlementRowsState[b.invoiceUid] || b.settlements || [];
+        let billSettledSum = 0;
+        currentRows.forEach(s => { if (s.account && s.account.trim() !== '') billSettledSum += (parseFloat(s.amount) || 0); });
+        const hasValidBank = currentRows.some(s => s.account && s.account.trim() !== '');
+        const isFullySettled = hasValidBank && billSettledSum >= (b.totalAmount - 0.5);
+        const isPartial = hasValidBank && billSettledSum > 0 && billSettledSum < (b.totalAmount - 0.5);
+        if (statusFilter === 'settled' && !isFullySettled) return false;
+        if (statusFilter === 'partial' && !isPartial) return false;
+        if (statusFilter === 'unsettled' && isFullySettled) return false;
+        if (searchVal) {
+          return b.billNo.toLowerCase().includes(searchVal) || b.agent.toLowerCase().includes(searchVal) ||
+                 b.store.toLowerCase().includes(searchVal) || b.channel.toLowerCase().includes(searchVal) ||
+                 currentRows.some(s => s.account && s.account.toLowerCase().includes(searchVal));
+        }
+        return true;
+      });
+      document.getElementById('filtered-count-badge').textContent = `${filtered.length} Invoices`;
+      filtered.sort((a, b) => {
+        if (currentSortCol === 'date') return currentSortAsc ? a.dateISO.localeCompare(b.dateISO) : b.dateISO.localeCompare(a.dateISO);
+        if (currentSortCol === 'amount') return currentSortAsc ? (a.totalAmount - b.totalAmount) : (b.totalAmount - a.totalAmount);
+        if (currentSortCol === 'billNo') return currentSortAsc ? a.billNo.localeCompare(b.billNo, undefined, {numeric:true}) : b.billNo.localeCompare(a.billNo, undefined, {numeric:true});
+        if (currentSortCol === 'store') return currentSortAsc ? a.store.localeCompare(b.store) : b.store.localeCompare(a.store);
+        return currentSortAsc ? a.agent.localeCompare(b.agent) : b.agent.localeCompare(a.agent);
+      });
+
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-stone-400 font-traditional">No matching invoices found for the current filters.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(b => {
+        const uid = b.invoiceUid;
+        const rows = settlementRowsState[uid] || [{ account: '', amount: Math.round(b.totalAmount) }];
+        let allocatedSum = 0; rows.forEach(r => allocatedSum += (parseFloat(r.amount) || 0));
+        const rem = Math.round((b.totalAmount - allocatedSum) * 100) / 100;
+        const safeId = uid.replace(/[^a-zA-Z0-9]/g, '_');
+        const hasValidBank = rows.some(s => s.account && s.account.trim() !== '');
+        const isFullySettled = hasValidBank && Math.abs(b.totalAmount - allocatedSum) < 0.5;
+        const isPartial = hasValidBank && allocatedSum > 0 && allocatedSum < (b.totalAmount - 0.5);
+        const statusBadge = isFullySettled ? `<span class="text-[8px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded font-bold uppercase">Credited ✅</span>`
+          : isPartial ? `<span class="text-[8px] bg-blue-100 text-blue-800 border border-blue-300 px-1.5 py-0.5 rounded font-bold uppercase">Partial 🔵</span>`
+          : `<span class="text-[8px] bg-rose-100 text-rose-800 border border-rose-300 px-1.5 py-0.5 rounded font-bold uppercase">Pending ⚠️</span>`;
+        const channelBadge = b.channel === 'Online' ? `<span class="text-[8px] bg-blue-100 text-blue-800 border border-blue-300 px-1.5 py-0.5 rounded font-black uppercase">🌐 Online</span>`
+          : (b.channel === 'Take by Hand' || b.channel === 'Wholesale') ? `<span class="text-[8px] bg-purple-100 text-purple-800 border border-purple-300 px-1.5 py-0.5 rounded font-black uppercase">🤝 Take by Hand</span>`
+          : `<span class="text-[8px] bg-orange-100 text-orange-800 border border-orange-300 px-1.5 py-0.5 rounded font-black uppercase">🏬 Showroom</span>`;
+
+        const splitRowsHTML = rows.map((split, idx) => `
+          <div class="flex items-center gap-1.5 mt-1 first:mt-0">
+            <div class="relative w-44">
+              <input list="accounts-master-datalist" value="${split.account || ''}" placeholder="Select / Type Bank"
+                     onchange="updateRowSplitAccount('${uid}', ${idx}, this.value)"
+                     class="w-full text-xs font-bold bg-white border ${!split.account ? 'border-rose-300 bg-rose-50/20' : 'border-[#E5D5C6]'} rounded-lg py-1.5 px-2.5 text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#5C0612] font-sans">
+            </div>
+            <input type="number" step="any" placeholder="Amount (₹)" value="${split.amount !== undefined ? split.amount : ''}"
+                   oninput="updateRowSplitAmountLive('${uid}', ${idx}, this.value)"
+                   class="w-28 text-xs font-bold font-numeric bg-white border border-[#E5D5C6] rounded-lg p-1.5 text-[#5C0612] focus:outline-none">
+            ${rows.length > 1 ? `<button onclick="removeRowSplit('${uid}', ${idx})" class="text-stone-400 hover:text-rose-600 p-1 text-xs" tabindex="-1"><i class="fa-solid fa-xmark"></i></button>` : ''}
+          </div>
+        `).join('');
+
+        return `
+          <tr class="hover:bg-amber-50/20 transition-colors ${isFullySettled ? 'bg-emerald-50/20' : ''}">
+            <td class="p-3 text-stone-600 font-numeric whitespace-nowrap font-bold">${b.dateDisplay}</td>
+            <td class="p-3 font-bold text-stone-800 font-numeric whitespace-nowrap"><div class="flex flex-col gap-1 items-start"><span class="text-xs font-black">${b.billNo}</span><div class="flex items-center gap-1">${channelBadge}${statusBadge}</div></div></td>
+            <td class="p-3 text-stone-600 font-sans">${b.store}</td>
+            <td class="p-3 text-stone-600 font-sans">${b.agent}</td>
+            <td class="p-3 text-right font-black text-[#5C0612] font-numeric whitespace-nowrap">₹${Math.round(b.totalAmount).toLocaleString('en-IN')}</td>
+            <td class="p-2.5"><div class="bg-[#FAF6EE] p-2.5 rounded-xl border border-[#E5D5C6] space-y-1.5">${splitRowsHTML}<div class="flex justify-between items-center pt-1 border-t border-[#E5D5C6]/40 text-[9px]"><div class="flex items-center gap-2"><button onclick="addRowSplit('${uid}')" tabindex="-1" class="text-[#5C0612] hover:underline font-bold font-traditional"><i class="fa-solid fa-plus text-[8px]"></i> Split</button>${Math.abs(rem) > 0.01 ? `<button onclick="autoFillBalance('${uid}')" class="text-blue-700 hover:underline font-bold font-traditional"><i class="fa-solid fa-wand-magic-sparkles text-[8px]"></i> Auto-Fill</button>` : ''}</div><span id="rem-badge-${safeId}" class="font-numeric font-bold ${Math.abs(rem) < 0.01 ? 'text-emerald-700' : (rem > 0 ? 'text-amber-800' : 'text-rose-700')}">${Math.abs(rem) < 0.01 ? 'Balanced (100%) ✅' : (rem > 0 ? `Remaining: ₹${Math.round(rem).toLocaleString('en-IN')}` : `Excess: +₹${Math.round(-rem).toLocaleString('en-IN')}`)}</span></div></div></td>
+            <td class="p-3 text-center"><div class="flex items-center justify-center gap-1"><button onclick="saveRowSettlement('${uid}')" id="btn-save-${safeId}" class="bg-[#5C0612] hover:bg-[#4A030D] text-[#EFE5C9] text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm font-traditional border border-[#DAA520] active:scale-95 whitespace-nowrap">Save</button><button onclick="resetSingleBillToPending('${uid}')" class="text-stone-400 hover:text-rose-600 p-1.5 rounded-lg" title="Reset to Pending"><i class="fa-solid fa-trash-can text-xs"></i></button></div></td>
+          </tr>`;
+      }).join('');
+    }
+
+    function updateRowSplitAccount(uid, idx, account) {
+      const cleanAcc = (account || '').trim();
+      if (settlementRowsState[uid]?.[idx]) settlementRowsState[uid][idx].account = cleanAcc;
+      if (cleanAcc && !accountsMaster.includes(cleanAcc)) { accountsMaster.push(cleanAcc); syncDatalistAndPills(); }
+      updateSplitBadgeInline(uid);
+    }
+    function updateRowSplitAmountLive(uid, idx, amount) {
+      if (settlementRowsState[uid]?.[idx]) settlementRowsState[uid][idx].amount = parseFloat(amount) || 0;
+      updateSplitBadgeInline(uid);
+    }
+    function addRowSplit(uid) {
+      const bill = billsList.find(b => b.invoiceUid === uid);
+      let allocated = 0; (settlementRowsState[uid] || []).forEach(s => allocated += parseFloat(s.amount) || 0);
+      settlementRowsState[uid].push({ account: '', amount: Math.round(Math.max(0, (bill?.totalAmount || 0) - allocated)) });
+      renderBillsTable();
+    }
+    function autoFillBalance(uid) {
+      const bill = billsList.find(b => b.invoiceUid === uid);
+      const rows = settlementRowsState[uid];
+      if (!bill || !rows) return;
+      let sum = 0; for (let i = 0; i < rows.length - 1; i++) sum += parseFloat(rows[i].amount) || 0;
+      rows[rows.length - 1].amount = Math.max(0, Math.round((bill.totalAmount - sum) * 100) / 100);
+      renderBillsTable();
+    }
+    function removeRowSplit(uid, idx) {
+      if (settlementRowsState[uid]?.length > 1) { settlementRowsState[uid].splice(idx, 1); renderBillsTable(); }
+    }
+
+    async function saveRowSettlement(uid) {
+      if (!isAdmin) return alert("🔒 Access Denied.");
+      const bill = billsList.find(b => b.invoiceUid === uid);
+      const validSplits = (settlementRowsState[uid] || []).filter(s => s.account && s.account.trim() !== '' && parseFloat(s.amount) > 0);
+      if (!validSplits.length) return alert("⚠️ Select a bank account and enter a valid amount.");
+      try {
+        await apiFetch('/api/portal/settlements/save', {
+          method: 'POST',
+          body: JSON.stringify({ items: [{ invoice_id: bill.invoiceId, invoice_uid: uid, splits: validSplits }] })
+        });
+        bill.settlements = validSplits;
+        renderBillsTable();
+        alert(`✅ Invoice ${bill.billNo} bank settlement saved to PostgreSQL!`);
+      } catch (err) { alert("Save failed: " + err.message); }
+    }
+
+    async function resetSingleBillToPending(uid) {
+      if (!isAdmin) return alert("🔒 Access Denied.");
+      const bill = billsList.find(b => b.invoiceUid === uid);
+      if (!bill || !confirm(`Reset Invoice ${bill.billNo} back to Pending?`)) return;
+      try {
+        await apiFetch(`/api/portal/settlements/${bill.invoiceId}`, { method: 'DELETE' });
+        bill.settlements = [];
+        settlementRowsState[uid] = [{ account: '', amount: Math.round(bill.totalAmount) }];
+        renderBillsTable();
+      } catch (err) { alert("Reset failed: " + err.message); }
+    }
+
+    async function resetAllSettlementsToPending() {
+      if (!isAdmin) return alert("🔒 Access Denied.");
+      if (!confirm("⚠️ Reset ALL bills back to Pending?")) return;
+      try {
+        await apiFetch('/api/portal/settlements', { method: 'DELETE' });
+        billsList.forEach(b => { b.settlements = []; settlementRowsState[b.invoiceUid] = [{ account: '', amount: Math.round(b.totalAmount) }]; });
+        alert("✅ All bills reset to Pending.");
+        renderBillsTable();
+      } catch (err) { alert("Reset failed: " + err.message); }
+    }
+
+    async function bulkSaveAllSettlements() {
+      if (!isAdmin) return alert("🔒 Access Denied.");
+      const items = [];
+      billsList.forEach(b => {
+        const validSplits = (settlementRowsState[b.invoiceUid] || []).filter(s => s.account && s.account.trim() !== '' && parseFloat(s.amount) > 0);
+        if (validSplits.length) items.push({ invoice_id: b.invoiceId, invoice_uid: b.invoiceUid, splits: validSplits });
+      });
+      if (!items.length) return alert("⚠️ No invoices have bank accounts assigned yet.");
+      try {
+        const res = await apiFetch('/api/portal/settlements/save', { method: 'POST', body: JSON.stringify({ items }) });
+        alert(`✅ Saved ${res.updated_invoices} invoices to PostgreSQL!`);
+        await fetchSupabaseData();
+      } catch (err) { alert("Bulk save failed: " + err.message); }
+    }
+
+    function openNewAccountModal() {
+      if (!isAdmin) return alert("🔒 Access Denied.");
+      document.getElementById('modal-account-name').value = '';
+      document.getElementById('new-account-modal').classList.remove('hidden');
+    }
+    function closeNewAccountModal() { document.getElementById('new-account-modal').classList.add('hidden'); }
+    async function submitNewAccount() {
+      const name = (document.getElementById('modal-account-name')?.value || '').trim();
+      const type = document.getElementById('modal-account-type')?.value || 'Current Account';
+      if (!name) return alert("Please enter a valid Bank / Account name.");
+      try {
+        await apiFetch('/api/portal/bank-accounts', { method: 'POST', body: JSON.stringify({ account_name: name, account_type: type }) });
+        if (!accountsMaster.includes(name)) accountsMaster.push(name);
+        syncDatalistAndPills(); closeNewAccountModal(); renderBillsTable();
+        alert(`✅ Bank "${name}" saved to PostgreSQL!`);
+      } catch (err) { alert("Error saving bank: " + err.message); }
+    }
+
+    function exportBankStatementExcel() {
+      if (typeof XLSX === 'undefined') return alert("Excel engine loading.");
+      const exportRows = [];
+      billsList.forEach(b => {
+        if (selectedChannelFilter !== 'All' && b.channel !== selectedChannelFilter) return;
+        const splits = b.settlements?.length ? b.settlements : [{ account: "Not Defined", amount: Math.round(b.totalAmount) }];
+        splits.forEach((s, idx) => exportRows.push({
+          "Bill Date": b.dateISO, "Bill No": splits.length > 1 ? `${b.billNo} (Split ${idx + 1})` : b.billNo,
+          "Sales Channel": b.channel, "Store / Branch": b.store, "Sales Staff": b.agent,
+          "Credited Bank Account": s.account || "Not Defined", "Credited Amount (₹)": parseFloat(s.amount) || 0,
+          "Total Bill Value (₹)": Math.round(b.totalAmount), "Payment Status": (s.account && s.account !== "Not Defined") ? "Credited in Bank" : "Pending"
+        }));
+      });
+      if (!exportRows.length) return alert("No transactions to export.");
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportRows), "Bank Settlements");
+      XLSX.writeFile(wb, `Kailash_Bank_Settlements_${selectedChannelFilter}_${formatToYYYYMMDD(new Date())}.xlsx`);
+    }
+  </script>
+</body>
+</html>

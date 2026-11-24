@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite3
+*.sql.gz
+service-account*.json
+.venv/
+venv/
+.pytest_cache/

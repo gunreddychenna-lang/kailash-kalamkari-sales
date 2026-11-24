@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kailash Kalamkari - Inventory & Google Drive Catalogue Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="bg-[#FAF6EE] text-stone-800 pb-16 min-h-screen">
+  <header class="bg-[#5C0612] text-white shadow-md sticky top-0 z-50 border-b-2 border-[#DAA520]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row justify-between items-center gap-3">
+      <div class="flex items-center gap-3">
+        <a href="/dashboard" class="w-10 h-10 rounded-xl bg-[#EFE5C9] text-[#5C0612] flex items-center justify-center font-bold text-xl font-traditional border border-[#DAA520]">KK</a>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-wide font-traditional text-[#EFE5C9]">Inventory &amp; Saree Stock Hub</h1>
+          <p class="text-[9px] text-stone-300 font-medium tracking-wider uppercase">Multi-Branch Stock • Transfers • Google Drive File-ID Catalogue</p>
+        </div>
+      </div>
+      <div class="flex items-center flex-wrap gap-2">
+        <a href="/dashboard" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20">Dashboard</a>
+        <a href="/entry.html" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20">Bank Portal</a>
+        <a href="/reconciliation.html" class="bg-white/10 hover:bg-white/20 text-[#EFE5C9] font-bold text-xs px-3 py-2 rounded-xl border border-white/20">Sync &amp; Receivables</a>
+        <button onclick="openAddSkuModal()" class="admin-only bg-[#DAA520] hover:bg-[#C59B27] text-[#5C0612] font-black text-xs px-3.5 py-2 rounded-xl font-traditional border border-[#B38F4D]">+ Add SKU</button>
+      </div>
+    </div>
+    <div class="zari-line"></div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-5">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center font-numeric">
+      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-[#E5D5C6] warm-shadow"><span class="block text-[8px] font-bold text-stone-500 uppercase font-traditional">Total SKUs</span><strong id="inv-total-skus" class="text-xl font-black text-stone-800">0</strong></div>
+      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-emerald-200 warm-shadow"><span class="block text-[8px] font-bold text-emerald-800 uppercase font-traditional">Available Units</span><strong id="inv-avail" class="text-xl font-black text-emerald-800">0</strong></div>
+      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-amber-200 warm-shadow"><span class="block text-[8px] font-bold text-amber-800 uppercase font-traditional">Reserved Units</span><strong id="inv-resv" class="text-xl font-black text-amber-800">0</strong></div>
+      <div class="bg-[#FFFDF9] p-3.5 rounded-2xl border border-[#E5D5C6] warm-shadow"><span class="block text-[8px] font-bold text-[#5C0612] uppercase font-traditional">Drive Catalogue SKUs</span><strong id="inv-drive" class="text-xl font-black text-[#5C0612]">0</strong></div>
+    </div>
+
+    <div class="bg-[#FFFDF9] p-5 rounded-3xl border border-[#E5D5C6] warm-shadow space-y-4">
+      <div class="flex flex-wrap gap-2 justify-between items-center">
+        <input id="inv-search" type="search" placeholder="Search SKU, saree name, fabric, design..." oninput="loadInventory()" class="flex-1 min-w-[220px] text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl py-2 px-3">
+        <select id="inv-status" onchange="loadInventory()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2 text-[#5C0612]">
+          <option value="all">All Statuses</option>
+          <option value="available">Available</option>
+          <option value="reserved">Reserved</option>
+          <option value="sold">Sold</option>
+          <option value="unavailable">Unavailable (Drive Removed)</option>
+        </select>
+      </div>
+      <div class="overflow-x-auto rounded-2xl border border-[#E5D5C6]">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="bg-[#F3EFE9] text-stone-700 uppercase text-[9px] font-extrabold border-b border-[#E5D5C6]">
+              <th class="p-3 font-traditional">SKU</th>
+              <th class="p-3 font-traditional">Product &amp; Fabric</th>
+              <th class="p-3 font-traditional">Branch</th>
+              <th class="p-3 text-right font-traditional">MRP</th>
+              <th class="p-3 text-center font-traditional">Avail / Resv / Sold</th>
+              <th class="p-3 font-traditional">Source</th>
+              <th class="p-3 text-center font-traditional">Status</th>
+            </tr>
+          </thead>
+          <tbody id="inv-tbody" class="divide-y divide-[#E5D5C6]/40 font-numeric"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <div id="add-sku-modal" class="hidden fixed inset-0 bg-stone-900/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-[#FFFDF9] rounded-3xl border-2 border-[#5C0612] max-w-md w-full overflow-hidden warm-shadow-lg">
+      <div class="p-4 bg-[#5C0612] text-white flex justify-between items-center border-b border-[#DAA520]">
+        <h3 class="font-bold text-xs uppercase font-traditional text-[#EFE5C9]">Add Inventory SKU</h3>
+        <button onclick="document.getElementById('add-sku-modal').classList.add('hidden')" class="text-[#EFE5C9] font-bold">✕</button>
+      </div>
+      <form onsubmit="submitNewSku(event)" class="p-5 space-y-3 text-xs">
+        <input id="sku-code" required placeholder="SKU (e.g. KK-SR-001)" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 font-bold">
+        <input id="sku-name" required placeholder="Product / Saree Name" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5">
+        <div class="grid grid-cols-2 gap-2">
+          <input id="sku-fabric" placeholder="Fabric (Silk / Cotton)" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5">
+          <input id="sku-design" placeholder="Design Category" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5">
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <input id="sku-mrp" type="number" step="0.01" placeholder="MRP (₹)" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5">
+          <input id="sku-qty" type="number" value="1" min="0" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5">
+          <select id="sku-branch" class="w-full bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5"></select>
+        </div>
+        <button type="submit" class="w-full bg-[#5C0612] text-[#EFE5C9] font-bold py-2.5 rounded-xl border border-[#DAA520] font-traditional uppercase">Save SKU</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let csrfToken = '';
+    async function apiFetch(url, opts = {}) {
+      const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+      if (opts.method && opts.method !== 'GET' && csrfToken) headers['X-CSRF-Token'] = csrfToken;
+      const r = await fetch(url, { credentials: 'same-origin', ...opts, headers });
+      if (r.status === 401) { window.location.href = '/login'; throw new Error('Auth required'); }
+      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.detail || `HTTP ${r.status}`); }
+      return r.json();
+    }
+    window.addEventListener('DOMContentLoaded', async () => {
+      const me = await apiFetch('/api/auth/me');
+      csrfToken = me.csrf_token;
+      const br = await apiFetch('/api/branches');
+      document.getElementById('sku-branch').innerHTML = (br.branches || []).map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+      await loadInventory();
+    });
+    async function loadInventory() {
+      const q = document.getElementById('inv-search').value.trim();
+      const st = document.getElementById('inv-status').value;
+      const params = new URLSearchParams();
+      if (q) params.set('search', q);
+      if (st !== 'all') params.set('status_filter', st);
+      const data = await apiFetch(`/api/portal/inventory?${params.toString()}`);
+      document.getElementById('inv-total-skus').textContent = data.summary.total_skus;
+      document.getElementById('inv-avail').textContent = data.summary.available_qty;
+      document.getElementById('inv-resv').textContent = data.summary.reserved_qty;
+      document.getElementById('inv-drive').textContent = data.summary.drive_controlled_skus;
+      document.getElementById('inv-tbody').innerHTML = (data.items || []).map(i => `
+        <tr class="hover:bg-amber-50/20">
+          <td class="p-3 font-black text-[#5C0612]">${i.sku}</td>
+          <td class="p-3"><strong>${i.product_name}</strong><div class="text-[10px] text-stone-500">${i.fabric_category || '-'} • ${i.design_category || '-'}</div></td>
+          <td class="p-3">${i.branch_name}</td>
+          <td class="p-3 text-right font-bold">${i.mrp_formatted}</td>
+          <td class="p-3 text-center font-bold">${i.quantity_available} / ${i.quantity_reserved} / ${i.quantity_sold}</td>
+          <td class="p-3 text-[10px]">${i.is_drive_controlled ? 'Google Drive ID' : 'Manual'}</td>
+          <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${i.status === 'available' ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-700'}">${i.status}</span></td>
+        </tr>
+      `).join('') || '<tr><td colspan="7" class="p-6 text-center text-stone-400">No inventory SKUs found.</td></tr>';
+    }
+    function openAddSkuModal() { document.getElementById('add-sku-modal').classList.remove('hidden'); }
+    async function submitNewSku(e) {
+      e.preventDefault();
+      try {
+        await apiFetch('/api/portal/inventory', {
+          method: 'POST',
+          body: JSON.stringify({
+            sku: document.getElementById('sku-code').value,
+            product_name: document.getElementById('sku-name').value,
+            fabric_category: document.getElementById('sku-fabric').value,
+            design_category: document.getElementById('sku-design').value,
+            mrp: document.getElementById('sku-mrp').value || 0,
+            quantity_available: parseInt(document.getElementById('sku-qty').value || '1', 10),
+            branch_id: parseInt(document.getElementById('sku-branch').value, 10)
+          })
+        });
+        document.getElementById('add-sku-modal').classList.add('hidden');
+        await loadInventory();
+      } catch (err) { alert(err.message); }
+    }
+  </script>
+</body>
+</html>
