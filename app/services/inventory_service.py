@@ -100,7 +100,7 @@ def create_inventory_item(
                 sku, product_name, fabric_category, design_category, mrp,
                 branch_id, status, quantity_available, quantity_reserved, quantity_sold,
                 is_drive_controlled
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, FALSE)
             """,
             (
                 sku,
@@ -268,7 +268,7 @@ def sync_google_drive_catalogue(
                     restored += 1
                 db.execute(
                     conn,
-                    "UPDATE product_images SET is_present_in_drive = 1, last_verified_at = ? WHERE drive_file_id = ?",
+                    "UPDATE product_images SET is_present_in_drive = TRUE, last_verified_at = ? WHERE drive_file_id = ?",
                     (now_iso, file_id),
                 )
             else:
@@ -282,7 +282,7 @@ def sync_google_drive_catalogue(
                         sku, product_name, fabric_category, design_category, mrp,
                         branch_id, status, quantity_available, quantity_reserved, quantity_sold,
                         is_drive_controlled, drive_file_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, 'available', 1, 0, 0, 1, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, 'available', 1, 0, 0, TRUE, ?)
                     """,
                     (
                         sku,
@@ -298,7 +298,7 @@ def sync_google_drive_catalogue(
                     conn,
                     """
                     INSERT INTO product_images (inventory_item_id, drive_file_id, image_url, file_name, is_present_in_drive, last_verified_at)
-                    VALUES (?, ?, ?, ?, 1, ?)
+                    VALUES (?, ?, ?, ?, TRUE, ?)
                     """,
                     (item_id, file_id, image_url, file_name, now_iso),
                 )
@@ -315,7 +315,7 @@ def sync_google_drive_catalogue(
         # Mark Drive-controlled items whose image was removed as unavailable (never touch non-Drive items)
         drive_items = db.fetch_all(
             conn,
-            "SELECT id, drive_file_id, status FROM inventory_items WHERE is_drive_controlled = 1 AND branch_id = ?",
+            "SELECT id, drive_file_id, status FROM inventory_items WHERE is_drive_controlled = TRUE AND branch_id = ?",
             (branch_id,),
         )
         for di in drive_items:
@@ -327,7 +327,7 @@ def sync_google_drive_catalogue(
                 )
                 db.execute(
                     conn,
-                    "UPDATE product_images SET is_present_in_drive = 0, last_verified_at = ? WHERE inventory_item_id = ?",
+                    "UPDATE product_images SET is_present_in_drive = FALSE, last_verified_at = ? WHERE inventory_item_id = ?",
                     (now_iso, di["id"]),
                 )
                 db.execute(

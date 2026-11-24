@@ -241,7 +241,7 @@ def _recalculate_invoice_master(db: Database, conn: Any, invoice_id: int) -> Non
         """
         SELECT quantity, rate, discount, final_amount, is_return
         FROM sales_lines
-        WHERE invoice_id = ? AND is_source_deleted = 0
+        WHERE invoice_id = ? AND is_source_deleted = FALSE
         """,
         (invoice_id,),
     )
@@ -441,7 +441,7 @@ def run_sheets_sync(
 
                         db.execute(
                             conn,
-                            "UPDATE sales_lines SET has_pending_diff = 1, updated_at = ? WHERE id = ?",
+                            "UPDATE sales_lines SET has_pending_diff = TRUE, updated_at = ? WHERE id = ?",
                             (datetime.now(timezone.utc).isoformat(), prev["id"]),
                         )
                         db.execute(
@@ -543,7 +543,7 @@ def run_sheets_sync(
                             normalized["rate"],
                             normalized["discount"],
                             normalized["final_amount"],
-                            1 if normalized["is_return"] else 0,
+                            bool(normalized["is_return"]),
                             normalized["sales_executive"],
                             normalized["payment_mode"],
                             normalized["sale_type"],
@@ -583,7 +583,7 @@ def run_sheets_sync(
                         deletes_detected += 1
                         db.execute(
                             conn,
-                            "UPDATE sales_lines SET is_source_deleted = 1, updated_at = ? WHERE id = ?",
+                            "UPDATE sales_lines SET is_source_deleted = TRUE, updated_at = ? WHERE id = ?",
                             (datetime.now(timezone.utc).isoformat(), prev_row["id"]),
                         )
                         db.execute(

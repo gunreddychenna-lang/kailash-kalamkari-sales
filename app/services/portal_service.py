@@ -84,7 +84,7 @@ def get_portal_sales_rows(
                    sl.customer_name, sl.customer_phone, sl.sales_manager
             FROM sales_lines sl
             JOIN branches b ON b.id = sl.branch_id
-            WHERE {b_sql} AND sl.is_source_deleted = 0
+            WHERE {b_sql} AND sl.is_source_deleted = FALSE
             ORDER BY sl.bill_date ASC, sl.id ASC
             """,
             params,
@@ -127,7 +127,7 @@ def get_portal_bills_master(db: Database, branch_ids: Optional[List[int]]) -> Di
         # Fetch payment mode hint from first sales line per invoice for channel classification
         mode_rows = db.fetch_all(
             conn,
-            "SELECT invoice_id, MIN(payment_mode) AS pay_mode FROM sales_lines WHERE is_source_deleted = 0 GROUP BY invoice_id",
+            "SELECT invoice_id, MIN(payment_mode) AS pay_mode FROM sales_lines WHERE is_source_deleted = FALSE GROUP BY invoice_id",
         )
         mode_by_inv = {int(m["invoice_id"]): (m["pay_mode"] or "") for m in mode_rows}
 
@@ -147,7 +147,7 @@ def get_portal_bills_master(db: Database, branch_ids: Optional[List[int]]) -> Di
 
         bank_rows = db.fetch_all(
             conn,
-            "SELECT id, account_name, bank_name, account_type FROM bank_accounts WHERE is_active = 1 ORDER BY account_name ASC",
+            "SELECT id, account_name, bank_name, account_type FROM bank_accounts WHERE is_active = TRUE ORDER BY account_name ASC",
         )
 
     settlements_by_uid: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
@@ -194,7 +194,7 @@ def _ensure_bank_account(db: Database, conn: Any, account_name: str, account_typ
     )
     return db.insert_returning_id(
         conn,
-        "INSERT INTO bank_accounts (account_name, bank_name, account_type, is_active) VALUES (?, ?, ?, 1)",
+        "INSERT INTO bank_accounts (account_name, bank_name, account_type, is_active) VALUES (?, ?, ?, TRUE)",
         (clean, account_type or "Configured Bank", norm_type),
     )
 

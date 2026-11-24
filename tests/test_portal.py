@@ -95,7 +95,7 @@ class PortalPhase1Tests(unittest.TestCase):
                     conn,
                     """
                     INSERT INTO users (username, full_name, password_hash, role_code, primary_branch_id, is_active)
-                    VALUES (?, ?, ?, ?, ?, 1)
+                    VALUES (?, ?, ?, ?, ?, TRUE)
                     """,
                     (uname, fname, hash_password(pw), role, pbid),
                 )

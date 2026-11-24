@@ -520,7 +520,7 @@ def create_app(settings: Optional[Settings] = None, db: Optional[Database] = Non
         with database.connection() as conn:
             rows = database.fetch_all(
                 conn,
-                "SELECT id, account_name, bank_name, account_type, branch_id, is_active FROM bank_accounts WHERE is_active = 1 ORDER BY id ASC",
+                "SELECT id, account_name, bank_name, account_type, branch_id, is_active FROM bank_accounts WHERE is_active = TRUE ORDER BY id ASC",
             )
         return {"bank_accounts": rows}
 

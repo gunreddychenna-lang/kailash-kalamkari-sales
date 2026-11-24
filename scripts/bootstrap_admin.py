@@ -38,7 +38,7 @@ def main() -> None:
             conn,
             """
             INSERT INTO users (username, email, full_name, password_hash, role_code, is_active)
-            VALUES (?, ?, ?, ?, 'owner', 1)
+            VALUES (?, ?, ?, ?, 'owner', TRUE)
             """,
             (args.username, args.email, args.full_name, pw_hash),
         )

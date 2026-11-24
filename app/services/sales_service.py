@@ -32,7 +32,7 @@ def _sum_period(
         SELECT sl.invoice_id, sl.quantity, sl.discount, sl.final_amount, sl.is_return
         FROM sales_lines sl
         WHERE {b_sql}
-          AND sl.is_source_deleted = 0
+          AND sl.is_source_deleted = FALSE
           AND sl.bill_date >= ? AND sl.bill_date <= ?
         """,
         (*b_params, start_date.isoformat(), end_date.isoformat()),
@@ -107,7 +107,7 @@ def get_sales_dashboard(
             FROM sales_lines sl
             JOIN branches b ON b.id = sl.branch_id
             WHERE {b_sql}
-              AND sl.is_source_deleted = 0
+              AND sl.is_source_deleted = FALSE
               AND sl.bill_date >= ? AND sl.bill_date <= ?
             ORDER BY sl.bill_date ASC
             """,

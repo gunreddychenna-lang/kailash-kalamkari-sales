@@ -95,7 +95,7 @@ def check_login_rate_limit(db: Database, settings: Settings, identifier: str, ip
             """
             SELECT COUNT(*) AS cnt
             FROM login_attempts
-            WHERE identifier = ? AND ip_address = ? AND succeeded = 0 AND attempted_at >= ?
+            WHERE identifier = ? AND ip_address = ? AND succeeded = FALSE AND attempted_at >= ?
             """,
             (identifier.lower(), ip_address, cutoff),
         )
@@ -115,7 +115,7 @@ def record_login_attempt(db: Database, identifier: str, ip_address: str, succeed
             INSERT INTO login_attempts (identifier, ip_address, succeeded, attempted_at)
             VALUES (?, ?, ?, ?)
             """,
-            (identifier.lower(), ip_address, 1 if succeeded else 0, _now_utc().isoformat()),
+            (identifier.lower(), ip_address, bool(succeeded), _now_utc().isoformat()),
         )
 
 
@@ -315,7 +315,7 @@ def consume_password_reset_token(db: Database, settings: Settings, raw_token: st
         user_id = int(row["user_id"])
         db.execute(
             conn,
-            "UPDATE users SET password_hash = ?, must_reset_password = 0, updated_at = ? WHERE id = ?",
+            "UPDATE users SET password_hash = ?, must_reset_password = FALSE, updated_at = ? WHERE id = ?",
             (new_hash, now.isoformat(), user_id),
         )
         db.execute(
