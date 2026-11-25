@@ -679,3 +679,190 @@ def import_legacy_supabase_bank_data(
         "unmatched_bills_count": len(unmatched_bills),
         "unmatched_bills_sample": unmatched_bills[:20],
     }
+
+
+def import_legacy_receivables_rows(
+    db: Database,
+    auth: AuthContext,
+    rows: List[Dict[str, Any]],
+    ip_address: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Import bank settlements from an exported Supabase receivables CSV/JSON list."""
+    settlements_imported = 0
+    settlements_skipped_dup = 0
+    unmatched_bills: List[str] = []
+    touched_invoice_ids: set[int] = set()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    with db.connection() as conn:
+        branches = db.fetch_all(conn, "SELECT id, code FROM branches")
+        branch_id_by_code = {br["code"]: int(br["id"]) for br in branches}
+
+        for idx, rec in enumerate(rows):
+            acc = str(rec.get("bank_account") or rec.get("Bank Account") or rec.get("account") or "").strip()
+            bill_no = str(rec.get("bill_no") or rec.get("Bill No") or rec.get("Bil No") or "").strip()
+            amt = to_decimal(rec.get("amount") or rec.get("Amount") or 0)
+            if not bill_no or not acc or acc.lower() in {"not defined", "pending", "na"} or amt <= Decimal("0.00"):
+                continue
+
+            rec_id = rec.get("id") or f"csv:{idx}:{bill_no}:{acc}:{amt}"
+            idem_key = f"legacy_supabase::{rec_id}"
+            dup = db.fetch_one(conn, "SELECT id FROM invoice_settlements WHERE idempotency_key = ?", (idem_key,))
+            if dup:
+                settlements_skipped_dup += 1
+                continue
+
+            b_code = _normalize_legacy_branch(str(rec.get("store_name") or rec.get("branch") or ""))
+            branch_id = branch_id_by_code.get(b_code)
+            inv = None
+            if branch_id:
+                inv = db.fetch_one(
+                    conn,
+                    "SELECT id, branch_id, bill_date FROM invoice_masters WHERE branch_id = ? AND UPPER(invoice_no) = UPPER(?)",
+                    (branch_id, bill_no),
+                )
+            if not inv:
+                inv = db.fetch_one(
+                    conn,
+                    "SELECT id, branch_id, bill_date FROM invoice_masters WHERE UPPER(invoice_no) = UPPER(?) ORDER BY id ASC LIMIT 1",
+                    (bill_no,),
+                )
+            if not inv:
+                unmatched_bills.append(f"{b_code}::{bill_no}")
+                continue
+
+            ba_id = _ensure_bank_account(db, conn, acc)
+            pmode = "cash" if "cash" in acc.lower() else ("upi" if "upi" in acc.lower() else "bank_transfer")
+            settle_date = str(rec.get("bill_date") or inv["bill_date"] or "")[:10] or str(inv["bill_date"])
+
+            db.execute(
+                conn,
+                """
+                INSERT INTO invoice_settlements (
+                    invoice_id, branch_id, payment_mode, bank_account_id, amount,
+                    settlement_status, payment_reference, idempotency_key,
+                    settlement_date, authorized_by, notes, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, 'Imported from legacy receivables CSV', ?, ?)
+                """,
+                (
+                    inv["id"],
+                    inv["branch_id"],
+                    pmode,
+                    ba_id,
+                    f"{amt:.2f}",
+                    acc,
+                    idem_key,
+                    settle_date,
+                    auth.user_id,
+                    now_iso,
+                    now_iso,
+                ),
+            )
+            settlements_imported += 1
+            touched_invoice_ids.add(int(inv["id"]))
+
+        for inv_id in touched_invoice_ids:
+            _recalculate_invoice_master(db, conn, inv_id)
+
+        write_audit_log(
+            db,
+            conn,
+            actor_user_id=auth.user_id,
+            actor_role=auth.role_code,
+            action="import_legacy_receivables_csv",
+            entity_type="invoice_settlements",
+            entity_id=f"csv:{settlements_imported}",
+            ip_address=ip_address,
+            after_state={"settlements_imported": settlements_imported, "skipped": settlements_skipped_dup},
+        )
+
+    return {
+        "rows_processed": len(rows),
+        "settlements_imported": settlements_imported,
+        "skipped_duplicates": settlements_skipped_dup,
+        "unmatched_bills_count": len(unmatched_bills),
+    }
+
+
+def backfill_sheet_bank_settlements(
+    db: Database,
+    auth: AuthContext,
+    ip_address: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Backfill invoice_settlements from already-synced sales_lines that have bank_account or account_name."""
+    created = 0
+    skipped = 0
+    touched: set[int] = set()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    with db.connection() as conn:
+        lines = db.fetch_all(
+            conn,
+            """
+            SELECT id, source_line_id, invoice_id, branch_id, bill_date,
+                   bank_account, account_name, final_amount, payment_mode
+            FROM sales_lines
+            WHERE is_source_deleted = FALSE
+              AND (COALESCE(bank_account, '') <> '' OR COALESCE(account_name, '') <> '')
+            """,
+        )
+        for ln in lines:
+            bank_label = (ln["bank_account"] or ln["account_name"] or "").strip()
+            amt = to_decimal(ln["final_amount"])
+            if not bank_label or bank_label.lower() in {"not defined", "pending", "na", "n/a", "-", "unassigned"} or amt <= Decimal("0.00"):
+                continue
+
+            idem_key = f"gsheet::{ln['source_line_id']}"
+            dup = db.fetch_one(conn, "SELECT id FROM invoice_settlements WHERE idempotency_key = ?", (idem_key,))
+            if dup:
+                skipped += 1
+                continue
+
+            ba_id = _ensure_bank_account(db, conn, bank_label)
+            pm_lower = (ln["payment_mode"] or "").lower()
+            pmode = "cash" if ("cash" in bank_label.lower() or "cash" in pm_lower) else (
+                "upi" if ("upi" in bank_label.lower() or "upi" in pm_lower) else (
+                    "card" if "card" in pm_lower else "bank_transfer"
+                )
+            )
+            db.execute(
+                conn,
+                """
+                INSERT INTO invoice_settlements (
+                    invoice_id, branch_id, payment_mode, bank_account_id, amount,
+                    settlement_status, payment_reference, idempotency_key,
+                    settlement_date, authorized_by, notes, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, 'Backfilled from Google Sheet', ?, ?)
+                """,
+                (
+                    ln["invoice_id"],
+                    ln["branch_id"],
+                    pmode,
+                    ba_id,
+                    f"{amt:.2f}",
+                    bank_label,
+                    idem_key,
+                    str(ln["bill_date"]),
+                    auth.user_id,
+                    now_iso,
+                    now_iso,
+                ),
+            )
+            created += 1
+            touched.add(int(ln["invoice_id"]))
+
+        for inv_id in touched:
+            _recalculate_invoice_master(db, conn, inv_id)
+
+        write_audit_log(
+            db,
+            conn,
+            actor_user_id=auth.user_id,
+            actor_role=auth.role_code,
+            action="backfill_sheet_bank_settlements",
+            entity_type="invoice_settlements",
+            entity_id=f"backfill:{created}",
+            ip_address=ip_address,
+            after_state={"created": created, "skipped": skipped},
+        )
+    return {"settlements_created": created, "skipped_existing": skipped, "invoices_updated": len(touched)}

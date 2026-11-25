@@ -57,6 +57,17 @@
         </button>
 
         <!-- IMPORT OLD PORTAL BANK DATA -->
+        <button id="btn-backfill-banks" onclick="backfillSheetBanks()" class="admin-only bg-teal-700 hover:bg-teal-800 text-white font-black text-xs px-3 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-teal-500 active:scale-95" title="Auto-settle bills that already have Bank Account in Google Sheets">
+          <i class="fa-solid fa-table text-xs"></i>
+          <span>Sync Sheet Banks</span>
+        </button>
+
+        <label class="admin-only cursor-pointer bg-indigo-700 hover:bg-indigo-800 text-white font-black text-xs px-3 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-indigo-500 active:scale-95" title="Upload receivables.csv exported from old Supabase portal">
+          <i class="fa-solid fa-file-csv text-xs"></i>
+          <span>Upload Old CSV</span>
+          <input type="file" accept=".csv,.xlsx" class="hidden" onchange="handleLegacyCSVUpload(event)">
+        </label>
+
         <button id="btn-import-legacy" onclick="importLegacyBankData()" class="admin-only bg-blue-800 hover:bg-blue-900 text-white font-black text-xs px-3 py-2 rounded-xl transition-all shadow-md font-traditional flex items-center gap-1.5 border border-blue-500 active:scale-95" title="Retrieve previously entered Bank Accounts & Settlements from Old Portal">
           <i class="fa-solid fa-cloud-arrow-down text-xs"></i>
           <span id="import-legacy-text">Import Old Bank Data</span>
@@ -637,19 +648,46 @@
       } catch (err) { alert("Bulk save failed: " + err.message); }
     }
 
+    async function backfillSheetBanks() {
+      if (!isAdmin) return alert("🔒 Access Denied.");
+      try {
+        const res = await apiFetch('/api/portal/backfill-sheet-banks', { method: 'POST', body: JSON.stringify({}) });
+        alert(`✅ Google Sheet Bank Backfill Complete!\n• Settlements created: ${res.settlements_created}\n• Already settled (skipped): ${res.skipped_existing}\n• Invoices updated: ${res.invoices_updated}`);
+        await fetchSupabaseData();
+      } catch (err) { alert('Backfill failed: ' + err.message); }
+    }
+
+    function handleLegacyCSVUpload(e) {
+      const file = e.target.files[0];
+      if (!file || typeof XLSX === 'undefined') return;
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        try {
+          const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+          const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+          const res = await apiFetch('/api/portal/import-receivables-csv', { method: 'POST', body: JSON.stringify({ rows }) });
+          alert(`✅ CSV Import Complete!\n• Rows read: ${res.rows_processed}\n• Settlements imported: ${res.settlements_imported}\n• Already present (skipped): ${res.skipped_duplicates}\n• Unmatched bills: ${res.unmatched_bills_count}`);
+          await fetchSupabaseData();
+        } catch (err) { alert('CSV Import failed: ' + err.message); }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
     async function importLegacyBankData() {
       if (!isAdmin) return alert("🔒 Access Denied.");
-      if (!confirm("Retrieve all previously entered Bank Accounts and Settlements from your old Sales Portal into PostgreSQL? (Safe: duplicates are skipped automatically.)")) return;
+      const customKey = prompt("Click OK to try automatic import from old portal, OR paste your Supabase key if it asks for authorization (leave blank to try default):", "");
+      if (customKey === null) return;
       const btn = document.getElementById('btn-import-legacy');
       const txt = document.getElementById('import-legacy-text');
       if (btn) btn.disabled = true;
       if (txt) txt.textContent = '⏳ Importing...';
       try {
-        const res = await apiFetch('/api/portal/import-legacy-bank', { method: 'POST', body: JSON.stringify({}) });
+        const body = customKey.trim() ? { supabase_anon_key: customKey.trim() } : {};
+        const res = await apiFetch('/api/portal/import-legacy-bank', { method: 'POST', body: JSON.stringify(body) });
         alert(`✅ Import Complete!\n• Bank Accounts synced: ${res.banks_imported}\n• Legacy rows fetched: ${res.legacy_rows_fetched}\n• Settlements imported: ${res.settlements_imported}\n• Already present (skipped): ${res.skipped_duplicates}\n• Unmatched bills: ${res.unmatched_bills_count}`);
         await fetchSupabaseData();
       } catch (err) {
-        alert('Import failed: ' + err.message);
+        alert('Old portal blocked direct API access (401).\n\nEasy fix: In Supabase → Table Editor → receivables → Export CSV, then click "Upload Old CSV" button right next to this button!');
       } finally {
         if (btn) btn.disabled = false;
         if (txt) txt.textContent = 'Import Old Bank Data';

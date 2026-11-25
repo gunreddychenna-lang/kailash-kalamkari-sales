@@ -53,6 +53,8 @@ from app.services.portal_service import (
     get_portal_attendance,
     get_portal_bills_master,
     get_portal_sales_rows,
+    backfill_sheet_bank_settlements,
+    import_legacy_receivables_rows,
     import_legacy_supabase_bank_data,
     reset_bill_settlements,
     save_bill_bank_splits,
@@ -329,6 +331,18 @@ def create_app(settings: Optional[Settings] = None, db: Optional[Database] = Non
         auth = _auth(request, enforce_csrf=True)
         require_roles(auth, ["owner", "accountant"])
         return reset_bill_settlements(database, auth, invoice_id=None, ip_address=_client_ip(request))
+
+    @app.post("/api/portal/backfill-sheet-banks")
+    def api_backfill_sheet_banks(request: Request):
+        auth = _auth(request, enforce_csrf=True)
+        require_roles(auth, ["owner", "admin", "accountant"])
+        return backfill_sheet_bank_settlements(database, auth, ip_address=_client_ip(request))
+
+    @app.post("/api/portal/import-receivables-csv")
+    def api_import_receivables_csv(payload: Dict[str, Any], request: Request):
+        auth = _auth(request, enforce_csrf=True)
+        require_roles(auth, ["owner", "admin", "accountant"])
+        return import_legacy_receivables_rows(database, auth, payload.get("rows") or [], ip_address=_client_ip(request))
 
     @app.post("/api/portal/import-legacy-bank")
     def api_import_legacy_bank(payload: Dict[str, Any], request: Request):
