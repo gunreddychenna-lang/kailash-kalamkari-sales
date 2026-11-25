@@ -501,5 +501,34 @@ class PortalPhase1Tests(unittest.TestCase):
         self.assertEqual(khps_dash["breakdowns"]["by_staff"][0]["sales"], "3000.00")
 
 
+
+    def test_12_google_sheet_bank_account_auto_settlement(self) -> None:
+        def _sheet_with_banks(source: SheetSourceConfig):
+            if source.branch_code == "MAIN":
+                return [
+                    ["Bil No", "Bill Date", "Item Name", "Qty", "Rate", "Discount", "BillAmount", "SM Name", "PayMode", "Bank Account"],
+                    ["B-101", "2026-11-24", "Silk Saree", "1", "10000", "0", "10000", "Mouni", "UPI", "42441-TJ"],
+                    ["B-102", "2026-11-24", "Cotton Saree", "1", "4000", "0", "4000", "Mouni", "Cash", ""],
+                ]
+            return [
+                ["Bil No", "Bill Date", "Item Name", "Qty", "Rate", "Discoun", "BillAmount", "SM Name", "PayMode", "Account Name"],
+                ["K-201", "2026-11-24", "Tussar Saree", "1", "7500", "0", "7500", "Swathi", "Cash", "Cash"],
+            ]
+
+        res = run_sheets_sync(self.db, self.settings, trigger_type="manual", fetcher=_sheet_with_banks)
+        self.assertEqual(res.rows_inserted, 3)
+
+        client = TestClient(self.app)
+        self._login(client, "acct1", "AccountPass#2026")
+        bm = client.get("/api/portal/bills-master").json()
+        by_uid = {b["invoice_uid"]: b for b in bm["bills"]}
+
+        # B-101 & K-201 auto-settled from Google Sheet bank columns; B-102 stays pending!
+        self.assertEqual(by_uid["MAIN::B-101"]["settlements"][0]["account"], "42441-TJ")
+        self.assertEqual(by_uid["MAIN::B-101"]["settlements"][0]["amount"], 10000.0)
+        self.assertEqual(by_uid["KHPS::K-201"]["settlements"][0]["account"], "Cash")
+        self.assertEqual(by_uid["MAIN::B-102"]["settlements"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

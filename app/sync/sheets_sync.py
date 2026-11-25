@@ -183,8 +183,8 @@ def normalize_sheet_row(
     sales_executive = _cell(row, hmap, ["sales executive", "sales_executive", "sm name", "sm_name", "agent name", "agent", "staff", "executive"])
     payment_mode = _cell(row, hmap, ["payment mode", "payment_mode", "paymode", "pay mode", "pay_mode", "payment", "mode"], default="Cash")
     sale_type = _cell(row, hmap, ["sale type", "sale_type", "type"], default="Retail")
-    account_name = _cell(row, hmap, ["account name", "account_name", "account"])
-    bank_account = _cell(row, hmap, ["bank account", "bank_account", "bank"])
+    account_name = _cell(row, hmap, ["account name", "account_name", "account", "credited account"])
+    bank_account = _cell(row, hmap, ["bank account", "bank_account", "bank", "credited bank", "credited bank account", "bank name"])
     customer_name = _cell(row, hmap, ["customer name", "customer_name", "customer"])
     customer_phone = _cell(row, hmap, ["customer phone", "customer_phone", "customer phone number", "phone number", "phone", "mobile"])
     sales_manager = _cell(row, hmap, ["sales manager", "sales_manager", "manager"])
@@ -232,6 +232,85 @@ def normalize_sheet_row(
         "discount_variance": discount_variance,
         **content_fields,
     }
+
+
+def _ensure_sync_bank_account(db: Database, conn: Any, account_name: str) -> int:
+    clean = account_name.strip()
+    existing = db.fetch_one(conn, "SELECT id FROM bank_accounts WHERE LOWER(account_name) = LOWER(?)", (clean,))
+    if existing:
+        return int(existing["id"])
+    acc_type = "cash" if "cash" in clean.lower() else ("upi" if "upi" in clean.lower() else "bank")
+    return db.insert_returning_id(
+        conn,
+        "INSERT INTO bank_accounts (account_name, bank_name, account_type, is_active) VALUES (?, ?, ?, TRUE)",
+        (clean, "Google Sheet Bank", acc_type),
+    )
+
+
+def _sync_sheet_bank_settlement(
+    db: Database,
+    conn: Any,
+    invoice_id: int,
+    branch_id: int,
+    bill_date: str,
+    bank_label: str,
+    amount: Decimal,
+    payment_mode: str,
+    source_line_id: str,
+    actor_user_id: Optional[int],
+) -> None:
+    clean_bank = (bank_label or "").strip()
+    if not clean_bank or clean_bank.lower() in {"not defined", "pending", "na", "n/a", "-", "unassigned"}:
+        return
+    if amount <= Decimal("0.00"):
+        return
+
+    auth_uid = actor_user_id
+    if auth_uid is None:
+        owner_row = db.fetch_one(conn, "SELECT id FROM users WHERE role_code = 'owner' ORDER BY id ASC LIMIT 1")
+        if not owner_row:
+            owner_row = db.fetch_one(conn, "SELECT id FROM users ORDER BY id ASC LIMIT 1")
+        if not owner_row:
+            return
+        auth_uid = int(owner_row["id"])
+
+    idem_key = f"gsheet::{source_line_id}"
+    existing = db.fetch_one(conn, "SELECT id FROM invoice_settlements WHERE idempotency_key = ?", (idem_key,))
+    if existing:
+        return
+
+    ba_id = _ensure_sync_bank_account(db, conn, clean_bank)
+    pm_lower = (payment_mode or "").lower()
+    if "cash" in clean_bank.lower() or "cash" in pm_lower:
+        pmode = "cash"
+    elif "upi" in clean_bank.lower() or "upi" in pm_lower:
+        pmode = "upi"
+    elif "card" in pm_lower:
+        pmode = "card"
+    else:
+        pmode = "bank_transfer"
+
+    db.execute(
+        conn,
+        """
+        INSERT INTO invoice_settlements (
+            invoice_id, branch_id, payment_mode, bank_account_id, amount,
+            settlement_status, payment_reference, idempotency_key,
+            settlement_date, authorized_by, notes
+        ) VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, 'Auto-synced from Google Sheet')
+        """,
+        (
+            invoice_id,
+            branch_id,
+            pmode,
+            ba_id,
+            f"{amount:.2f}",
+            clean_bank,
+            idem_key,
+            bill_date,
+            auth_uid,
+        ),
+    )
 
 
 def _recalculate_invoice_master(db: Database, conn: Any, invoice_id: int) -> None:
@@ -554,6 +633,20 @@ def run_sheets_sync(
                             normalized["sales_manager"],
                         ),
                     )
+                    bank_label = normalized["bank_account"] or normalized["account_name"]
+                    if bank_label:
+                        _sync_sheet_bank_settlement(
+                            db,
+                            conn,
+                            invoice_id=invoice_id,
+                            branch_id=branch_id,
+                            bill_date=normalized["bill_date"],
+                            bank_label=bank_label,
+                            amount=to_decimal(normalized["final_amount"]),
+                            payment_mode=normalized["payment_mode"],
+                            source_line_id=sid,
+                            actor_user_id=triggered_by,
+                        )
                     rows_inserted += 1
                     touched_invoice_ids.add(invoice_id)
 

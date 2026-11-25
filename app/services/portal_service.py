@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import requests
 from collections import defaultdict
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -521,3 +522,160 @@ def save_monthly_target(db: Database, auth: AuthContext, year: int, month: int, 
                 (year, month, f"{dec:.2f}", auth.user_id),
             )
     return {"year": year, "month": month, "target_amount": float(dec)}
+
+
+def _normalize_legacy_branch(store_name: str) -> str:
+    s = (store_name or "").strip().lower()
+    if "khps" in s:
+        return "KHPS"
+    return "MAIN"
+
+
+def import_legacy_supabase_bank_data(
+    db: Database,
+    auth: AuthContext,
+    supabase_url: str,
+    supabase_anon_key: str,
+    ip_address: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Pull previously entered bank_accounts and receivables from legacy Supabase portal into PostgreSQL."""
+    base_url = supabase_url.strip().rstrip("/")
+    headers = {
+        "apikey": supabase_anon_key.strip(),
+        "Authorization": f"Bearer {supabase_anon_key.strip()}",
+    }
+
+    # 1. Fetch legacy bank_accounts
+    banks_imported = 0
+    r_banks = requests.get(f"{base_url}/rest/v1/bank_accounts?select=*", headers=headers, timeout=20)
+    if r_banks.status_code == 200:
+        legacy_banks = r_banks.json()
+    else:
+        legacy_banks = []
+
+    # 2. Fetch legacy receivables (paginated in 1000-row chunks)
+    legacy_recs: List[Dict[str, Any]] = []
+    offset = 0
+    step = 1000
+    while True:
+        r_rec = requests.get(
+            f"{base_url}/rest/v1/receivables?select=*&order=id.asc&offset={offset}&limit={step}",
+            headers=headers,
+            timeout=30,
+        )
+        r_rec.raise_for_status()
+        batch = r_rec.json()
+        if not batch:
+            break
+        legacy_recs.extend(batch)
+        if len(batch) < step:
+            break
+        offset += step
+
+    settlements_imported = 0
+    settlements_skipped_dup = 0
+    unmatched_bills: List[str] = []
+    touched_invoice_ids: set[int] = set()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    with db.connection() as conn:
+        for b in legacy_banks:
+            acc_name = str(b.get("account_name", "")).strip()
+            if acc_name:
+                _ensure_bank_account(db, conn, acc_name, str(b.get("account_type", "bank")))
+                banks_imported += 1
+
+        branches = db.fetch_all(conn, "SELECT id, code FROM branches")
+        branch_id_by_code = {br["code"]: int(br["id"]) for br in branches}
+
+        for rec in legacy_recs:
+            acc = str(rec.get("bank_account", "")).strip()
+            bill_no = str(rec.get("bill_no", "")).strip()
+            amt = to_decimal(rec.get("amount", 0))
+            if not bill_no or not acc or acc.lower() in {"not defined", "pending"} or amt <= Decimal("0.00"):
+                continue
+
+            rec_id = rec.get("id") or f"{bill_no}:{acc}:{amt}"
+            idem_key = f"legacy_supabase::{rec_id}"
+            dup = db.fetch_one(conn, "SELECT id FROM invoice_settlements WHERE idempotency_key = ?", (idem_key,))
+            if dup:
+                settlements_skipped_dup += 1
+                continue
+
+            b_code = _normalize_legacy_branch(str(rec.get("store_name", "")))
+            branch_id = branch_id_by_code.get(b_code)
+            inv = None
+            if branch_id:
+                inv = db.fetch_one(
+                    conn,
+                    "SELECT id, branch_id, bill_date FROM invoice_masters WHERE branch_id = ? AND UPPER(invoice_no) = UPPER(?)",
+                    (branch_id, bill_no),
+                )
+            if not inv:
+                inv = db.fetch_one(
+                    conn,
+                    "SELECT id, branch_id, bill_date FROM invoice_masters WHERE UPPER(invoice_no) = UPPER(?) ORDER BY id ASC LIMIT 1",
+                    (bill_no,),
+                )
+            if not inv:
+                unmatched_bills.append(f"{b_code}::{bill_no}")
+                continue
+
+            ba_id = _ensure_bank_account(db, conn, acc)
+            pmode = "cash" if "cash" in acc.lower() else ("upi" if "upi" in acc.lower() else "bank_transfer")
+            settle_date = str(rec.get("bill_date") or inv["bill_date"] or "")[:10] or str(inv["bill_date"])
+
+            db.execute(
+                conn,
+                """
+                INSERT INTO invoice_settlements (
+                    invoice_id, branch_id, payment_mode, bank_account_id, amount,
+                    settlement_status, payment_reference, idempotency_key,
+                    settlement_date, authorized_by, notes, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, 'Imported from legacy portal', ?, ?)
+                """,
+                (
+                    inv["id"],
+                    inv["branch_id"],
+                    pmode,
+                    ba_id,
+                    f"{amt:.2f}",
+                    acc,
+                    idem_key,
+                    settle_date,
+                    auth.user_id,
+                    now_iso,
+                    now_iso,
+                ),
+            )
+            settlements_imported += 1
+            touched_invoice_ids.add(int(inv["id"]))
+
+        for inv_id in touched_invoice_ids:
+            _recalculate_invoice_master(db, conn, inv_id)
+
+        write_audit_log(
+            db,
+            conn,
+            actor_user_id=auth.user_id,
+            actor_role=auth.role_code,
+            action="import_legacy_bank_data",
+            entity_type="invoice_settlements",
+            entity_id=f"imported:{settlements_imported}",
+            ip_address=ip_address,
+            after_state={
+                "banks_imported": banks_imported,
+                "settlements_imported": settlements_imported,
+                "skipped_duplicates": settlements_skipped_dup,
+                "unmatched_count": len(unmatched_bills),
+            },
+        )
+
+    return {
+        "banks_imported": banks_imported,
+        "legacy_rows_fetched": len(legacy_recs),
+        "settlements_imported": settlements_imported,
+        "skipped_duplicates": settlements_skipped_dup,
+        "unmatched_bills_count": len(unmatched_bills),
+        "unmatched_bills_sample": unmatched_bills[:20],
+    }

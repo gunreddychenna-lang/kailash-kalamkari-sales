@@ -53,6 +53,7 @@ from app.services.portal_service import (
     get_portal_attendance,
     get_portal_bills_master,
     get_portal_sales_rows,
+    import_legacy_supabase_bank_data,
     reset_bill_settlements,
     save_bill_bank_splits,
     save_monthly_target,
@@ -328,6 +329,17 @@ def create_app(settings: Optional[Settings] = None, db: Optional[Database] = Non
         auth = _auth(request, enforce_csrf=True)
         require_roles(auth, ["owner", "accountant"])
         return reset_bill_settlements(database, auth, invoice_id=None, ip_address=_client_ip(request))
+
+    @app.post("/api/portal/import-legacy-bank")
+    def api_import_legacy_bank(payload: Dict[str, Any], request: Request):
+        auth = _auth(request, enforce_csrf=True)
+        require_roles(auth, ["owner", "admin", "accountant"])
+        url = str(payload.get("supabase_url", "https://dqvqqrbvklpiibzqivbp.supabase.co")).strip()
+        key = str(payload.get("supabase_anon_key", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdnFxcmJ2a2xwaWlienFpdmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MTk2OTUsImV4cCI6MjEwNjE5NTY5NX0.ljhpD3QBpXvi5DjrQ2wE6R4NdhOicu_3ODH7pX79K58")).strip()
+        try:
+            return import_legacy_supabase_bank_data(database, auth, url, key, ip_address=_client_ip(request))
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Legacy import failed: {exc}")
 
     @app.post("/api/portal/bank-accounts", status_code=201)
     def api_portal_add_bank(payload: Dict[str, Any], request: Request):
