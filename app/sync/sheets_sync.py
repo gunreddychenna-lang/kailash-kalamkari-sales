@@ -155,7 +155,7 @@ def normalize_sheet_row(
     row: List[Any],
     row_number: int,
 ) -> Optional[Dict[str, Any]]:
-    invoice_no = _cell(row, hmap, ["invoice no", "invoice_no", "bill no", "bill number", "invoice", "invoice/bill number"])
+    invoice_no = _cell(row, hmap, ["invoice no", "invoice_no", "bill no", "bil no", "bill number", "invoice", "invoice/bill number"])
     bill_date_raw = _cell(row, hmap, ["bill date", "bill_date", "date", "invoice date"])
     product_name = _cell(row, hmap, ["product", "product name", "item", "item name", "product/item name"])
 
@@ -171,22 +171,22 @@ def normalize_sheet_row(
         }
 
     serial_no = _cell(row, hmap, ["s.no", "sno", "sl no", "serial no", "serial number", "serial_no"], default=str(row_number))
-    raw_branch = _cell(row, hmap, ["branch", "branch name", "store", "store name"], default=source.legacy_branch_identifier)
+    raw_branch = _cell(row, hmap, ["branch", "branch name", "store", "store name", "branch_name"], default=source.legacy_branch_identifier)
     qty = to_decimal(_cell(row, hmap, ["qty", "quantity", "units"], default="1"), default=Decimal("1.00"))
     rate = to_decimal(_cell(row, hmap, ["rate", "unit price", "price", "mrp"], default="0"))
     discount = to_decimal(
         _cell(row, hmap, [source.discount_column, "discount", "discoun", "disc"], default="0")
     )
     final_amount = to_decimal(
-        _cell(row, hmap, ["final amount", "final_amount", "net amount", "amount", "total"], default="0")
+        _cell(row, hmap, ["final amount", "final_amount", "billamount", "bill amount", "net amount", "amount", "total"], default="0")
     )
-    sales_executive = _cell(row, hmap, ["sales executive", "sales_executive", "agent", "staff", "executive"])
-    payment_mode = _cell(row, hmap, ["payment mode", "payment_mode", "payment", "mode"], default="Cash")
+    sales_executive = _cell(row, hmap, ["sales executive", "sales_executive", "sm name", "sm_name", "agent name", "agent", "staff", "executive"])
+    payment_mode = _cell(row, hmap, ["payment mode", "payment_mode", "paymode", "pay mode", "pay_mode", "payment", "mode"], default="Cash")
     sale_type = _cell(row, hmap, ["sale type", "sale_type", "type"], default="Retail")
     account_name = _cell(row, hmap, ["account name", "account_name", "account"])
     bank_account = _cell(row, hmap, ["bank account", "bank_account", "bank"])
     customer_name = _cell(row, hmap, ["customer name", "customer_name", "customer"])
-    customer_phone = _cell(row, hmap, ["customer phone", "customer_phone", "phone", "mobile"])
+    customer_phone = _cell(row, hmap, ["customer phone", "customer_phone", "customer phone number", "phone number", "phone", "mobile"])
     sales_manager = _cell(row, hmap, ["sales manager", "sales_manager", "manager"])
 
     is_return = final_amount < Decimal("0.00") or qty < Decimal("0.00") or sale_type.lower() in {"return", "sales return", "refund"}
