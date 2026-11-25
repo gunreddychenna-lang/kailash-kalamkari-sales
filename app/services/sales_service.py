@@ -165,12 +165,13 @@ def get_sales_dashboard(
         by_branch[b_name]["units"] += qty
         by_branch[b_name]["invoices"].add(inv_id)
 
-        staff = ln["sales_executive"] or "Unassigned"
-        if staff not in by_staff:
-            by_staff[staff] = {"staff": staff, "sales": Decimal("0.00"), "units": Decimal("0.00"), "invoices": set()}
-        by_staff[staff]["sales"] += amt
-        by_staff[staff]["units"] += qty
-        by_staff[staff]["invoices"].add(inv_id)
+        raw_staff = " ".join((ln["sales_executive"] or "").split()) or "Unassigned"
+        staff_key = raw_staff.lower()
+        if staff_key not in by_staff:
+            by_staff[staff_key] = {"staff": raw_staff, "sales": Decimal("0.00"), "units": Decimal("0.00"), "invoices": set()}
+        by_staff[staff_key]["sales"] += amt
+        by_staff[staff_key]["units"] += qty
+        by_staff[staff_key]["invoices"].add(inv_id)
 
         pm = ln["payment_mode"] or "Unspecified"
         by_payment[pm] += amt

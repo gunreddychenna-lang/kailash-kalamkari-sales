@@ -29,6 +29,16 @@ const STAFF_ALIASES_MAP = {
   "KS-113": ["ammulu", "m.ammulu", "m ammulu"],
 };
 
+function normAgentKey(name) {
+  const cleaned = String(name || "").trim().replace(/\s+/g, " ");
+  return cleaned ? cleaned.toLowerCase() : "no agent";
+}
+
+function formatAgentDisplay(name) {
+  const cleaned = String(name || "").trim().replace(/\s+/g, " ");
+  return cleaned || "No Agent";
+}
+
 function fmtINR(val) {
   const n = Math.round(Number(val) || 0);
   return (n < 0 ? "-₹" : "₹") + Math.abs(n).toLocaleString("en-IN");
@@ -439,17 +449,17 @@ function openProductDetail(productName) {
   document.getElementById("detail-product-name").textContent = productName;
   const staffMap = {};
   getFilteredRows().filter((r) => (r.item_name || "General Item") === productName).forEach((r) => {
-    const s = r.sm_name || "No Agent";
-    if (!staffMap[s]) staffMap[s] = { online: 0, offline: 0, ws: 0, total: 0 };
+    const k = normAgentKey(r.sm_name);
+    if (!staffMap[k]) staffMap[k] = { name: formatAgentDisplay(r.sm_name), online: 0, offline: 0, ws: 0, total: 0 };
     const amt = Number(r.amount) || 0;
-    staffMap[s].total += amt;
-    if (r.channel === "Online") staffMap[s].online += amt;
-    else if (r.channel === "Take by Hand") staffMap[s].ws += amt;
-    else staffMap[s].offline += amt;
+    staffMap[k].total += amt;
+    if (r.channel === "Online") staffMap[k].online += amt;
+    else if (r.channel === "Take by Hand") staffMap[k].ws += amt;
+    else staffMap[k].offline += amt;
   });
-  document.getElementById("product-detail-table-body").innerHTML = Object.entries(staffMap)
-    .sort((a, b) => b[1].total - a[1].total)
-    .map(([st, v]) => `<tr><td class="p-2.5 font-bold">${escHtml(st)}</td><td class="p-2.5 text-right text-blue-800">${fmtINR(v.online)}</td><td class="p-2.5 text-right text-orange-800">${fmtINR(v.offline)}</td><td class="p-2.5 text-right text-purple-800">${fmtINR(v.ws)}</td><td class="p-2.5 text-right font-black text-[#5C0612]">${fmtINR(v.total)}</td></tr>`)
+  document.getElementById("product-detail-table-body").innerHTML = Object.values(staffMap)
+    .sort((a, b) => b.total - a.total)
+    .map((v) => `<tr><td class="p-2.5 font-bold">${escHtml(v.name)}</td><td class="p-2.5 text-right text-blue-800">${fmtINR(v.online)}</td><td class="p-2.5 text-right text-orange-800">${fmtINR(v.offline)}</td><td class="p-2.5 text-right text-purple-800">${fmtINR(v.ws)}</td><td class="p-2.5 text-right font-black text-[#5C0612]">${fmtINR(v.total)}</td></tr>`)
     .join("");
   document.getElementById("product-detail-card").classList.remove("hidden");
 }
@@ -520,18 +530,18 @@ function renderAgentsTab() {
   if (!tbody) return;
   const map = {};
   getFilteredRows().forEach((r) => {
-    const a = r.sm_name || "No Agent";
-    if (!map[a]) map[a] = { name: a, online: 0, offline: 0, ws: 0, total: 0 };
+    const k = normAgentKey(r.sm_name);
+    if (!map[k]) map[k] = { key: k, name: formatAgentDisplay(r.sm_name), online: 0, offline: 0, ws: 0, total: 0 };
     const amt = Number(r.amount) || 0;
-    map[a].total += amt;
-    if (r.channel === "Online") map[a].online += amt;
-    else if (r.channel === "Take by Hand") map[a].ws += amt;
-    else map[a].offline += amt;
+    map[k].total += amt;
+    if (r.channel === "Online") map[k].online += amt;
+    else if (r.channel === "Take by Hand") map[k].ws += amt;
+    else map[k].offline += amt;
   });
   const sorted = Object.values(map).sort((a, b) => b.total - a.total);
   tbody.innerHTML = sorted.length
     ? sorted.map((a) => `
-      <tr class="hover:bg-amber-50/30 cursor-pointer" onclick="openAgentAnalysisScreen('${escHtml(a.name).replace(/'/g, "\\'")}')">
+      <tr class="hover:bg-amber-50/30 cursor-pointer" onclick="openAgentAnalysisScreen('${escHtml(a.key).replace(/'/g, "\\'")}', '${escHtml(a.name).replace(/'/g, "\\'")}')">
         <td class="p-3.5"><div class="font-bold text-stone-800 font-sans">${escHtml(a.name)}</div><div class="text-[9px] text-stone-500">Online: ${fmtINR(a.online)} • Counter: ${fmtINR(a.offline)} • WS: ${fmtINR(a.ws)}</div></td>
         <td class="p-3.5 text-right font-black text-[#5C0612]">${fmtINR(a.total)}</td>
       </tr>
@@ -539,8 +549,10 @@ function renderAgentsTab() {
     : `<tr><td colspan="2" class="p-6 text-center text-stone-400">No staff sales in selected range.</td></tr>`;
 }
 
-function openAgentAnalysisScreen(agentName) {
-  const rows = getFilteredRows().filter((r) => (r.sm_name || "No Agent") === agentName);
+function openAgentAnalysisScreen(agentKey, displayName) {
+  const targetKey = normAgentKey(agentKey);
+  const rows = getFilteredRows().filter((r) => normAgentKey(r.sm_name) === targetKey);
+  const agentName = displayName || (rows[0] ? formatAgentDisplay(rows[0].sm_name) : agentKey);
   let tot = 0, onl = 0, off = 0, ws = 0;
   const byDay = {};
   rows.forEach((r) => {
@@ -579,14 +591,15 @@ function selectChannel(channel) {
   rows.forEach((r) => {
     const amt = Number(r.amount) || 0;
     tot += amt;
-    const s = r.sm_name || "No Agent";
-    byStaff[s] = (byStaff[s] || 0) + amt;
+    const k = normAgentKey(r.sm_name);
+    if (!byStaff[k]) byStaff[k] = { name: formatAgentDisplay(r.sm_name), total: 0 };
+    byStaff[k].total += amt;
   });
   document.getElementById("channel-view-title").textContent = `${channel} Channel Sales Breakdown`;
   document.getElementById("channel-view-total").textContent = fmtINR(tot);
-  document.getElementById("channel-agents-table").innerHTML = Object.entries(byStaff)
-    .sort((a, b) => b[1] - a[1])
-    .map(([s, v]) => `<tr><td class="p-3 font-bold">${escHtml(s)}</td><td class="p-3 text-right font-black text-[#5C0612]">${fmtINR(v)}</td></tr>`)
+  document.getElementById("channel-agents-table").innerHTML = Object.values(byStaff)
+    .sort((a, b) => b.total - a.total)
+    .map((v) => `<tr><td class="p-3 font-bold">${escHtml(v.name)}</td><td class="p-3 text-right font-black text-[#5C0612]">${fmtINR(v.total)}</td></tr>`)
     .join("") || `<tr><td colspan="2" class="p-6 text-center text-stone-400">No sales in this channel.</td></tr>`;
   document.getElementById("standard-main").classList.add("hidden");
   document.getElementById("channel-view").classList.remove("hidden");
@@ -606,8 +619,9 @@ function renderDaywiseTab() {
     if (!byDay[d]) byDay[d] = { total: 0, staff: {} };
     const amt = Number(r.amount) || 0;
     byDay[d].total += amt;
-    const s = r.sm_name || "No Agent";
-    byDay[d].staff[s] = (byDay[d].staff[s] || 0) + amt;
+    const k = normAgentKey(r.sm_name);
+    if (!byDay[d].staff[k]) byDay[d].staff[k] = { name: formatAgentDisplay(r.sm_name), total: 0 };
+    byDay[d].staff[k].total += amt;
   });
   const sorted = Object.entries(byDay).sort((a, b) => b[0].localeCompare(a[0]));
   container.innerHTML = sorted.length
@@ -618,7 +632,7 @@ function renderDaywiseTab() {
           <strong class="text-sm font-black font-numeric text-[#5C0612]">${fmtINR(info.total)}</strong>
         </div>
         <div class="flex flex-wrap gap-2 text-[11px]">
-          ${Object.entries(info.staff).sort((a, b) => b[1] - a[1]).map(([s, v]) => `<span class="bg-white border border-[#E5D5C6] px-2.5 py-1 rounded-xl font-numeric">${escHtml(s)}: <strong class="text-[#5C0612]">${fmtINR(v)}</strong></span>`).join("")}
+          ${Object.values(info.staff).sort((a, b) => b.total - a.total).map((v) => `<span class="bg-white border border-[#E5D5C6] px-2.5 py-1 rounded-xl font-numeric">${escHtml(v.name)}: <strong class="text-[#5C0612]">${fmtINR(v.total)}</strong></span>`).join("")}
         </div>
       </div>
     `).join("")

@@ -468,5 +468,38 @@ class PortalPhase1Tests(unittest.TestCase):
         self.assertEqual(r_res.status_code, 200)
 
 
+
+    def test_11_cross_branch_same_agent_aggregation_and_branch_filter(self) -> None:
+        def _two_branch_same_agent_fetcher(source: SheetSourceConfig):
+            if source.branch_code == "MAIN":
+                return [
+                    ["Bil No", "Bill Date", "Item Name", "Qty", "Rate", "Discount", "BillAmount", "SM Name", "PayMode"],
+                    ["M-1", "2026-11-24", "Kalamkari Saree", "1", "5000", "0", "5000", "Chenna kesava reddy", "UPI"],
+                ]
+            return [
+                ["Bil No", "Bill Date", "Item Name", "Qty", "Rate", "Discoun", "BillAmount", "SM Name", "PayMode"],
+                ["K-1", "2026-11-24", "Tussar Saree", "1", "3000", "0", "3000", "Chenna Kesava Reddy", "Cash"],
+            ]
+
+        res = run_sheets_sync(self.db, self.settings, trigger_type="manual", fetcher=_two_branch_same_agent_fetcher)
+        self.assertEqual(res.rows_inserted, 2)
+
+        client = TestClient(self.app)
+        self._login(client, "owner1", "OwnerPass#2026")
+
+        # All Branches -> combined into 1 staff entry (5000 + 3000 = 8000.00)
+        all_dash = client.get("/api/sales/dashboard?reference_date=2026-11-24&start_date=2026-11-01&end_date=2026-11-24").json()
+        self.assertEqual(len(all_dash["breakdowns"]["by_staff"]), 1)
+        self.assertEqual(all_dash["breakdowns"]["by_staff"][0]["sales"], "8000.00")
+
+        # Filter to Main Branch -> only 5000.00
+        main_dash = client.get(f"/api/sales/dashboard?branch_id={self.main_branch_id}&reference_date=2026-11-24&start_date=2026-11-01&end_date=2026-11-24").json()
+        self.assertEqual(main_dash["breakdowns"]["by_staff"][0]["sales"], "5000.00")
+
+        # Filter to KHPS -> only 3000.00
+        khps_dash = client.get(f"/api/sales/dashboard?branch_id={self.khps_branch_id}&reference_date=2026-11-24&start_date=2026-11-01&end_date=2026-11-24").json()
+        self.assertEqual(khps_dash["breakdowns"]["by_staff"][0]["sales"], "3000.00")
+
+
 if __name__ == "__main__":
     unittest.main()
