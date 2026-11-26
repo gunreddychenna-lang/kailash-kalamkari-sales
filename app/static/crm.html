@@ -268,8 +268,13 @@
       const icon = document.getElementById('refresh-icon');
       if (icon) icon.classList.add('animate-spin');
       try {
-        const resp = await fetch('/api/portal/sales-rows', { credentials: 'same-origin' });
+        let resp = await fetch('/api/portal/crm-sheet-rows', { credentials: 'same-origin' });
         if (resp.status === 401) { window.location.href = '/login'; return; }
+        if (!resp.ok) {
+          const errBody = await resp.json().catch(() => ({}));
+          console.warn('CRM Sheet fallback to sales-rows:', errBody.detail || resp.status);
+          resp = await fetch('/api/portal/sales-rows', { credentials: 'same-origin' });
+        }
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
         allRawSalesRecords = data.rows || [];

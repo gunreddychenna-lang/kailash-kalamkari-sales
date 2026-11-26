@@ -550,5 +550,26 @@ class PortalPhase1Tests(unittest.TestCase):
         self.assertEqual(r.json()["settlements_imported"], 3)
 
 
+
+    def test_14_crm_google_sheet_endpoint_and_phone_masking(self) -> None:
+        from unittest.mock import patch
+        sample_crm = [
+            {"CUSTOMER NAME": "Sita Devi", "CUSTOMER PHONE NUMBER": "9848099999", "Item Name": "Kalamkari Silk", "BillAmount": "12000", "SM Name": "Mouni"},
+        ]
+        owner_client = TestClient(self.app)
+        self._login(owner_client, "owner1", "OwnerPass#2026")
+        with patch("app.main.fetch_crm_sheet_rows", return_value=[dict(sample_crm[0])]):
+            r = owner_client.get("/api/portal/crm-sheet-rows")
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(r.json()["rows"][0]["CUSTOMER PHONE NUMBER"], "9848099999")
+
+        staff_client = TestClient(self.app)
+        self._login(staff_client, "staff_khps", "StaffPass#2026")
+        with patch("app.main.fetch_crm_sheet_rows", return_value=[dict(sample_crm[0])]):
+            r_st = staff_client.get("/api/portal/crm-sheet-rows")
+            self.assertEqual(r_st.status_code, 200)
+            self.assertEqual(r_st.json()["rows"][0]["CUSTOMER PHONE NUMBER"], "")
+
+
 if __name__ == "__main__":
     unittest.main()

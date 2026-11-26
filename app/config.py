@@ -33,6 +33,8 @@ class Settings:
     google_service_account_json: str
     google_service_account_file: str
     sheet_sources: List[SheetSourceConfig]
+    crm_spreadsheet_id: str = "1a7GMkMb0B8fij4DjkFaaqsmYH_cMTqUlSxM5we5uti0"
+    crm_sheet_name: str = ""
 
 
 def load_settings() -> Settings:
@@ -84,4 +86,6 @@ def load_settings() -> Settings:
         google_service_account_json=os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", ""),
         google_service_account_file=os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", ""),
         sheet_sources=sheet_sources,
+        crm_spreadsheet_id=os.getenv("CRM_SPREADSHEET_ID", "1a7GMkMb0B8fij4DjkFaaqsmYH_cMTqUlSxM5we5uti0").strip(),
+        crm_sheet_name=os.getenv("CRM_SHEET_NAME", "").strip(),
     )

@@ -61,7 +61,7 @@ from app.services.portal_service import (
     save_monthly_target,
     save_portal_attendance,
 )
-from app.sync.sheets_sync import SyncLockError, run_sheets_sync
+from app.sync.sheets_sync import SyncLockError, fetch_crm_sheet_rows, run_sheets_sync
 
 
 class LoginPayload(BaseModel):
@@ -299,6 +299,21 @@ def create_app(settings: Optional[Settings] = None, db: Optional[Database] = Non
     # ------------------------------------------------------------------
     # Portal Modernized APIs (Replaces Supabase for index/entry/crm/attendance)
     # ------------------------------------------------------------------
+    @app.get("/api/portal/crm-sheet-rows")
+    def api_portal_crm_sheet_rows(request: Request):
+        auth = _auth(request)
+        include_phone = auth.role_code in {"owner", "admin", "accountant"}
+        try:
+            rows = fetch_crm_sheet_rows(cfg)
+            if not include_phone:
+                for r in rows:
+                    for k in list(r.keys()):
+                        if "phone" in k.lower() or "mobile" in k.lower():
+                            r[k] = ""
+            return {"source": "crm_google_sheet", "spreadsheet_id": cfg.crm_spreadsheet_id, "rows": rows}
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"CRM Sheet read failed: {exc}")
+
     @app.get("/api/portal/sales-rows")
     def api_portal_sales_rows(request: Request):
         auth = _auth(request)

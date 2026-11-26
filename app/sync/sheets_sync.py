@@ -777,3 +777,51 @@ def run_sheets_sync(
         raise
     finally:
         _release_sync_lock(db, lock_name)
+
+
+def fetch_crm_sheet_rows(settings: Settings) -> List[Dict[str, Any]]:
+    """Fetch live rows directly from the dedicated CRM Google Sheet (auto-detects first tab if CRM_SHEET_NAME is blank)."""
+    if not settings.crm_spreadsheet_id:
+        return []
+    token = get_google_access_token(settings)
+    headers = {"Authorization": f"Bearer {token}"}
+    sheet_title = settings.crm_sheet_name
+    if not sheet_title:
+        meta_url = f"https://sheets.googleapis.com/v4/spreadsheets/{settings.crm_spreadsheet_id}"
+        meta_resp = requests.get(
+            meta_url,
+            headers=headers,
+            params={"fields": "sheets.properties.title"},
+            timeout=20,
+        )
+        meta_resp.raise_for_status()
+        sheets = meta_resp.json().get("sheets", [])
+        if not sheets:
+            return []
+        sheet_title = sheets[0]["properties"]["title"]
+
+    range_ref = f"'{sheet_title}'!A:Z"
+    val_url = f"https://sheets.googleapis.com/v4/spreadsheets/{settings.crm_spreadsheet_id}/values/{requests.utils.quote(range_ref)}"
+    resp = requests.get(
+        val_url,
+        headers=headers,
+        params={"valueRenderOption": "UNFORMATTED_VALUE", "dateTimeRenderOption": "FORMATTED_STRING"},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    values = resp.json().get("values", [])
+    if len(values) < 2:
+        return []
+
+    raw_headers = [str(h).strip() for h in values[0]]
+    rows: List[Dict[str, Any]] = []
+    for row in values[1:]:
+        if not any(str(c).strip() for c in row if c is not None):
+            continue
+        obj: Dict[str, Any] = {}
+        for idx, h in enumerate(raw_headers):
+            if not h:
+                continue
+            obj[h] = row[idx] if idx < len(row) and row[idx] is not None else ""
+        rows.append(obj)
+    return rows
