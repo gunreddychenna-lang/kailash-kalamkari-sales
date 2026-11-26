@@ -185,37 +185,60 @@
     </div>
 
     <!-- MAIN FILTER TOOLBAR -->
-    <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow flex flex-col xl:flex-row justify-between items-center gap-3">
-      <div class="relative flex-1 w-full max-w-sm">
-        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-stone-400 text-xs"></i>
-        <input type="text" id="table-search" placeholder="Search Bill No, Staff, Branch, Bank..." oninput="renderBillsTable()" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl py-2.5 pl-10 pr-4 text-stone-800 font-sans focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
+    <div class="bg-[#FFFDF9] p-4 rounded-2xl border border-[#E5D5C6] warm-shadow space-y-3">
+      <div class="flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-3">
+        <div class="relative flex-1 w-full xl:max-w-sm">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-stone-400 text-xs"></i>
+          <input type="text" id="table-search" placeholder="Search Bill No, Staff, Branch, Bank..." oninput="resetPageAndRender()" class="w-full text-xs bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl py-2.5 pl-10 pr-4 text-stone-800 font-sans focus:outline-none focus:ring-1 focus:ring-[#5C0612]">
+        </div>
+
+        <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full xl:w-auto">
+          <div class="flex items-center justify-between gap-1 bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl px-2.5 py-2">
+            <span class="text-[10px] font-bold text-stone-500 uppercase font-traditional">From:</span>
+            <input type="date" id="filter-from-date" onchange="resetPageAndRender()" class="bg-transparent text-xs font-bold text-stone-800 focus:outline-none font-numeric w-full min-w-0">
+            <button type="button" onclick="openDatePicker('filter-from-date')" class="text-[#5C0612] p-0.5 shrink-0"><i class="fa-regular fa-calendar-days text-xs"></i></button>
+          </div>
+
+          <div class="flex items-center justify-between gap-1 bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl px-2.5 py-2">
+            <span class="text-[10px] font-bold text-stone-500 uppercase font-traditional">To:</span>
+            <input type="date" id="filter-to-date" onchange="resetPageAndRender()" class="bg-transparent text-xs font-bold text-stone-800 focus:outline-none font-numeric w-full min-w-0">
+            <button type="button" onclick="openDatePicker('filter-to-date')" class="text-[#5C0612] p-0.5 shrink-0"><i class="fa-regular fa-calendar-days text-xs"></i></button>
+          </div>
+
+          <select id="filter-store" onchange="resetPageAndRender()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-700 focus:outline-none font-sans w-full sm:w-auto">
+            <option value="all">All Branches</option>
+          </select>
+
+          <select id="filter-status" onchange="setStatusFilter(this.value)" class="hidden sm:block text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-[#5C0612] focus:outline-none font-traditional">
+            <option value="all">All Statuses</option>
+            <option value="unsettled" selected>⚠️ Pending Settlement</option>
+            <option value="partial">🔵 Partially Settled</option>
+            <option value="settled">✅ Fully Settled in Bank</option>
+          </select>
+
+          <span id="filtered-count-badge" class="col-span-2 sm:col-span-1 text-center text-[11px] font-bold font-numeric bg-[#5C0612] text-[#EFE5C9] px-3 py-2 rounded-xl">0 Invoices</span>
+        </div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto">
-        <div class="flex items-center gap-1.5 bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl px-2.5 py-1.5">
-          <span class="text-[10px] font-bold text-stone-500 uppercase font-traditional">From:</span>
-          <input type="date" id="filter-from-date" onchange="renderBillsTable()" class="bg-transparent text-xs font-bold text-stone-800 focus:outline-none font-numeric">
-          <button onclick="document.getElementById('filter-from-date').showPicker()" class="text-[#5C0612] p-0.5"><i class="fa-regular fa-calendar-days text-xs"></i></button>
-        </div>
-
-        <div class="flex items-center gap-1.5 bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl px-2.5 py-1.5">
-          <span class="text-[10px] font-bold text-stone-500 uppercase font-traditional">To:</span>
-          <input type="date" id="filter-to-date" onchange="renderBillsTable()" class="bg-transparent text-xs font-bold text-stone-800 focus:outline-none font-numeric">
-          <button onclick="document.getElementById('filter-to-date').showPicker()" class="text-[#5C0612] p-0.5"><i class="fa-regular fa-calendar-days text-xs"></i></button>
-        </div>
-
-        <select id="filter-store" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-stone-700 focus:outline-none font-sans">
-          <option value="all">All Branches</option>
-        </select>
-
-        <select id="filter-status" onchange="renderBillsTable()" class="text-xs font-bold bg-[#FAF6EE] border border-[#E5D5C6] rounded-xl p-2.5 text-[#5C0612] focus:outline-none font-traditional">
-          <option value="all">All Statuses</option>
-          <option value="unsettled" selected>⚠️ Pending Settlement</option>
-          <option value="partial">🔵 Partially Settled</option>
-          <option value="settled">✅ Fully Settled in Bank</option>
-        </select>
-
-        <span id="filtered-count-badge" class="text-[11px] font-bold font-numeric bg-[#5C0612] text-[#EFE5C9] px-3 py-2 rounded-xl">0 Invoices</span>
+      <!-- 1-TAP PAYMENT STATUS PILLS (MOBILE FRIENDLY) -->
+      <div class="flex flex-wrap items-center gap-1.5 pt-2 border-t border-[#E5D5C6]/60">
+        <span class="text-[10px] font-bold font-traditional text-stone-500 uppercase mr-1">Payment Status:</span>
+        <button type="button" onclick="setStatusFilter('all')" id="status-pill-all" class="px-3 py-1.5 text-xs font-bold rounded-xl border border-stone-300 bg-[#FAF6EE] text-stone-700 transition-all flex items-center gap-1.5 active:scale-95">
+          <span>All</span>
+          <span id="status-count-all" class="bg-stone-200 text-stone-800 text-[10px] px-1.5 py-0.2 rounded-full font-numeric">0</span>
+        </button>
+        <button type="button" onclick="setStatusFilter('unsettled')" id="status-pill-unsettled" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] transition-all flex items-center gap-1.5 shadow-xs active:scale-95">
+          <span>⚠️ Pending</span>
+          <span id="status-count-unsettled" class="bg-white/20 text-[10px] px-1.5 py-0.2 rounded-full font-numeric">0</span>
+        </button>
+        <button type="button" onclick="setStatusFilter('partial')" id="status-pill-partial" class="px-3 py-1.5 text-xs font-bold rounded-xl border border-blue-300 bg-[#FAF6EE] text-blue-900 transition-all flex items-center gap-1.5 active:scale-95">
+          <span>🔵 Partial</span>
+          <span id="status-count-partial" class="bg-blue-100 text-blue-900 text-[10px] px-1.5 py-0.2 rounded-full font-numeric">0</span>
+        </button>
+        <button type="button" onclick="setStatusFilter('settled')" id="status-pill-settled" class="px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-300 bg-[#FAF6EE] text-emerald-900 transition-all flex items-center gap-1.5 active:scale-95">
+          <span>✅ Full Settled</span>
+          <span id="status-count-settled" class="bg-emerald-100 text-emerald-900 text-[10px] px-1.5 py-0.2 rounded-full font-numeric">0</span>
+        </button>
       </div>
     </div>
 
@@ -240,7 +263,7 @@
               <th onclick="toggleSort('amount')" class="p-3.5 text-right font-traditional w-28 cursor-pointer hover:text-[#5C0612]">
                 <div class="flex items-center justify-end gap-1"><span>BILL TOTAL</span><span id="sort-icon-amount"><i class="fa-solid fa-sort text-[8px] text-stone-400"></i></span></div>
               </th>
-              <th class="p-3.5 font-traditional text-center min-w-[380px]">CREDITED BANK ACCOUNT & MULTI-SPLIT ALLOCATION</th>
+              <th class="p-3.5 font-traditional text-center min-w-[270px] sm:min-w-[360px]">CREDITED BANK ACCOUNT & MULTI-SPLIT ALLOCATION</th>
               <th class="p-3.5 text-center font-traditional w-32">ACTION</th>
             </tr>
           </thead>
@@ -252,6 +275,14 @@
             </tr>
           </tbody>
         </table>
+      </div>
+      <div id="pagination-bar" class="hidden px-4 py-3 bg-[#FAF6EE] border-t border-[#E5D5C6] flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+        <span id="pagination-info" class="font-bold text-stone-600 font-numeric">Showing 0–0 of 0</span>
+        <div class="flex items-center gap-2">
+          <button type="button" id="btn-prev-page" onclick="changePage(-1)" class="px-3.5 py-1.5 rounded-xl bg-white border border-[#E5D5C6] font-bold text-[#5C0612] disabled:opacity-40 active:scale-95">◀ Prev</button>
+          <span id="pagination-page-label" class="font-bold font-numeric text-stone-700 px-2">Page 1 / 1</span>
+          <button type="button" id="btn-next-page" onclick="changePage(1)" class="px-3.5 py-1.5 rounded-xl bg-white border border-[#E5D5C6] font-bold text-[#5C0612] disabled:opacity-40 active:scale-95">Next ▶</button>
+        </div>
       </div>
     </div>
   </main>
@@ -299,6 +330,60 @@
     let currentSortCol = 'date';
     let currentSortAsc = false;
     let selectedChannelFilter = 'All';
+    let currentPage = 1;
+    const PAGE_SIZE = 50;
+
+    function openDatePicker(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      try { if (typeof el.showPicker === 'function') { el.showPicker(); return; } } catch (_) {}
+      el.focus();
+      el.click();
+    }
+
+    function resetPageAndRender() {
+      currentPage = 1;
+      renderBillsTable();
+    }
+
+    function changePage(delta) {
+      currentPage = Math.max(1, currentPage + delta);
+      renderBillsTable();
+      const tbl = document.getElementById('bills-table-body');
+      if (tbl) tbl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function setStatusFilter(status) {
+      const sel = document.getElementById('filter-status');
+      if (sel) sel.value = status;
+      const pills = {
+        all: { id: 'status-pill-all', active: 'px-3 py-1.5 text-xs font-bold rounded-xl bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] transition-all flex items-center gap-1.5 shadow-xs active:scale-95', inactive: 'px-3 py-1.5 text-xs font-bold rounded-xl border border-stone-300 bg-[#FAF6EE] text-stone-700 transition-all flex items-center gap-1.5 active:scale-95' },
+        unsettled: { id: 'status-pill-unsettled', active: 'px-3 py-1.5 text-xs font-bold rounded-xl bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] transition-all flex items-center gap-1.5 shadow-xs active:scale-95', inactive: 'px-3 py-1.5 text-xs font-bold rounded-xl border border-rose-300 bg-[#FAF6EE] text-rose-900 transition-all flex items-center gap-1.5 active:scale-95' },
+        partial: { id: 'status-pill-partial', active: 'px-3 py-1.5 text-xs font-bold rounded-xl bg-blue-700 text-white border border-blue-800 transition-all flex items-center gap-1.5 shadow-xs active:scale-95', inactive: 'px-3 py-1.5 text-xs font-bold rounded-xl border border-blue-300 bg-[#FAF6EE] text-blue-900 transition-all flex items-center gap-1.5 active:scale-95' },
+        settled: { id: 'status-pill-settled', active: 'px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-700 text-white border border-emerald-800 transition-all flex items-center gap-1.5 shadow-xs active:scale-95', inactive: 'px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-300 bg-[#FAF6EE] text-emerald-900 transition-all flex items-center gap-1.5 active:scale-95' },
+      };
+      Object.entries(pills).forEach(([k, cfg]) => {
+        const el = document.getElementById(cfg.id);
+        if (el) el.className = (k === status) ? cfg.active : cfg.inactive;
+      });
+      currentPage = 1;
+      renderBillsTable();
+    }
+
+    function getBillStatusInfo(b) {
+      const currentRows = settlementRowsState[b.invoiceUid] || b.settlements || [];
+      let billSettledSum = 0;
+      currentRows.forEach(s => {
+        if (s.account && s.account.trim() !== '' && (parseFloat(s.amount) || 0) > 0) {
+          billSettledSum += (parseFloat(s.amount) || 0);
+        }
+      });
+      const hasValidBank = billSettledSum > 0;
+      const isFullySettled = hasValidBank && billSettledSum >= (b.totalAmount - 0.5);
+      const isPartial = hasValidBank && !isFullySettled;
+      const isPending = !isFullySettled && !isPartial;
+      return { currentRows, billSettledSum, hasValidBank, isFullySettled, isPartial, isPending };
+    }
 
     async function apiFetch(url, options = {}) {
       const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
@@ -413,6 +498,7 @@
           ? "channel-btn px-3 py-1 text-xs font-bold rounded-xl bg-[#5C0612] text-[#EFE5C9] border border-[#DAA520] transition-all flex items-center gap-1 shadow-xs"
           : "channel-btn px-3 py-1 text-xs font-bold rounded-xl border border-stone-300 text-stone-700 bg-[#FAF6EE] hover:opacity-80 transition-all flex items-center gap-1";
       });
+      currentPage = 1;
       renderBillsTable();
     }
 
@@ -485,7 +571,8 @@
       const tbody = document.getElementById('bills-table-body');
       updateTopStatsSummary();
 
-      let filtered = billsList.filter(b => {
+      let countAll = 0, countPending = 0, countPartial = 0, countSettled = 0;
+      const baseFiltered = billsList.filter(b => {
         if (fromDate && b.dateISO < fromDate) return false;
         if (toDate && b.dateISO > toDate) return false;
         if (storeFilter !== 'all' && b.store !== storeFilter) return false;
@@ -493,22 +580,33 @@
           if (selectedChannelFilter === 'Take by Hand' && b.channel !== 'Take by Hand' && b.channel !== 'Wholesale') return false;
           else if (selectedChannelFilter !== 'Take by Hand' && b.channel !== selectedChannelFilter) return false;
         }
-        const currentRows = settlementRowsState[b.invoiceUid] || b.settlements || [];
-        let billSettledSum = 0;
-        currentRows.forEach(s => { if (s.account && s.account.trim() !== '') billSettledSum += (parseFloat(s.amount) || 0); });
-        const hasValidBank = currentRows.some(s => s.account && s.account.trim() !== '');
-        const isFullySettled = hasValidBank && billSettledSum >= (b.totalAmount - 0.5);
-        const isPartial = hasValidBank && billSettledSum > 0 && billSettledSum < (b.totalAmount - 0.5);
-        if (statusFilter === 'settled' && !isFullySettled) return false;
-        if (statusFilter === 'partial' && !isPartial) return false;
-        if (statusFilter === 'unsettled' && isFullySettled) return false;
+        const st = getBillStatusInfo(b);
         if (searchVal) {
-          return b.billNo.toLowerCase().includes(searchVal) || b.agent.toLowerCase().includes(searchVal) ||
+          const matchesSearch = b.billNo.toLowerCase().includes(searchVal) || b.agent.toLowerCase().includes(searchVal) ||
                  b.store.toLowerCase().includes(searchVal) || b.channel.toLowerCase().includes(searchVal) ||
-                 currentRows.some(s => s.account && s.account.toLowerCase().includes(searchVal));
+                 st.currentRows.some(s => s.account && s.account.toLowerCase().includes(searchVal));
+          if (!matchesSearch) return false;
         }
+        countAll++;
+        if (st.isFullySettled) countSettled++;
+        else if (st.isPartial) countPartial++;
+        else countPending++;
         return true;
       });
+
+      const elAll = document.getElementById('status-count-all'); if (elAll) elAll.textContent = countAll;
+      const elPen = document.getElementById('status-count-unsettled'); if (elPen) elPen.textContent = countPending;
+      const elPar = document.getElementById('status-count-partial'); if (elPar) elPar.textContent = countPartial;
+      const elSet = document.getElementById('status-count-settled'); if (elSet) elSet.textContent = countSettled;
+
+      let filtered = baseFiltered.filter(b => {
+        const st = getBillStatusInfo(b);
+        if (statusFilter === 'settled') return st.isFullySettled;
+        if (statusFilter === 'partial') return st.isPartial;
+        if (statusFilter === 'unsettled') return st.isPending;
+        return true;
+      });
+
       document.getElementById('filtered-count-badge').textContent = `${filtered.length} Invoices`;
       filtered.sort((a, b) => {
         if (currentSortCol === 'date') return currentSortAsc ? a.dateISO.localeCompare(b.dateISO) : b.dateISO.localeCompare(a.dateISO);
@@ -518,20 +616,35 @@
         return currentSortAsc ? a.agent.localeCompare(b.agent) : b.agent.localeCompare(a.agent);
       });
 
+      const pagBar = document.getElementById('pagination-bar');
       if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-stone-400 font-traditional">No matching invoices found for the current filters.</td></tr>`;
+        if (pagBar) pagBar.classList.add('hidden');
         return;
       }
 
-      tbody.innerHTML = filtered.map(b => {
+      const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+      if (currentPage > totalPages) currentPage = totalPages;
+      const startIdx = (currentPage - 1) * PAGE_SIZE;
+      const pageItems = filtered.slice(startIdx, startIdx + PAGE_SIZE);
+
+      if (pagBar) {
+        pagBar.classList.toggle('hidden', filtered.length <= PAGE_SIZE);
+        document.getElementById('pagination-info').textContent = `Showing ${startIdx + 1}–${Math.min(startIdx + PAGE_SIZE, filtered.length)} of ${filtered.length} Invoices`;
+        document.getElementById('pagination-page-label').textContent = `Page ${currentPage} / ${totalPages}`;
+        document.getElementById('btn-prev-page').disabled = currentPage <= 1;
+        document.getElementById('btn-next-page').disabled = currentPage >= totalPages;
+      }
+
+      tbody.innerHTML = pageItems.map(b => {
         const uid = b.invoiceUid;
         const rows = settlementRowsState[uid] || [{ account: '', amount: Math.round(b.totalAmount) }];
         let allocatedSum = 0; rows.forEach(r => allocatedSum += (parseFloat(r.amount) || 0));
         const rem = Math.round((b.totalAmount - allocatedSum) * 100) / 100;
         const safeId = uid.replace(/[^a-zA-Z0-9]/g, '_');
-        const hasValidBank = rows.some(s => s.account && s.account.trim() !== '');
-        const isFullySettled = hasValidBank && Math.abs(b.totalAmount - allocatedSum) < 0.5;
-        const isPartial = hasValidBank && allocatedSum > 0 && allocatedSum < (b.totalAmount - 0.5);
+        const st = getBillStatusInfo(b);
+        const isFullySettled = st.isFullySettled;
+        const isPartial = st.isPartial;
         const statusBadge = isFullySettled ? `<span class="text-[8px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded font-bold uppercase">Credited ✅</span>`
           : isPartial ? `<span class="text-[8px] bg-blue-100 text-blue-800 border border-blue-300 px-1.5 py-0.5 rounded font-bold uppercase">Partial 🔵</span>`
           : `<span class="text-[8px] bg-rose-100 text-rose-800 border border-rose-300 px-1.5 py-0.5 rounded font-bold uppercase">Pending ⚠️</span>`;
