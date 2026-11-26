@@ -305,11 +305,48 @@ def create_app(settings: Optional[Settings] = None, db: Optional[Database] = Non
         include_phone = auth.role_code in {"owner", "admin", "accountant"}
         try:
             rows = fetch_crm_sheet_rows(cfg)
-            if not include_phone:
-                for r in rows:
+            # Enrich CRM rows with sales_executive / product_name / sale_type from sales_lines by bill_no
+            with database.connection() as conn:
+                sl_rows = database.fetch_all(
+                    conn,
+                    """
+                    SELECT UPPER(invoice_no) AS bno, sales_executive, product_name, sale_type, payment_mode
+                    FROM sales_lines
+                    WHERE is_source_deleted = FALSE
+                    """,
+                )
+            by_bno: Dict[str, Dict[str, Any]] = {}
+            for s in sl_rows:
+                bno = str(s["bno"] or "").strip()
+                if bno and bno not in by_bno:
+                    by_bno[bno] = s
+
+            for r in rows:
+                if not include_phone:
                     for k in list(r.keys()):
                         if "phone" in k.lower() or "mobile" in k.lower():
                             r[k] = ""
+                # Find bill number on row if present
+                raw_bno = ""
+                for bk in ("bill_no", "Bil No", "Bill No", "BILL NO", "Invoice No", "invoice_no"):
+                    if r.get(bk):
+                        raw_bno = str(r[bk]).strip().upper()
+                        break
+                if not raw_bno:
+                    for k, v in r.items():
+                        if v and ("bill" in k.lower() or "bil" in k.lower() or "inv" in k.lower()):
+                            raw_bno = str(v).strip().upper()
+                            break
+                match = by_bno.get(raw_bno)
+                if match:
+                    if not any(r.get(ak) for ak in ("sm_name", "SM Name", "agent_name", "Agent Name", "Sales Executive")) and match.get("sales_executive"):
+                        r["sm_name"] = match["sales_executive"]
+                    if not any(r.get(ik) for ik in ("item_name", "Item Name", "ITEM NAME", "Product", "Product Name")) and match.get("product_name"):
+                        r["item_name"] = match["product_name"]
+                    if not any(r.get(sk) for sk in ("sale_type", "Sale type", "SALE TYPE")) and match.get("sale_type"):
+                        r["sale_type"] = match["sale_type"]
+                    if not any(r.get(pk) for pk in ("pay_mode", "PayMode", "Pay Mode")) and match.get("payment_mode"):
+                        r["pay_mode"] = match["payment_mode"]
             return {"source": "crm_google_sheet", "spreadsheet_id": cfg.crm_spreadsheet_id, "rows": rows}
         except Exception as exc:
             raise HTTPException(status_code=502, detail=f"CRM Sheet read failed: {exc}")

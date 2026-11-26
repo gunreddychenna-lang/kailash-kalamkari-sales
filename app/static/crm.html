@@ -352,9 +352,9 @@
 
         const rawName = pickField(r, ['customer_name', 'CUSTOMER NAME', 'Customer Name', 'Customer', 'Client Name', 'Name'], ['customer', 'client', 'name'], ['item', 'product', 'branch', 'store', 'sm', 'staff', 'agent', 'sales']);
         const rawPhone = pickField(r, ['customer_phone', 'CUSTOMER PHONE NUMBER', 'Customer Phone', 'Phone Number', 'Phone', 'Mobile', 'Contact'], ['phone', 'mobile', 'contact', 'whatsapp']);
-        const item = pickField(r, ['item_name', 'Item Name', 'ITEM NAME', 'Product', 'Product Name'], ['item', 'product', 'saree', 'fabric']) || 'General Item';
+        const item = pickField(r, ['item_name', 'Item Name', 'ITEM NAME', 'Product', 'Product Name', 'Category'], ['item', 'product', 'saree', 'fabric', 'category', 'particular', 'description']) || 'General Item';
         const billDate = pickField(r, ['bill_date', 'Bill Date', 'BILL DATE', 'Date'], ['date']);
-        const agent = pickField(r, ['sm_name', 'SM Name', 'agent_name', 'Agent Name', 'Sales Executive'], ['sm ', 'sm_', 'agent', 'staff', 'exec', 'salesman']) || 'No Agent';
+        const agent = pickField(r, ['sm_name', 'SM Name', 'SM', 'agent_name', 'Agent Name', 'Sales Executive', 'Salesperson', 'Sales Rep'], ['sm ', 'sm_', 'agent', 'staff', 'exec', 'salesman', 'salesperson', 'sales rep', 'handled', 'rep']) || 'No Agent';
         const qty = parseFloat(pickField(r, ['qty', 'Qty', 'Quantity'], ['qty', 'quantity']) || 1) || 1;
         const amtStr = pickField(r, ['amount', 'bill_amount', 'BillAmount', 'AMOUNT', 'Final Amount', 'Total', 'Spend'], ['amount', 'total', 'spend', 'value']).replace(/[₹,\s]/g, '');
         let amount = parseFloat(amtStr) || 0;
