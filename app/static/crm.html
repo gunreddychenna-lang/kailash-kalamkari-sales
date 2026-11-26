@@ -320,11 +320,24 @@
       const customersMap = {};
       const salesRepsSet = new Set();
 
+      const pickField = (rowObj, exactKeys, includeTokens, excludeTokens = []) => {
+        for (const k of exactKeys) {
+          if (rowObj[k] !== undefined && rowObj[k] !== null && String(rowObj[k]).trim() !== '') return String(rowObj[k]).trim();
+        }
+        for (const [k, v] of Object.entries(rowObj)) {
+          if (v === undefined || v === null || String(v).trim() === '') continue;
+          const kl = k.toLowerCase();
+          if (excludeTokens.some(ex => kl.includes(ex))) continue;
+          if (includeTokens.some(inc => kl.includes(inc))) return String(v).trim();
+        }
+        return '';
+      };
+
       rawRows.forEach((r, idx) => {
-        const billNo = (r.bill_no || r['Bil No'] || r['Bill No'] || r['BILL NO'] || `BILL_${idx}`).toString().trim();
-        const saleType = (r.sale_type || r['Sale type'] || r['SALE TYPE'] || r.sales_type || '').toString().toLowerCase().trim();
-        const payMode = (r.pay_mode || r['PayMode'] || r['PAY MODE'] || r['Pay Mode'] || '').toString().toLowerCase().trim();
-        const branchName = (r.store_name || r.store || r['Branch Name'] || r['STORE NAME'] || '').toString().toLowerCase().trim();
+        const billNo = (pickField(r, ['bill_no', 'Bil No', 'Bill No', 'BILL NO'], ['bill', 'inv']) || `BILL_${idx}`).trim();
+        const saleType = pickField(r, ['sale_type', 'Sale type', 'SALE TYPE', 'sales_type'], ['sale type', 'sale_type', 'type']).toLowerCase();
+        const payMode = pickField(r, ['pay_mode', 'PayMode', 'PAY MODE', 'Pay Mode'], ['pay', 'mode']).toLowerCase();
+        const branchName = pickField(r, ['store_name', 'store', 'Branch Name', 'STORE NAME'], ['branch', 'store']).toLowerCase();
         const billNoUpper = billNo.toUpperCase();
 
         // STRICT FILTER: REMOVE TAKE BY HAND / WHOLESALERS
@@ -337,14 +350,14 @@
           return; // Skip wholesale accounts completely
         }
 
-        const rawName = (r.customer_name || r['CUSTOMER NAME'] || r['Customer Name'] || r['Customer'] || '').toString().trim();
-        const rawPhone = (r.customer_phone || r['CUSTOMER PHONE NUMBER'] || r['Customer Phone'] || r['Phone Number'] || r['Phone'] || '').toString().trim();
-        const item = (r.item_name || r['Item Name'] || r['ITEM NAME'] || 'General Item').toString().trim();
-        const billDate = (r.bill_date || r['Bill Date'] || r['BILL DATE'] || '').toString().trim();
-        const agent = (r.sm_name || r['SM Name'] || r.agent_name || r['Agent Name'] || 'No Agent').toString().trim();
-        const qty = parseFloat(r.qty || r['Qty'] || 1) || 1;
-        
-        let amount = parseFloat(r.amount || r.bill_amount || r['BillAmount'] || r['AMOUNT'] || 0) || 0;
+        const rawName = pickField(r, ['customer_name', 'CUSTOMER NAME', 'Customer Name', 'Customer', 'Client Name', 'Name'], ['customer', 'client', 'name'], ['item', 'product', 'branch', 'store', 'sm', 'staff', 'agent', 'sales']);
+        const rawPhone = pickField(r, ['customer_phone', 'CUSTOMER PHONE NUMBER', 'Customer Phone', 'Phone Number', 'Phone', 'Mobile', 'Contact'], ['phone', 'mobile', 'contact', 'whatsapp']);
+        const item = pickField(r, ['item_name', 'Item Name', 'ITEM NAME', 'Product', 'Product Name'], ['item', 'product', 'saree', 'fabric']) || 'General Item';
+        const billDate = pickField(r, ['bill_date', 'Bill Date', 'BILL DATE', 'Date'], ['date']);
+        const agent = pickField(r, ['sm_name', 'SM Name', 'agent_name', 'Agent Name', 'Sales Executive'], ['sm ', 'sm_', 'agent', 'staff', 'exec', 'salesman']) || 'No Agent';
+        const qty = parseFloat(pickField(r, ['qty', 'Qty', 'Quantity'], ['qty', 'quantity']) || 1) || 1;
+        const amtStr = pickField(r, ['amount', 'bill_amount', 'BillAmount', 'AMOUNT', 'Final Amount', 'Total', 'Spend'], ['amount', 'total', 'spend', 'value']).replace(/[₹,\s]/g, '');
+        let amount = parseFloat(amtStr) || 0;
         if (amount === 0 && (r.rate || r['Rate'])) {
           const rate = parseFloat(r.rate || r['Rate']) || 0;
           const disc = parseFloat(r.discount || r['Discoun'] || 0) || 0;
