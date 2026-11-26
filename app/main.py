@@ -342,7 +342,10 @@ def create_app(settings: Optional[Settings] = None, db: Optional[Database] = Non
     def api_import_receivables_csv(payload: Dict[str, Any], request: Request):
         auth = _auth(request, enforce_csrf=True)
         require_roles(auth, ["owner", "admin", "accountant"])
-        return import_legacy_receivables_rows(database, auth, payload.get("rows") or [], ip_address=_client_ip(request))
+        try:
+            return import_legacy_receivables_rows(database, auth, payload.get("rows") or [], ip_address=_client_ip(request))
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"{type(exc).__name__}: {exc}")
 
     @app.post("/api/portal/import-legacy-bank")
     def api_import_legacy_bank(payload: Dict[str, Any], request: Request):

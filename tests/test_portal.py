@@ -530,5 +530,25 @@ class PortalPhase1Tests(unittest.TestCase):
         self.assertEqual(by_uid["MAIN::B-102"]["settlements"], [])
 
 
+
+    def test_13_legacy_receivables_csv_import_handles_messy_dates(self) -> None:
+        run_sheets_sync(self.db, self.settings, trigger_type="manual", fetcher=self._sample_sheet_fetcher())
+        client = TestClient(self.app)
+        csrf = self._login(client, "owner1", "OwnerPass#2026")
+        r = client.post(
+            "/api/portal/import-receivables-csv",
+            headers={"X-CSRF-Token": csrf},
+            json={
+                "rows": [
+                    {"id": 101, "bill_no": "INV-1001", "store_name": "Main Branch", "bill_date": 46300, "bank_account": "42441-TJ", "amount": 5000},
+                    {"id": 102, "bill_no": "INV-1001", "store_name": "Main Branch", "bill_date": "24/11/2026", "bank_account": "Cash", "amount": "10,000"},
+                    {"id": 103, "bill_no": "INV-1001", "store_name": "KHPS", "bill_date": "2026-11-24T10:30:00+00:00", "bank_account": "KC", "amount": 11500},
+                ]
+            },
+        )
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["settlements_imported"], 3)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import HTTPException, status
 
 from app.db import Database
-from app.formatting import to_decimal
+from app.formatting import parse_bill_date, to_decimal
 from app.security import AuthContext, write_audit_log
 from app.sync.sheets_sync import _recalculate_invoice_master
 
@@ -687,7 +687,7 @@ def import_legacy_receivables_rows(
     rows: List[Dict[str, Any]],
     ip_address: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Import bank settlements from an exported Supabase receivables CSV/JSON list."""
+    """Fast, bulk-cached import of bank settlements from exported Supabase receivables CSV/JSON."""
     settlements_imported = 0
     settlements_skipped_dup = 0
     unmatched_bills: List[str] = []
@@ -698,6 +698,25 @@ def import_legacy_receivables_rows(
         branches = db.fetch_all(conn, "SELECT id, code FROM branches")
         branch_id_by_code = {br["code"]: int(br["id"]) for br in branches}
 
+        # Preload invoices, bank accounts, and existing idempotency keys in 3 fast queries
+        all_invs = db.fetch_all(conn, "SELECT id, branch_id, invoice_no, bill_date FROM invoice_masters")
+        inv_by_branch_no: Dict[tuple[int, str], Dict[str, Any]] = {}
+        inv_by_no: Dict[str, Dict[str, Any]] = {}
+        for inv in all_invs:
+            bno_up = str(inv["invoice_no"]).strip().upper()
+            inv_by_branch_no[(int(inv["branch_id"]), bno_up)] = inv
+            if bno_up not in inv_by_no:
+                inv_by_no[bno_up] = inv
+
+        existing_banks = db.fetch_all(conn, "SELECT id, account_name FROM bank_accounts")
+        bank_id_by_lower = {str(b["account_name"]).strip().lower(): int(b["id"]) for b in existing_banks}
+
+        existing_keys_rows = db.fetch_all(
+            conn,
+            "SELECT idempotency_key FROM invoice_settlements WHERE idempotency_key IS NOT NULL",
+        )
+        seen_keys = {str(r["idempotency_key"]) for r in existing_keys_rows}
+
         for idx, rec in enumerate(rows):
             acc = str(rec.get("bank_account") or rec.get("Bank Account") or rec.get("account") or "").strip()
             bill_no = str(rec.get("bill_no") or rec.get("Bill No") or rec.get("Bil No") or "").strip()
@@ -705,35 +724,36 @@ def import_legacy_receivables_rows(
             if not bill_no or not acc or acc.lower() in {"not defined", "pending", "na"} or amt <= Decimal("0.00"):
                 continue
 
-            rec_id = rec.get("id") or f"csv:{idx}:{bill_no}:{acc}:{amt}"
-            idem_key = f"legacy_supabase::{rec_id}"
-            dup = db.fetch_one(conn, "SELECT id FROM invoice_settlements WHERE idempotency_key = ?", (idem_key,))
-            if dup:
+            raw_id = rec.get("id")
+            if raw_id is not None and str(raw_id).strip() != "":
+                idem_key = f"legacy_supabase::{str(raw_id).strip()}"[:120]
+            else:
+                idem_key = f"legacy_csv::{idx}:{bill_no[:30]}:{acc[:30]}:{amt}"[:120]
+            if idem_key in seen_keys:
                 settlements_skipped_dup += 1
                 continue
+            seen_keys.add(idem_key)
 
             b_code = _normalize_legacy_branch(str(rec.get("store_name") or rec.get("branch") or ""))
             branch_id = branch_id_by_code.get(b_code)
-            inv = None
-            if branch_id:
-                inv = db.fetch_one(
-                    conn,
-                    "SELECT id, branch_id, bill_date FROM invoice_masters WHERE branch_id = ? AND UPPER(invoice_no) = UPPER(?)",
-                    (branch_id, bill_no),
-                )
+            bno_up = bill_no.upper()
+            inv = inv_by_branch_no.get((branch_id, bno_up)) if branch_id else None
             if not inv:
-                inv = db.fetch_one(
-                    conn,
-                    "SELECT id, branch_id, bill_date FROM invoice_masters WHERE UPPER(invoice_no) = UPPER(?) ORDER BY id ASC LIMIT 1",
-                    (bill_no,),
-                )
+                inv = inv_by_no.get(bno_up)
             if not inv:
                 unmatched_bills.append(f"{b_code}::{bill_no}")
                 continue
 
-            ba_id = _ensure_bank_account(db, conn, acc)
+            acc_clean = acc[:115]
+            ba_id = bank_id_by_lower.get(acc_clean.lower())
+            if not ba_id:
+                ba_id = _ensure_bank_account(db, conn, acc_clean)
+                bank_id_by_lower[acc_clean.lower()] = ba_id
+
             pmode = "cash" if "cash" in acc.lower() else ("upi" if "upi" in acc.lower() else "bank_transfer")
-            settle_date = str(rec.get("bill_date") or inv["bill_date"] or "")[:10] or str(inv["bill_date"])
+            raw_bdate = str(rec.get("bill_date") or "").strip().split("T")[0].split(" ")[0]
+            parsed_dt = parse_bill_date(raw_bdate)
+            settle_date = parsed_dt.isoformat() if parsed_dt else str(inv["bill_date"])[:10]
 
             db.execute(
                 conn,
@@ -750,7 +770,7 @@ def import_legacy_receivables_rows(
                     pmode,
                     ba_id,
                     f"{amt:.2f}",
-                    acc,
+                    acc_clean,
                     idem_key,
                     settle_date,
                     auth.user_id,
