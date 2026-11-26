@@ -259,6 +259,9 @@ function setQuickDateRange(mode) {
   } else if (mode === "month") {
     start = toISODate(new Date(today.getFullYear(), today.getMonth(), 1));
     end = toISODate(today);
+  } else if (mode === "lastmonth") {
+    start = toISODate(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+    end = toISODate(new Date(today.getFullYear(), today.getMonth(), 0));
   } else {
     start = dates.length ? dates[0] : "";
     end = dates.length ? dates[dates.length - 1] : "";
