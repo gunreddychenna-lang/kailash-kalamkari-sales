@@ -328,13 +328,14 @@ def create_app(settings: Optional[Settings] = None, db: Optional[Database] = Non
                             r[k] = ""
                 # Find bill number on row if present
                 raw_bno = ""
-                for bk in ("bill_no", "Bil No", "Bill No", "BILL NO", "Invoice No", "invoice_no"):
+                for bk in ("BillNo", "bill_no", "Bil No", "Bill No", "BILL NO", "Invoice No", "invoice_no"):
                     if r.get(bk):
                         raw_bno = str(r[bk]).strip().upper()
                         break
                 if not raw_bno:
                     for k, v in r.items():
-                        if v and ("bill" in k.lower() or "bil" in k.lower() or "inv" in k.lower()):
+                        kl = k.lower()
+                        if v and "mobile" not in kl and ("bill" in kl or "invoice" in kl):
                             raw_bno = str(v).strip().upper()
                             break
                 match = by_bno.get(raw_bno)

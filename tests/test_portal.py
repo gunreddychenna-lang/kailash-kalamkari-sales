@@ -553,22 +553,26 @@ class PortalPhase1Tests(unittest.TestCase):
 
     def test_14_crm_google_sheet_endpoint_and_phone_masking(self) -> None:
         from unittest.mock import patch
+        run_sheets_sync(self.db, self.settings, trigger_type="manual", fetcher=self._sample_sheet_fetcher())
         sample_crm = [
-            {"CUSTOMER NAME": "Sita Devi", "CUSTOMER PHONE NUMBER": "9848099999", "Item Name": "Kalamkari Silk", "BillAmount": "12000", "SM Name": "Mouni"},
+            {"CustId": "POSC101", "Customer": "Lakshmi Devi", "MobileNo": "9848011111", "Date": "24-Nov-2026", "BillNo": "INV-1001", "Qty": 2, "Amount": 15000},
         ]
         owner_client = TestClient(self.app)
         self._login(owner_client, "owner1", "OwnerPass#2026")
         with patch("app.main.fetch_crm_sheet_rows", return_value=[dict(sample_crm[0])]):
             r = owner_client.get("/api/portal/crm-sheet-rows")
             self.assertEqual(r.status_code, 200)
-            self.assertEqual(r.json()["rows"][0]["CUSTOMER PHONE NUMBER"], "9848099999")
+            row0 = r.json()["rows"][0]
+            self.assertEqual(row0["MobileNo"], "9848011111")
+            self.assertEqual(row0["sm_name"], "Ramesh")
+            self.assertEqual(row0["item_name"], "Srikalahasti Silk Saree")
 
         staff_client = TestClient(self.app)
         self._login(staff_client, "staff_khps", "StaffPass#2026")
         with patch("app.main.fetch_crm_sheet_rows", return_value=[dict(sample_crm[0])]):
             r_st = staff_client.get("/api/portal/crm-sheet-rows")
             self.assertEqual(r_st.status_code, 200)
-            self.assertEqual(r_st.json()["rows"][0]["CUSTOMER PHONE NUMBER"], "")
+            self.assertEqual(r_st.json()["rows"][0]["MobileNo"], "")
 
 
 if __name__ == "__main__":
